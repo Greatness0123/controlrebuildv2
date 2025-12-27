@@ -30,7 +30,7 @@ jobs:
         cache: 'npm'
     
     - name: Download Python artifacts
-      uses: actions/download-artifact@v3
+      uses: .github/work use actions/download-artifact@v4
       with:
         name: python-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}
         path: python-artifacts
