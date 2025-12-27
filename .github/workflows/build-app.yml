@@ -17,31 +17,68 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-    
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '16'
+        node-version: '18'
         cache: 'npm'
-    
-    - name: Download Python artifacts
-      uses: actions/download-artifact@v4
-      continue-on-error: true
-      with:
-        # maps matrix.os to python-linux / python-windows / python-macos
-        name: python-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}
-        path: python-artifacts
 
-    - name: Install dependencies
-      run: npm ci
-    
+    - name: Setup Python (for node-gyp)
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install OS build tools (ubuntu only)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential pkg-config libffi-dev
+
+    - name: Install Visual Studio Build Tools (windows only)
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install -y visualstudio2019buildtools --ignore-checksums || echo "VS Build Tools should already be available on windows runner"
+
+    - name: Cache node_modules (optional)
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install dependencies (clean)
+      run: |
+        npm ci
+
+    # Temporarily upgrade native dependencies in the CI environment to build against Node 18
+    - name: Upgrade native deps for CI build (ffi-napi etc.)
+      run: |
+        # Install latest native modules into node_modules without changing package.json
+        # This keeps your lockfile intact while allowing CI to build with the newer native modules.
+        npm install --no-save ffi-napi@latest node-addon-api@latest get-uv-event-loop-napi-h@latest || true
+      env:
+        CI: true
+
+    - name: Force build native modules from source
+      run: |
+        # Ensure node-gyp will build from source against the runner headers
+        export npm_config_build_from_source=true
+        # rebuild the ffi module directly if present
+        if [ -d node_modules/ffi-napi ]; then
+          (cd node_modules/ffi-napi && node-gyp rebuild) || true
+        fi
+        # run an electron-rebuild if your project uses Electron (will noop if electron not present)
+        npx electron-rebuild -f -w ffi-napi || true
+      shell: bash
+
     - name: Prepare Python executables for ${{ matrix.os }}
-      # force bash so the same POSIX script runs on windows/mac/linux
       shell: bash
       run: |
         echo "Checking for python-artifacts in: $(pwd)/python-artifacts"
@@ -49,9 +86,6 @@ jobs:
 
         if [ ! -d "python-artifacts" ] || [ -z "$(ls -A python-artifacts 2>/dev/null)" ]; then
           echo "WARNING: python-artifacts directory is missing or empty."
-          echo "If you expect python artifacts to be downloaded, make sure they were uploaded using actions/upload-artifact with the name:"
-          echo "  python-${{ matrix.os == 'ubuntu-latest' && 'linux' || matrix.os == 'windows-latest' && 'windows' || 'macos' }}"
-          echo ""
           echo "Proceeding without python binaries. If these are required for your build, this will likely fail later."
         else
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
@@ -59,11 +93,9 @@ jobs:
             [ -f python-artifacts/AppImage/wakeword_helper.AppImage ] && cp python-artifacts/AppImage/wakeword_helper.AppImage assets/binaries/ || echo "wakeword_helper.AppImage not found for linux"
             chmod +x assets/binaries/* || true
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            # on windows runner bash is available; executables typically have .exe
             [ -f python-artifacts/dist/backend_modified.exe ] && cp python-artifacts/dist/backend_modified.exe assets/binaries/ || echo "backend_modified.exe not found for windows"
             [ -f python-artifacts/assets/wakeword/dist/wakeword_helper.exe ] && cp python-artifacts/assets/wakeword/dist/wakeword_helper.exe assets/binaries/ || echo "wakeword_helper.exe not found for windows"
           elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-            # Ensure expected DMG files exist before attempting to attach
             if [ -f python-artifacts/backend_modified.dmg ]; then
               hdiutil attach python-artifacts/backend_modified.dmg
               cp -r "/Volumes/Backend Modified/backend_modified.app" assets/binaries/ || echo "backend_modified.app not found in DMG"
@@ -83,12 +115,14 @@ jobs:
             chmod +x assets/binaries/* || true
           fi
         fi
-    
+
     - name: Build for ${{ matrix.os }}
-      run: npm run build
+      run: |
+        npm run build
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    
+        npm_config_build_from_source: true
+
     - name: Package artifacts
       run: |
         mkdir -p dist-packaged
@@ -112,13 +146,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/')
-    
+
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
       with:
         path: release-artifacts
-    
+
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
