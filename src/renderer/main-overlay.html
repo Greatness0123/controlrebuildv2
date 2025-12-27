@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control - Main Overlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background: transparent;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-app-region: no-drag;
+            user-select: none;
+        }
+
+        /* When non-interactive, disable pointer-events for overlay elements but keep the floating button active */
+        body.non-interactive * {
+            pointer-events: none;
+        }
+
+        body.non-interactive .floating-button {
+            pointer-events: auto;
+        }
+
+        /* Floating Button */
+        .floating-button {
+            position: fixed;
+            width: 32px;
+            height: 32px;
+            left: auto;
+            top: auto;
+            right: 0;
+            bottom: 0;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            z-index: 10000;
+            -webkit-app-region: no-drag;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            user-select: none;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .floating-button:hover {
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+             border-radius: 25%;
+        }
+
+        .floating-button:active {
+            cursor: grabbing;
+        }
+
+        .floating-button.hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0);
+        }
+
+        .floating-button .logo {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            filter: none;
+        }
+
+        /* Visual Effects */
+        .ripple-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.3) 0%, transparent 70%);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9998;
+            animation: ripple 2s ease-out;
+        }
+
+        @keyframes ripple {
+            0% {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.5);
+            }
+        }
+
+        .glow-effect {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9997;
+            background: transparent;
+            border: 5px solid transparent;
+            box-shadow: inset 0 0 50px rgba(102, 126, 234, 0.5);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .glow-effect.active {
+            opacity: 1;
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+            0%, 100% {
+                box-shadow: inset 0 0 30px rgba(102, 126, 234, 0.5);
+            }
+            50% {
+                box-shadow: inset 0 0 60px rgba(118, 75, 162, 0.8);
+            }
+        }
+
+        /* Status indicator */
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9999;
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease;
+        }
+
+        .status-indicator.show {
+            opacity: 1;
+        }
+
+        .status-indicator.success {
+            background: rgba(34, 197, 94, 0.9);
+        }
+
+        .status-indicator.error {
+            background: rgba(239, 68, 68, 0.9);
+        }
+
+        /* Notification sound indicator */
+        .notification-indicator {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .notification-indicator.ping {
+            animation: ping 1s ease-out;
+        }
+
+        @keyframes ping {
+            0% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(-50%) scale(3);
+            }
+        }
+
+        /* Edge glow */
+        .edge-glow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 9996;
+            border: 3px solid transparent;
+            background: linear-gradient(45deg, #667eea, #764ba2, #f093fb, #667eea);
+            background-size: 400% 400%;
+            background-clip: border-box;
+            -webkit-background-clip: border-box;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .edge-glow.active {
+            opacity: 1;
+            animation: gradient-shift 3s ease infinite;
+        }
+
+        @keyframes gradient-shift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Control working indicator */
+        .control-working {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .control-working.show {
+            opacity: 1;
+        }
+
+        /* PIN modal styling for overlay */
+        .pin-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none; /* default to not block when closed */
+            z-index: 10005;
+        }
+
+        .pin-modal.show {
+            display: flex;
+            pointer-events: auto;
+        }
+
+        .pin-modal.hidden {
+            display: none !important;
+            pointer-events: none !important;
+        }
+
+        .pin-content {
+            background: linear-gradient(180deg, rgba(20,20,30,0.98) 0%, rgba(18,18,24,0.98) 100%);
+            border-radius: 14px;
+            padding: 18px;
+            width: 320px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            text-align: center;
+            color: #e6eef8;
+        }
+
+        .pin-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+        .pin-description { font-size: 12px; color: #a8b3c7; margin-bottom: 10px; }
+        .pin-input { font-size: 22px; text-align: center; letter-spacing: 8px; padding: 10px 12px; border-radius: 10px; border: none; background: rgba(255,255,255,0.04); color: #ffffff; width: 100%; }
+        .pin-buttons { display:flex; gap:10px; justify-content:center; }
+        .button { padding: 8px 12px; border-radius:8px; border: none; cursor:pointer; }
+        .button-primary { background: #667eea; color: white; }
+        .button-secondary { background: rgba(255,255,255,0.06); color: #dfe7ff; }
+    </style>
+<script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <!-- Floating Button -->
+    <div class="floating-button" id="floatingButton">
+        <img class="logo" id="floatingLogo" src="../../assets/icons/icon-removebg-preview.png" alt="Open" />
+    </div>
+
+    <!-- PIN Modal (overlay) -->
+    <div class="pin-modal" id="overlayPinModal" style="display:none; align-items:center; justify-content:center;">
+        <div class="pin-content" style="width:260px;">
+            <div class="pin-title">Enter PIN</div>
+            <div class="pin-description">This device is protected. Enter your PIN to continue.</div>
+            <input type="password" id="overlayPinInput" class="pin-input" maxlength="4" placeholder="----" style="width:100%; margin-top:12px;">
+            <div class="pin-buttons" style="margin-top:12px;">
+                <button class="button button-secondary" id="overlayPinCancel">Cancel</button>
+                <button class="button button-primary" id="overlayPinConfirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visual Effects Container -->
+    <div id="visualEffects"></div>
+
+    <!-- Status Indicator -->
+    <div class="status-indicator" id="statusIndicator"></div>
+    
+    <!-- Control Working Indicator -->
+    <div class="control-working" id="controlWorking">Control is Working</div>
+
+    <!-- Notification Indicator -->
+    <div class="notification-indicator" id="notificationIndicator"></div>
+
+    <!-- Edge Glow Effect -->
+    <div class="edge-glow" id="edgeGlow"></div>
+
+    <script>
+       // ✅ COMPLETE FIXED VERSION - Replace the entire MainOverlay class in main-overlay.html
+
+class MainOverlay {
+    constructor() {
+        this.floatingButton = document.getElementById('floatingButton');
+        this.statusIndicator = document.getElementById('statusIndicator');
+        this.controlWorking = document.getElementById('controlWorking');
+        this.notificationIndicator = document.getElementById('notificationIndicator');
+        this.edgeGlow = document.getElementById('edgeGlow');
+        this.visualEffects = document.getElementById('visualEffects');
+        
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.buttonStartX = 0;
+        this.buttonStartY = 0;
+        
+        this.init();
+    }
+
+    init() {
+        this.setupEventListeners();
+        this.setupDragHandling();
+        this.setupIPCListeners();
+        this.checkAppLock();
+    }
+
+    async checkAppLock() {
+        try {
+            if (window.electronAPI && window.electronAPI.isAppLocked) {
+                const isLocked = await window.electronAPI.isAppLocked();
+                console.log('[MainOverlay] App is locked:', isLocked);
+                if (isLocked) {
+                    // Auto-show PIN modal immediately if locked
+                    setTimeout(() => this.showPinModal(), 500);
+                }
+            }
+        } catch (e) {
+            console.error('[MainOverlay] Error checking app lock:', e);
+        }
+    }
+
+    setupEventListeners() {
+        // Double-click to open chat
+        this.floatingButton.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            this.openChat();
+        });
+
+        // Hover events
+        this.floatingButton.addEventListener('mouseenter', () => {
+            if (window.electronAPI && window.electronAPI.overlayHover) {
+                window.electronAPI.overlayHover(true);
+            }
+        });
+        
+        this.floatingButton.addEventListener('mouseleave', () => {
+            if (window.electronAPI && window.electronAPI.overlayHover) {
+                window.electronAPI.overlayHover(false);
+            }
+        });
+
+        // Prevent context menu
+        document.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    setupIPCListeners() {
+        if (window.electronAPI) {
+            window.electronAPI.onShowFloatingButton(() => this.showFloatingButton());
+            window.electronAPI.onHideFloatingButton(() => this.hideFloatingButton());
+            window.electronAPI.onVisualEffect((event, data) => this.showVisualEffect(data && data.type));
+            
+            window.electronAPI.onInteractionModeChanged((event, data) => {
+                if (data && typeof data.interactive === 'boolean') {
+                    if (!data.interactive) {
+                        document.body.classList.add('non-interactive');
+                    } else {
+                        document.body.classList.remove('non-interactive');
+                    }
+                }
+            });
+            
+            // ✅ CRITICAL FIX: Listen for PIN request and show modal directly
+            window.electronAPI.onRequestPinAndToggle(() => {
+                console.log('[Overlay] Received request-pin-and-toggle - showing PIN modal');
+                this.showPinModal();
+            });
+        }
+    }
+
+    // ✅ SIMPLIFIED: Just call toggleChat, let main process handle authentication
+    async openChat() {
+        try {
+            console.log('[Overlay] openChat() called, calling toggleChat');
+            if (window.electronAPI && window.electronAPI.toggleChat) {
+                const result = await window.electronAPI.toggleChat();
+                console.log('[Overlay] toggleChat result:', result);
+                
+                // If needsAuth is true, main process will send 'request-pin-and-toggle'
+                // which will trigger showPinModal() via the IPC listener
+            }
+        } catch (error) {
+            console.error('[Overlay] Failed to open chat:', error);
+        }
+    }
+
+    // ✅ NEW: Dedicated method to show PIN modal
+    showPinModal() {
+        console.log('[Overlay] showPinModal() called');
+        const pm = document.getElementById('overlayPinModal');
+        const pinInput = document.getElementById('overlayPinInput');
+        
+        // Make overlay interactive for PIN input
+        if (window.electronAPI && window.electronAPI.overlayHover) {
+            window.electronAPI.overlayHover(true);
+        }
+        if (window.electronAPI && window.electronAPI.focusOverlay) {
+            window.electronAPI.focusOverlay();
+        }
+        
+        // Remove non-interactive class so modal receives clicks
+        document.body.classList.remove('non-interactive');
+
+        // Show modal
+        pm.style.display = 'flex';
+        pm.classList.remove('hidden');
+        pm.classList.add('show');
+        pm.style.pointerEvents = 'auto';
+        pinInput.value = '';
+        
+        // Focus input
+        setTimeout(() => {
+            try {
+                pinInput.focus();
+                pinInput.select();
+                console.log('[Overlay] PIN input focused');
+            } catch (e) {
+                console.error('[Overlay] Failed to focus PIN input:', e);
+            }
+        }, 100);
+
+        let isSubmitting = false;
+
+        const cleanup = () => {
+            console.log('[Overlay] Cleaning up PIN modal');
+            isSubmitting = true;
+            pm.style.display = 'none';
+            pm.classList.remove('show');
+            pm.classList.add('hidden');
+            pm.style.pointerEvents = 'none';
+            
+            // Remove all event listeners
+            document.getElementById('overlayPinConfirm').removeEventListener('click', confirmHandler);
+            document.getElementById('overlayPinCancel').removeEventListener('click', cancelHandler);
+            pm.removeEventListener('click', backdropHandler);
+            pinInput.removeEventListener('input', autoHandler);
+            pinInput.removeEventListener('keypress', keyHandler);
+            
+            // Restore overlay state
+            if (window.electronAPI && window.electronAPI.overlayHover) {
+                window.electronAPI.overlayHover(false);
+            }
+            try {
+                pinInput.blur();
+            } catch (e) {}
+            document.body.classList.add('non-interactive');
+        };
+
+        const confirmHandler = async () => {
+            if (isSubmitting) {
+                console.log('[Overlay] Already submitting, ignoring');
+                return;
+            }
+            isSubmitting = true;
+            const pin = pinInput.value.trim();
+            console.log('[Overlay] PIN verification attempt');
+            
+            try {
+                const res = await window.electronAPI.verifyPin(pin);
+                console.log('[Overlay] PIN verification result:', res);
+                
+                if (res && (res.valid === true || res.valid === 'true')) {
+                    // ✅ SUCCESS
+                    console.log('[Overlay] PIN verified successfully');
+                    document.getElementById('statusIndicator').textContent = 'Welcome!';
+                    document.getElementById('statusIndicator').classList.add('show', 'success');
+                    
+                    cleanup();
+                    
+                    await new Promise(r => setTimeout(r, 500));
+                    document.getElementById('statusIndicator').classList.remove('show', 'success');
+                    
+                    // Unlock if needed
+                    if (window.electronAPI && window.electronAPI.unlockApp) {
+                        console.log('[Overlay] Unlocking app');
+                        await window.electronAPI.unlockApp(pin);
+                    }
+                    
+                    // Now toggle chat (authentication already set in main process)
+                    console.log('[Overlay] Opening chat after PIN verification');
+                    if (window.electronAPI && window.electronAPI.toggleChat) {
+                        await window.electronAPI.toggleChat();
+                    }
+                } else {
+                    // ❌ FAILURE - allow retry
+                    isSubmitting = false;
+                    const msg = (res && res.message) ? res.message : 'Incorrect PIN';
+                    console.log('[Overlay] PIN verification failed:', msg);
+                    document.getElementById('statusIndicator').textContent = msg;
+                    document.getElementById('statusIndicator').classList.add('show', 'error');
+                    setTimeout(() => document.getElementById('statusIndicator').classList.remove('show', 'error'), 2500);
+                    pinInput.value = '';
+                    setTimeout(() => {
+                        try {
+                            pinInput.focus();
+                        } catch (e) {}
+                    }, 100);
+                }
+            } catch (e) {
+                // ❌ ERROR - allow retry
+                isSubmitting = false;
+                console.error('[Overlay] PIN verification error:', e);
+                document.getElementById('statusIndicator').textContent = 'PIN verification failed';
+                document.getElementById('statusIndicator').classList.add('show', 'error');
+                setTimeout(() => document.getElementById('statusIndicator').classList.remove('show', 'error'), 2500);
+                pinInput.value = '';
+                setTimeout(() => {
+                    try {
+                        pinInput.focus();
+                    } catch (e) {}
+                }, 100);
+            }
+        };
+
+        const cancelHandler = () => {
+            console.log('[Overlay] PIN entry cancelled');
+            cleanup();
+        };
+
+        const backdropHandler = (e) => {
+            if (e.target.id === 'overlayPinModal') {
+                console.log('[Overlay] Clicked outside modal, closing');
+                cleanup();
+            }
+        };
+
+        const autoHandler = (e) => {
+            const v = e.target.value.replace(/[^0-9]/g, '');
+            e.target.value = v;
+            if (v.length === 4 && !isSubmitting) {
+                console.log('[Overlay] Auto-submitting PIN (4 digits entered)');
+                confirmHandler();
+            }
+        };
+
+        const keyHandler = (e) => {
+            if (e.key === 'Enter' && !isSubmitting) {
+                console.log('[Overlay] Enter key pressed, submitting PIN');
+                confirmHandler();
+            }
+        };
+
+        // Attach event listeners
+        pinInput.addEventListener('input', autoHandler);
+        pinInput.addEventListener('keypress', keyHandler);
+        document.getElementById('overlayPinConfirm').addEventListener('click', confirmHandler);
+        document.getElementById('overlayPinCancel').addEventListener('click', cancelHandler);
+        pm.addEventListener('click', backdropHandler, { capture: false });
+        
+        console.log('[Overlay] PIN modal setup complete, waiting for input');
+    }
+
+    // ... rest of the methods (setupDragHandling, snapToEdge, showFloatingButton, etc.)
+    // Keep all your existing drag handling and visual effect methods unchanged
+    
+    setupDragHandling() {
+        const buttonSize = 32;
+        const offsetX = buttonSize / 2;
+        const offsetY = buttonSize / 2;
+
+        this.floatingButton.addEventListener('mousedown', (e) => {
+            if (e.button === 0) {
+                this.isDragging = true;
+                this.floatingButton.style.cursor = 'grabbing';
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (this.isDragging) {
+                let newX = e.clientX - offsetX;
+                let newY = e.clientY - offsetY;
+                
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                
+                newX = Math.max(0, Math.min(newX, windowWidth - buttonSize));
+                newY = Math.max(0, Math.min(newY, windowHeight - buttonSize));
+                
+                this.floatingButton.style.left = newX + 'px';
+                this.floatingButton.style.top = newY + 'px';
+                this.floatingButton.style.right = 'auto';
+                this.floatingButton.style.bottom = 'auto';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.floatingButton.style.cursor = 'grab';
+                this.snapToEdge();
+            }
+        });
+
+        // Touch support
+        this.floatingButton.addEventListener('touchstart', (e) => {
+            if (window.electronAPI && window.electronAPI.overlayHover) {
+                window.electronAPI.overlayHover(true);
+            }
+            this.isDragging = true;
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (this.isDragging) {
+                const t = e.touches[0];
+                let newX = t.clientX - offsetX;
+                let newY = t.clientY - offsetY;
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                newX = Math.max(0, Math.min(newX, windowWidth - buttonSize));
+                newY = Math.max(0, Math.min(newY, windowHeight - buttonSize));
+                this.floatingButton.style.left = newX + 'px';
+                this.floatingButton.style.top = newY + 'px';
+                this.floatingButton.style.right = 'auto';
+                this.floatingButton.style.bottom = 'auto';
+            }
+        });
+
+        document.addEventListener('touchend', (e) => {
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.snapToEdge();
+                if (window.electronAPI && window.electronAPI.overlayHover) {
+                    window.electronAPI.overlayHover(false);
+                }
+            }
+        });
+
+        // Double-tap support
+        let lastTap = 0;
+        this.floatingButton.addEventListener('touchend', (e) => {
+            const now = Date.now();
+            if (now - lastTap < 300) {
+                e.preventDefault();
+                this.openChat();
+            }
+            lastTap = now;
+        });
+    }
+
+    snapToEdge() {
+        const rect = this.floatingButton.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+        const buttonSize = 32;
+        
+        const distToLeft = rect.left;
+        const distToRight = windowWidth - rect.right;
+        const distToTop = rect.top;
+        const distToBottom = windowHeight - rect.bottom;
+        
+        const minDist = Math.min(distToLeft, distToRight, distToTop, distToBottom);
+        
+        if (minDist === distToLeft) {
+            this.floatingButton.style.left = '0';
+            this.floatingButton.style.top = (rect.top) + 'px';
+            this.floatingButton.style.right = 'auto';
+            this.floatingButton.style.bottom = 'auto';
+        } else if (minDist === distToRight) {
+            this.floatingButton.style.right = '0';
+            this.floatingButton.style.top = (rect.top) + 'px';
+            this.floatingButton.style.left = 'auto';
+            this.floatingButton.style.bottom = 'auto';
+        } else if (minDist === distToTop) {
+            this.floatingButton.style.top = '0';
+            this.floatingButton.style.left = (rect.left) + 'px';
+            this.floatingButton.style.right = 'auto';
+            this.floatingButton.style.bottom = 'auto';
+        } else {
+            this.floatingButton.style.bottom = '0';
+            this.floatingButton.style.left = (rect.left) + 'px';
+            this.floatingButton.style.right = 'auto';
+            this.floatingButton.style.top = 'auto';
+        }
+    }
+
+    showFloatingButton() {
+        this.floatingButton.classList.remove('hidden');
+    }
+
+    hideFloatingButton() {
+        this.floatingButton.classList.add('hidden');
+    }
+
+    showVisualEffect(effectType) {
+        switch (effectType) {
+            case 'task-active':
+                this.showRippleEffect();
+                this.showGlowEffect();
+                this.showControlWorking();
+                this.playNotificationSound();
+                this.showEdgeGlow();
+                break;
+            case 'task-inactive':
+                this.hideGlowEffect();
+                this.hideControlWorking();
+                this.hideEdgeGlow();
+                break;
+        }
+    }
+
+    showRippleEffect() {
+        const ripple = document.createElement('div');
+        ripple.className = 'ripple-effect';
+        this.visualEffects.appendChild(ripple);
+        setTimeout(() => ripple.remove(), 2000);
+    }
+
+    showGlowEffect() {
+        const glow = document.createElement('div');
+        glow.className = 'glow-effect active';
+        this.visualEffects.appendChild(glow);
+    }
+
+    hideGlowEffect() {
+        const glow = this.visualEffects.querySelector('.glow-effect');
+        if (glow) {
+            glow.classList.remove('active');
+            setTimeout(() => glow.remove(), 300);
+        }
+    }
+
+    showControlWorking() {
+        this.controlWorking.classList.add('show');
+    }
+
+    hideControlWorking() {
+        this.controlWorking.classList.remove('show');
+    }
+
+    playNotificationSound() {
+        this.notificationIndicator.classList.add('ping');
+        setTimeout(() => this.notificationIndicator.classList.remove('ping'), 1000);
+    }
+
+    showEdgeGlow() {
+        this.edgeGlow.classList.add('active');
+    }
+
+    hideEdgeGlow() {
+        this.edgeGlow.classList.remove('active');
+    }
+
+    showStatus(message, type = 'info') {
+        this.statusIndicator.textContent = message;
+        this.statusIndicator.className = `status-indicator show ${type}`;
+        setTimeout(() => this.statusIndicator.classList.remove('show'), 3000);
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    new MainOverlay();
+});
+    </script>
+</body>
+</html>

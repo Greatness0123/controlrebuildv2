@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control - Settings</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            /* background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%); */
+            /* backdrop-filter: blur(20px); */
+            /* border-radius: 20px; */
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #000000;
+            -webkit-app-region: no-drag;
+            background: transparent !important;
+        }
+
+        .settings-container {
+            /* height: 100%;
+            display: flex;
+            flex-direction: column; */
+            border-radius: 12px;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%); 
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+      
+
+        /* Header */
+        .settings-header {
+            padding: 24px;
+            background: rgba(255, 255, 255, 0.95);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            -webkit-app-region: drag;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .settings-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #000000;
+        }
+
+        /* User profile section */
+       .user-profile {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 16px;
+        -webkit-app-region: no-drag;
+        flex-wrap: wrap; /* ← ADD THIS */
+    }
+
+        .user-avatar {
+        width: 56px;
+        height: 56px;
+        min-width: 56px;  /* ← ADD THIS */
+        min-height: 56px; /* ← ADD THIS */
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 20px;
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+        }
+
+        .user-info {
+        flex: 1;
+        min-width: 150px; /* ← ADD THIS to prevent squishing */
+    }
+
+        .user-name {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #000000;
+        }
+
+        .user-email {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+
+        .user-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+
+        .plan-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+        white-space: nowrap; /* ← ADD THIS */
+        flex-shrink: 0; /* ← ADD THIS */
+        }
+
+        /* Content area */
+        .settings-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            -webkit-app-region: no-drag;
+            -webkit-overflow-scrolling: touch;
+            touch-action: auto;
+            overscroll-behavior: contain;
+            max-height: 60vh;
+        }
+
+        .settings-section {
+            margin-bottom: 32px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            flex-wrap: wrap; 
+            gap: 16px; 
+
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            min-width: 200px;
+        }
+
+        .setting-icon {
+            width: 24px;
+            height: 24px;
+            color: #6b7280;
+            flex-shrink: 0;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: #374151;
+        }
+
+        .setting-description {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        /* Modern toggle switch */
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: #e5e7eb;
+            border-radius: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .toggle-switch.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(22px);
+        }
+
+        /* Modern buttons */
+        .button {
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-app-region: no-drag;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .button-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+        }
+
+        .button-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-secondary {
+            background: rgba(255, 255, 255, 0.9);
+            color: #374151;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .button-secondary:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .button-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .button-danger:hover {
+            background: rgba(239, 68, 68, 0.15);
+            transform: translateY(-1px);
+        }
+
+        /* Close button */
+        .close-button {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            -webkit-app-region: no-drag;
+        }
+
+        .close-button:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #374151;
+        }
+
+        /* PIN input modal */
+        .pin-modal {
+           position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: flex-start; /* align to top so it doesn't appear halfway off-screen */
+            justify-content: center;
+            z-index: 1000;
+            -webkit-app-region: no-drag;
+        }
+
+        .pin-modal.show {
+            display: flex;
+        }
+
+        .pin-content {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .pin-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #000000;
+        }
+
+        .pin-description {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+
+        .pin-input {
+            width: 100%;
+            padding: 16px;
+            background: rgba(0, 0, 0, 0.03);
+            border: 2px solid rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            color: #000000;
+            font-size: 20px;
+            text-align: center;
+            letter-spacing: 12px;
+            margin-bottom: 20px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .pin-input:focus {
+            border-color: #667eea;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .pin-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .pin-buttons .button {
+            flex: 1;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 32px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #374151;
+            color: white;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 13px;
+            z-index: 1001;
+            opacity: 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(8px);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: #10b981;
+        }
+
+        .toast.error {
+            background: #ef4444;
+        }
+
+        /* Scrollbar */
+        .settings-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .settings-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .settings-content::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        .settings-content::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            .settings-header {
+                padding: 20px;
+            }
+            
+            .settings-content {
+                padding: 20px;
+            }
+            
+            .settings-section {
+                padding: 16px;
+            }
+            
+            .user-avatar {
+                width: 48px;
+                height: 48px;
+            }
+        }
+    </style>
+    <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
+<body>
+    <div class="settings-container">
+        <!-- Close button -->
+        <!-- <button class="close-button" id="closeButton">
+            <i data-lucide="x" style="width: 18px; height: 18px;"></i>
+        </button> -->
+
+        <!-- Header -->
+        <div class="settings-header">
+            <div class="settings-title">Settings</div>
+            
+            <!-- User Profile -->
+            <div class="user-profile">
+                <div class="user-avatar" id="userAvatar">
+                    <i data-lucide="user" style="width: 24px; height: 24px;"></i>
+                </div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">Control User</div>
+                    <div class="user-email" id="userEmail">user@control.ai</div>
+                    <div class="user-status">
+                        <div class="status-dot"></div>
+                        <span>Ready</span>
+                    </div>
+                </div>
+                <div class="plan-badge">PRO PLAN</div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="settings-content">
+            <!-- Security Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="shield" style="width: 16px; height: 16px;"></i>
+                    Security
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="lock" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Enable Security PIN</div>
+                            <div class="setting-description">Require PIN to open chat</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="pinToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="key" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Change PIN</div>
+                            <div class="setting-description">Update your security PIN</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="changePinButton">
+                        <i data-lucide="edit" style="width: 14px; height: 14px;"></i>
+                        Edit
+                    </button>
+                </div>
+            </div>
+
+            <!-- Voice Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="mic" style="width: 16px; height: 16px;"></i>
+                    Voice & Speech
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="volume-2" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Voice Activation</div>
+                            <div class="setting-description">Wake word: "hey control"</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="voiceToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="send-to-back" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Auto-Send After <br>Wake Word</div>
+                            <div class="setting-description">Automatically send transcriptions<br> after wakeword</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="autoSendToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="speaker" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Voice Response</div>
+                            <div class="setting-description">Read AI responses aloud</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="voiceResponseToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="volume-x" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Mute Notifications</div>
+                            <div class="setting-description">Disable notification sounds</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="muteToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
+                    System
+                </div>
+                
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="lock" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Lock App</div>
+                            <div class="setting-description">Lock the application</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="lockButton">
+                        <i data-lucide="lock" style="width: 14px; height: 14px;"></i>
+                        Lock
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="log-out" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Log Out</div>
+                            <div class="setting-description">Sign out of your account</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="logoutButton">
+                        <i data-lucide="log-out" style="width: 14px; height: 14px;"></i>
+                        Log Out
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="power" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Quit Application</div>
+                            <div class="setting-description">Exit Control</div>
+                        </div>
+                    </div>
+                    <button class="button button-danger" id="quitButton">
+                        <i data-lucide="power" style="width: 14px; height: 14px;"></i>
+                        Quit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PIN Modal -->
+    <div class="pin-modal" id="pinModal">
+        <div class="pin-content">
+            <div class="pin-title" id="pinTitle">Set Security PIN</div>
+            <div class="pin-description" id="pinDescription">Enter a 4-digit PIN code</div>
+            <input type="password" class="pin-input" id="pinInput" maxlength="4" placeholder="----">
+            <div class="pin-buttons">
+                <button class="button button-secondary" id="pinCancelButton">Cancel</button>
+                <button class="button button-primary" id="pinConfirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="settings-modal.js"></script>
+</body>
+</html>
+
+
+
