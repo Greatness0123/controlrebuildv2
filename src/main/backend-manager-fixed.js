@@ -133,13 +133,33 @@ class BackendManager {
         try {
             const pythonCmd = this.getPythonCommandSync();
 
-            const actScript = isDev
+            let actScript = isDev
                 ? path.join(__dirname, '../../act_backend.py')
                 : path.join(process.resourcesPath, 'act_backend.py');
 
-            const askScript = isDev
+            let askScript = isDev
                 ? path.join(__dirname, '../../ask_backend.py')
                 : path.join(process.resourcesPath, 'ask_backend.py');
+
+            // Check for binaries in production
+            if (!isDev) {
+                const isWin = process.platform === 'win32';
+                const actBinName = isWin ? 'act_backend.exe' : 'act_backend';
+                const askBinName = isWin ? 'ask_backend.exe' : 'ask_backend';
+
+                const actBinPath = path.join(process.resourcesPath, 'assets/binaries', actBinName);
+                const askBinPath = path.join(process.resourcesPath, 'assets/binaries', askBinName);
+
+                if (fs.existsSync(actBinPath)) {
+                    actScript = actBinPath;
+                    console.log('Found Act binary:', actScript);
+                }
+
+                if (fs.existsSync(askBinPath)) {
+                    askScript = askBinPath;
+                    console.log('Found Ask binary:', askScript);
+                }
+            }
 
             console.log(`Starting Act Backend: ${pythonCmd} ${actScript}`);
             console.log(`Starting Ask Backend: ${pythonCmd} ${askScript}`);
@@ -189,7 +209,18 @@ class BackendManager {
     }
 
     spawnPython(cmd, script, label) {
-        const pythonProcess = spawn(cmd, [script], {
+        let processCmd = cmd;
+        let processArgs = [script];
+
+        // If not a .py file, assume it's a binary and run directly
+        if (!script.endsWith('.py')) {
+            processCmd = script;
+            processArgs = [];
+        }
+
+        console.log(`[${label}] Spawning process: ${processCmd} ${processArgs.join(' ')}`);
+
+        const pythonProcess = spawn(processCmd, processArgs, {
             cwd: path.join(__dirname, '../../'),
             stdio: ['pipe', 'pipe', 'pipe'],
             env: { ...process.env, PYTHONUNBUFFERED: '1' }

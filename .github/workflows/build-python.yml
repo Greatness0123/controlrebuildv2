@@ -4,19 +4,13 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'backend_modified.py'
+      - 'act_backend.py'
+      - 'ask_backend.py'
+      - 'vosk_server_v2.py'
       - 'assets/wakeword/wakeword_helper.py'
-      - 'vosk-server.py'
-      - 'vosk-streaming-server.py'
       - 'requirements.txt'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'backend_modified.py'
-      - 'assets/wakeword/wakeword_helper.py'
-      - 'vosk-server.py'
-      - 'vosk-streaming-server.py'
-      - 'requirements.txt'
   workflow_dispatch:
 
 jobs:
@@ -36,32 +30,32 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build backend_modified.exe
+    - name: Build act_backend
       run: |
-        pyinstaller --onefile --windowed --name backend_modified backend_modified.py
+        pyinstaller --onefile --windowed --name act_backend act_backend.py
     
-    - name: Build wakeword_helper.exe
+    - name: Build ask_backend
+      run: |
+        pyinstaller --onefile --windowed --name ask_backend ask_backend.py
+
+    - name: Build vosk_server_v2
+      run: |
+        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+    
+    - name: Build wakeword_helper
       run: |
         cd assets/wakeword
         pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-    
-    - name: Build vosk-server.exe
-      run: |
-        pyinstaller --onefile --console --name vosk-server vosk-server.py
-    
-    - name: Build vosk-streaming-server.exe
-      run: |
-        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
     
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
         name: python-windows
         path: |
-          dist/backend_modified.exe
+          dist/act_backend.exe
+          dist/ask_backend.exe
+          dist/vosk_server_v2.exe
           assets/wakeword/dist/wakeword_helper.exe
-          dist/vosk-server.exe
-          dist/vosk-streaming-server.exe
 
   build-macos:
     runs-on: macos-latest
@@ -79,45 +73,32 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build backend_modified.dmg
+    - name: Build act_backend
       run: |
-        pyinstaller --onefile --windowed --name backend_modified --icon=assets/icons/icon.icns backend_modified.py
+        pyinstaller --onefile --windowed --name act_backend --icon=assets/icons/icon.icns act_backend.py
     
-    - name: Build wakeword_helper.dmg
+    - name: Build ask_backend
+      run: |
+        pyinstaller --onefile --windowed --name ask_backend --icon=assets/icons/icon.icns ask_backend.py
+    
+    - name: Build vosk_server_v2
+      run: |
+        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+    
+    - name: Build wakeword_helper
       run: |
         cd assets/wakeword
         pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-    
-    - name: Build vosk-server
-      run: |
-        pyinstaller --onefile --console --name vosk-server vosk-server.py
-    
-    - name: Build vosk-streaming-server
-      run: |
-        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
-    
-    - name: Create DMG packages
-      run: |
-        # Create temporary directories
-        mkdir -p temp/backend temp/wakeword temp/vosk
-        # Copy executables
-        cp dist/backend_modified.app temp/backend/
-        cp assets/wakeword/dist/wakeword_helper temp/wakeword/
-        cp dist/vosk-server temp/vosk/
-        cp dist/vosk-streaming-server temp/vosk/
-        # Create DMGs
-        hdiutil create -volname "Backend Modified" -srcfolder temp/backend -ov -format UDZO backend_modified.dmg
-        hdiutil create -volname "Wakeword Helper" -srcfolder temp/wakeword -ov -format UDZO wakeword_helper.dmg
-        hdiutil create -volname "Vosk Servers" -srcfolder temp/vosk -ov -format UDZO vosk-servers.dmg
     
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
       with:
         name: python-macos
         path: |
-          backend_modified.dmg
-          wakeword_helper.dmg
-          vosk-servers.dmg
+          dist/act_backend.app
+          dist/ask_backend.app
+          dist/vosk_server_v2
+          assets/wakeword/dist/wakeword_helper
 
   build-linux:
     runs-on: ubuntu-latest
@@ -140,61 +121,29 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build backend_modified.AppImage
+    - name: Build act_backend
       run: |
-        pyinstaller --onefile --windowed --name backend_modified backend_modified.py
+        pyinstaller --onefile --windowed --name act_backend act_backend.py
     
-    - name: Build wakeword_helper.AppImage
+    - name: Build ask_backend
+      run: |
+        pyinstaller --onefile --windowed --name ask_backend ask_backend.py
+
+    - name: Build vosk_server_v2
+      run: |
+        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+    
+    - name: Build wakeword_helper
       run: |
         cd assets/wakeword
         pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-        cd ../..
-        # Create AppImage wrapper
-        mkdir -p AppImage/wakeword
-        cp assets/wakeword/dist/wakeword_helper AppImage/wakeword/
-        cat > AppImage/wakeword_helper.AppImage << 'EOF'
-        #!/bin/bash
-        HERE="$(dirname "$(readlink -f "${0}")")"
-        export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH}"
-        exec "${HERE}/wakeword/wakeword_helper" "$@"
-        EOF
-        chmod +x AppImage/wakeword_helper.AppImage
-    
-    - name: Build vosk-server
-      run: |
-        pyinstaller --onefile --console --name vosk-server vosk-server.py
-    
-    - name: Build vosk-streaming-server
-      run: |
-        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
-    
-    - name: Create Vosk AppImage wrappers
-      run: |
-        mkdir -p AppImage/vosk
-        cp dist/vosk-server AppImage/vosk/
-        cp dist/vosk-streaming-server AppImage/vosk/
-        cat > AppImage/vosk-server.AppImage << 'EOF'
-        #!/bin/bash
-        HERE="$(dirname "$(readlink -f "${0}")")"
-        export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH}"
-        exec "${HERE}/vosk/vosk-server" "$@"
-        EOF
-        cat > AppImage/vosk-streaming-server.AppImage << 'EOF'
-        #!/bin/bash
-        HERE="$(dirname "$(readlink -f "${0}")")"
-        export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH}"
-        exec "${HERE}/vosk/vosk-streaming-server" "$@"
-        EOF
-        chmod +x AppImage/*.AppImage
     
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4
       with:
         name: python-linux
         path: |
-          dist/backend_modified
-          dist/vosk-server
-          dist/vosk-streaming-server
-          AppImage/wakeword_helper.AppImage
-          AppImage/vosk-server.AppImage
-          AppImage/vosk-streaming-server.AppImage
+          dist/act_backend
+          dist/ask_backend
+          dist/vosk_server_v2
+          assets/wakeword/dist/wakeword_helper

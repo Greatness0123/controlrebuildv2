@@ -87,40 +87,23 @@ jobs:
         fi
 
         if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-          cp python-artifacts/dist/backend_modified assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/vosk-server assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/vosk-streaming-server assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/AppImage/wakeword_helper.AppImage assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/AppImage/vosk-server.AppImage assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/AppImage/vosk-streaming-server.AppImage assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/act_backend assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/ask_backend assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/assets/wakeword/dist/wakeword_helper assets/binaries/ 2>/dev/null || true
           chmod +x assets/binaries/* || true
 
         elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp python-artifacts/dist/backend_modified.exe assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/vosk-server.exe assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/vosk-streaming-server.exe assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/act_backend.exe assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/ask_backend.exe assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/vosk_server_v2.exe assets/binaries/ 2>/dev/null || true
           cp python-artifacts/assets/wakeword/dist/wakeword_helper.exe assets/binaries/ 2>/dev/null || true
 
         elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-          if [ -f python-artifacts/backend_modified.dmg ]; then
-            hdiutil attach python-artifacts/backend_modified.dmg
-            cp -R "/Volumes/Backend Modified/backend_modified.app" assets/binaries/ || true
-            hdiutil detach "/Volumes/Backend Modified" || true
-          fi
-
-          if [ -f python-artifacts/wakeword_helper.dmg ]; then
-            hdiutil attach python-artifacts/wakeword_helper.dmg
-            cp "/Volumes/Wakeword Helper/wakeword_helper" assets/binaries/ || true
-            hdiutil detach "/Volumes/Wakeword Helper" || true
-          fi
-
-          if [ -f python-artifacts/vosk-servers.dmg ]; then
-            hdiutil attach python-artifacts/vosk-servers.dmg
-            cp "/Volumes/Vosk Servers/vosk-server" assets/binaries/ || true
-            cp "/Volumes/Vosk Servers/vosk-streaming-server" assets/binaries/ || true
-            hdiutil detach "/Volumes/Vosk Servers" || true
-          fi
-
+          cp -R python-artifacts/dist/act_backend.app assets/binaries/ 2>/dev/null || true
+          cp -R python-artifacts/dist/ask_backend.app assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
+          cp python-artifacts/assets/wakeword/dist/wakeword_helper assets/binaries/ 2>/dev/null || true
           chmod +x assets/binaries/* || true
         fi
 
