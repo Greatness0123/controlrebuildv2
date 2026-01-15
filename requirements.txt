@@ -1,0 +1,28 @@
+# Core Dependencies
+python-dotenv>=1.0.0
+
+# Vosk Speech Recognition
+vosk>=0.3.45
+pyaudio>=0.2.13
+websockets>=10.0
+
+# Computer Vision & GUI Automation
+pillow>=9.0.0
+mss>=6.1.0
+pyautogui>=0.9.53
+google-generativeai>=0.3.0
+
+# Porcupine Wake Word Detection
+pvporcupine>=2.2.0
+
+# Optional: Clipboard support (Windows/Mac/Linux)
+pyperclip>=1.8.2
+
+# Development & Build Tools
+pyinstaller>=5.0.0
+
+# Async Support
+aiohttp>=3.8.0
+
+# Optional: Additional utilities
+requests>=2.28.0

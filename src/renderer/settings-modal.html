@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,18 +33,19 @@
             flex-direction: column; */
             border-radius: 12px;
             padding: 20px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%); 
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
             backdrop-filter: blur(20px);
             border-radius: 20px;
             overflow: hidden;
         }
 
-      
+
 
         /* Header */
         .settings-header {
             padding: 24px;
             background: rgba(255, 255, 255, 0.95);
+            /* background-color: red; */
             border-bottom: 1px solid rgba(0, 0, 0, 0.08);
             -webkit-app-region: drag;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -57,35 +59,37 @@
         }
 
         /* User profile section */
-       .user-profile {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 16px;
-        -webkit-app-region: no-drag;
-        flex-wrap: wrap; /* ← ADD THIS */
-    }
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+            -webkit-app-region: no-drag;
+            flex-wrap: wrap;
+
+        }
 
         .user-avatar {
-        width: 56px;
-        height: 56px;
-        min-width: 56px;  /* ← ADD THIS */
-        min-height: 56px; /* ← ADD THIS */
-        border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        font-size: 20px;
-        color: white;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+            width: 56px;
+            height: 56px;
+            min-width: 56px;
+            min-height: 56px;
+            border-radius: 50%;
+            background: #0d0d0d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 20px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .user-info {
-        flex: 1;
-        min-width: 150px; /* ← ADD THIS to prevent squishing */
-    }
+            flex: 1;
+            min-width: 150px;
+            /* ← ADD THIS to prevent squishing */
+        }
 
         .user-name {
             font-size: 16px;
@@ -116,17 +120,17 @@
         }
 
         .plan-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 6px 12px;
-        border-radius: 16px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
-        white-space: nowrap; /* ← ADD THIS */
-        flex-shrink: 0; /* ← ADD THIS */
+            background: #0d0d0d;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            white-space: nowrap;
+            flex-shrink: 0;
         }
 
         /* Content area */
@@ -150,6 +154,46 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
+        .tips-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tip-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.02);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .tip-icon {
+            width: 20px;
+            height: 20px;
+            color: #667eea;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .tip-content {
+            flex: 1;
+        }
+
+        .tip-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .tip-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
         .section-title {
             font-size: 13px;
             font-weight: 600;
@@ -168,8 +212,8 @@
             justify-content: space-between;
             padding: 16px 0;
             border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-            flex-wrap: wrap; 
-            gap: 16px; 
+            flex-wrap: wrap;
+            gap: 16px;
 
         }
 
@@ -221,8 +265,8 @@
         }
 
         .toggle-switch.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            background: #0d0d0d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .toggle-slider {
@@ -257,14 +301,14 @@
         }
 
         .button-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0d0d0d;
             color: white;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
         .button-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            opacity: 0.85;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .button-secondary {
@@ -317,14 +361,15 @@
 
         /* PIN input modal */
         .pin-modal {
-           position: fixed;
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.8);
             display: none;
-            align-items: flex-start; /* align to top so it doesn't appear halfway off-screen */
+            align-items: flex-start;
+            /* align to top so it doesn't appear halfway off-screen */
             justify-content: center;
             z-index: 1000;
             -webkit-app-region: no-drag;
@@ -367,16 +412,16 @@
             color: #000000;
             font-size: 20px;
             text-align: center;
-            letter-spacing: 12px;
+            letter-spacing: 1px;
             margin-bottom: 20px;
             outline: none;
             transition: all 0.2s ease;
         }
 
         .pin-input:focus {
-            border-color: #667eea;
+            border-color: #0d0d0d;
             background: white;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
         }
 
         .pin-buttons {
@@ -442,15 +487,15 @@
             .settings-header {
                 padding: 20px;
             }
-            
+
             .settings-content {
-                padding: 20px;
+                padding: 4px;
             }
-            
+
             .settings-section {
                 padding: 16px;
             }
-            
+
             .user-avatar {
                 width: 48px;
                 height: 48px;
@@ -459,6 +504,7 @@
     </style>
     <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
+
 <body>
     <div class="settings-container">
         <!-- Close button -->
@@ -469,7 +515,7 @@
         <!-- Header -->
         <div class="settings-header">
             <div class="settings-title">Settings</div>
-            
+
             <!-- User Profile -->
             <div class="user-profile">
                 <div class="user-avatar" id="userAvatar">
@@ -495,7 +541,7 @@
                     <i data-lucide="shield" style="width: 16px; height: 16px;"></i>
                     Security
                 </div>
-                
+
                 <div class="setting-item">
                     <div class="setting-left">
                         <i data-lucide="lock" class="setting-icon"></i>
@@ -530,7 +576,7 @@
                     <i data-lucide="mic" style="width: 16px; height: 16px;"></i>
                     Voice & Speech
                 </div>
-                
+
                 <div class="setting-item">
                     <div class="setting-left">
                         <i data-lucide="volume-2" class="setting-icon"></i>
@@ -553,6 +599,19 @@
                         </div>
                     </div>
                     <div class="toggle-switch" id="autoSendToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="repeat" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Wake Word Toggle Chat</div>
+                            <div class="setting-description">Allow "Hey Control" to toggle chat open/close</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="wakeWordToggleChatToggle">
                         <div class="toggle-slider"></div>
                     </div>
                 </div>
@@ -582,6 +641,32 @@
                         <div class="toggle-slider"></div>
                     </div>
                 </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="camera" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Window Visibility</div>
+                            <div class="setting-description">Allow windows in screenshots/recordings</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="windowVisibilityToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="volume-1" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Greeting Voice</div>
+                            <div class="setting-description">Speak welcome greeting aloud</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="greetingTTSToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- System Section -->
@@ -590,7 +675,20 @@
                     <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
                     System
                 </div>
-                
+
+                <!-- <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="eye" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Floating Button</div>
+                            <div class="setting-description">Show overlay floating button</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="floatingButtonToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div> -->
+
                 <div class="setting-item">
                     <div class="setting-left">
                         <i data-lucide="lock" class="setting-icon"></i>
@@ -633,6 +731,7 @@
                     </button>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -654,7 +753,5 @@
 
     <script src="settings-modal.js"></script>
 </body>
+
 </html>
-
-
-

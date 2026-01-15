@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onInteractionModeChanged: (callback) => ipcRenderer.on('interaction-mode-changed', callback),
     onShowFloatingButton: (callback) => ipcRenderer.on('show-floating-button', callback),
     onHideFloatingButton: (callback) => ipcRenderer.on('hide-floating-button', callback),
+    onFloatingButtonToggle: (callback) => ipcRenderer.on('floating-button-toggle', callback),
     onRequestPinAndToggle: (callback) => ipcRenderer.on('request-pin-and-toggle', callback),
     
     // Overlay hover (used to temporarily enable interactions when hovering the floating button)
@@ -30,6 +31,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Overlay controls
     focusOverlay: () => ipcRenderer.send('overlay-focus'),
+
+    // Backend action events for overlay
+    onActionStart: (callback) => ipcRenderer.on('action-start', callback),
+    onActionStep: (callback) => ipcRenderer.on('action-step', callback),
+    onActionComplete: (callback) => ipcRenderer.on('action-complete', callback),
+    onTaskStart: (callback) => ipcRenderer.on('task-start', callback),
+    onTaskComplete: (callback) => ipcRenderer.on('task-complete', callback),
+    onTaskStopped: (callback) => ipcRenderer.on('task-stopped', callback),
 });
 
 // Also expose a small convenience global for HTML onclick usage

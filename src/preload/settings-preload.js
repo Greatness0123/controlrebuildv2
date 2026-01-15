@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
     getCurrentUser: () => ipcRenderer.invoke('get-user-info'),
     
+    // Floating button visibility
+    updateFloatingButton: (visible) => ipcRenderer.invoke('update-floating-button', visible),
+    onFloatingButtonToggle: (callback) => ipcRenderer.on('floating-button-toggle', callback),
+    
     // Security
     verifyPin: (pin) => ipcRenderer.invoke('verify-pin', pin),
     setSecurityPin: (pin) => ipcRenderer.invoke('set-security-pin', pin),
@@ -22,4 +26,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     
     // External links
     openWebsite: () => ipcRenderer.invoke('open-website'),
+    
+    // Window visibility
+    setWindowVisibility: (visible) => ipcRenderer.invoke('set-window-visibility', visible),
 });

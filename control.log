@@ -1,0 +1,110 @@
+2026-01-11 11:21:26,968 - INFO - [CONTROL] - API configured
+2026-01-11 11:21:26,979 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 12:03:21,523 - INFO - [CONTROL] - API configured
+2026-01-11 12:03:21,532 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 12:16:40,909 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_121639_931.png | Cursor: (1597, 870)
+2026-01-11 12:32:32,568 - INFO - [CONTROL] - API configured
+2026-01-11 12:32:32,577 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 12:46:30,387 - INFO - [CONTROL] - API configured
+2026-01-11 12:46:30,406 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 12:47:34,288 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_124733_128.png | Cursor: (1816, 859)
+2026-01-11 12:47:40,089 - INFO - [CONTROL] - LLM response received: {"type": "error", "message": "The request 'hi' is a greeting and not a task I can execute. Please switch to 'Ask' mode if you have a question or provide a specific task for me to perform.", "action_suggestion": "Switch to 'Ask' mode for conversational queries or provide a concrete task in 'Act' mode."}
+2026-01-11 12:47:40,090 - INFO - [CONTROL] - Auto-cleaning 2 screenshot(s)
+2026-01-11 12:47:40,091 - INFO - [CONTROL] - Removed 2 screenshot(s)
+2026-01-11 13:01:46,605 - INFO - [CONTROL] - API configured
+2026-01-11 13:01:46,613 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:05:41,043 - INFO - [CONTROL] - API configured
+2026-01-11 14:05:41,052 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:08:22,488 - INFO - [CONTROL] - API configured
+2026-01-11 14:08:22,491 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:18:36,752 - INFO - [CONTROL] - API configured
+2026-01-11 14:18:36,760 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:23:10,716 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_142310_227.png | Cursor: (1563, 853)
+2026-01-11 14:23:14,124 - INFO - [CONTROL] - LLM response received: {"type": "error", "message": "The request 'hi' is not a task that can be executed. Please switch to 'Ask' mode for general questions or greetings. In 'Act' mode, I can only perform actionable tasks on your computer."}
+2026-01-11 14:23:14,128 - INFO - [CONTROL] - Auto-cleaning 1 screenshot(s)
+2026-01-11 14:23:14,129 - INFO - [CONTROL] - Removed 1 screenshot(s)
+2026-01-11 14:30:21,188 - INFO - [CONTROL] - API configured
+2026-01-11 14:30:21,193 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:42:24,690 - INFO - [CONTROL] - API configured
+2026-01-11 14:42:24,706 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:47:26,169 - INFO - [CONTROL] - API configured
+2026-01-11 14:47:26,199 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:51:57,556 - INFO - [CONTROL] - API configured
+2026-01-11 14:51:57,560 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 14:58:25,535 - INFO - [CONTROL] - API configured
+2026-01-11 14:58:26,031 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 15:00:03,372 - INFO - [CONTROL] - API configured
+2026-01-11 15:00:03,379 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 15:01:07,075 - INFO - [CONTROL] - API configured
+2026-01-11 15:01:07,089 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 15:06:55,312 - INFO - [CONTROL] - API configured
+2026-01-11 15:06:55,396 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 15:10:15,622 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151015_054.png | Cursor: (1543, 834)
+2026-01-11 15:10:23,338 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The current screen shows Visual Studio Code. To open Spotify, I will use the Windows taskbar search functionality, type 'Spotify', and then execute the search result.", "plan": "1. Click on the 'Search' button in the taskbar. 2. Type 'Spotify' into the search bar. 3. Press Enter to launch the Spotify application.", "actions": [{"step": 1, "description": "Click on the 'Search' icon/button in the Windows taskbar.", "action": "click", "parameters": {"x": 100, "y": 1056}, "verification": {"expected_outcome": "The Windows search bar/menu should appear.", "verification_method": "visual", "success_indicators": ["Windows Search bar visible"]}}, {"step": 2, "description": "Type 'Spotify' into the search bar.", "action": "type", "parameters": {"text": "Spotify", "clear_first": true}, "verification": {"expected_outcome": "The text 'Spotify' should appear in the search bar, and Spotify application should be listed as a search result.", "verification_method": "visual",
+2026-01-11 15:10:23,340 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-11 15:10:23,877 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-11 15:10:24,382 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-11 15:10:24,976 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151024_384.png | Cursor: (0, 0)
+2026-01-11 15:10:29,602 - INFO - [CONTROL] - LLM response received: {"type": "task", "recovery_strategy": "The previous attempt to click the search bar failed. A more reliable alternative is to use the 'windows' key to open the search functionality, then type 'spotify' and press 'enter' to launch the application.", "actions": [{"step": 1, "description": "Press the 'windows' key to open the Start Menu/Search bar.", "action": "key_press", "parameters": {"key": "windows"}, "verification": {"expected_outcome": "The Windows Start Menu or Search bar should appear on the screen.", "verification_method": "visual", "success_indicators": ["Start menu visible", "Search bar active"]}}, {"step": 2, "description": "Type 'spotify' into the search bar.", "action": "type", "parameters": {"text": "spotify", "clear_first": true}, "verification": {"expected_outcome": "The text 'spotify' should appear in the search bar, and Spotify should appear as a top search result.", "verification_method": "visual", "success_indicators": ["Text 'spotify' visible in search", "Spotify ap
+2026-01-11 15:10:30,732 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151030_210.png | Cursor: (0, 0)
+2026-01-11 15:10:31,963 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151031_247.png | Cursor: (0, 0)
+2026-01-11 15:10:36,479 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151036_120.png | Cursor: (0, 0)
+2026-01-11 15:10:40,149 - INFO - [CONTROL] - LLM response received: {"type": "reject", "reason": "The request to 'Identify the element needed for the current task' is unclear as no specific task has been provided. Please provide a clear task description or switch to 'Ask' mode for questions."}
+2026-01-11 15:10:41,035 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151040_461.png | Cursor: (0, 0)
+2026-01-11 15:10:42,070 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151041_574.png | Cursor: (0, 0)
+2026-01-11 15:10:46,035 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151045_809.png | Cursor: (0, 0)
+2026-01-11 15:10:49,025 - INFO - [CONTROL] - LLM response received: {"type": "error", "message": "Invalid analyze_ui request. The element to find was not sufficiently described. Please provide a clear description of the specific UI element you want me to locate (e.g., 'the 'Save' button', 'the search bar', 'the text 'Hello World''). If this is a question, please switch to 'Ask' mode."}
+2026-01-11 15:10:49,950 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151049_336.png | Cursor: (1557, 593)
+2026-01-11 15:10:51,952 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151050_498.png | Cursor: (1557, 593)
+2026-01-11 15:10:56,952 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151056_321.png | Cursor: (1557, 593)
+2026-01-11 15:10:58,036 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151057_482.png | Cursor: (1911, 947)
+2026-01-11 15:11:03,201 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151102_556.png | Cursor: (1668, 680)
+2026-01-11 15:11:08,457 - INFO - [CONTROL] - LLM response received: {"element_found": true, "element_name": "Accept all button", "coordinates": [923, 796], "element_type": "button", "state": "enabled", "description": "The 'Accept all' button located in the 'Progress Updates' section, used to accept all changes.", "confidence": "high"}
+2026-01-11 15:11:08,457 - ERROR - [CONTROL] - LLM returned invalid structure, missing 'type'. Raw response: ```json
+{
+  "element_found": true,
+  "element_name": "Accept all button",
+  "coordinates": [923, 796],
+  "element_type": "button",
+  "state": "enabled",
+  "description": "The 'Accept all' button located in the 'Progress Updates' section, used to accept all changes.",
+  "confidence": "high"
+}
+```
+2026-01-11 15:11:10,017 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151109_332.png | Cursor: (1344, 925)
+2026-01-11 15:11:11,001 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260111_151110_541.png | Cursor: (1163, 925)
+2026-01-11 15:22:14,134 - INFO - [CONTROL] - API configured
+2026-01-11 15:22:14,159 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 15:29:15,611 - INFO - [CONTROL] - API configured
+2026-01-11 15:29:15,615 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 19:56:43,412 - INFO - [CONTROL] - API configured
+2026-01-11 19:56:43,425 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 20:02:06,682 - INFO - [CONTROL] - API configured
+2026-01-11 20:02:06,691 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 20:03:10,457 - INFO - [CONTROL] - API configured
+2026-01-11 20:03:10,471 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-11 20:04:27,192 - INFO - [CONTROL] - API configured
+2026-01-11 20:04:27,201 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-12 01:02:53,231 - INFO - [CONTROL] - API configured
+2026-01-12 01:02:53,234 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-12 01:03:05,577 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010305_396.png | Cursor: (832, 937)
+2026-01-12 01:03:11,516 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user wants to open Spotify. The current screen shows a VS Code terminal. The most reliable way to open an application on Windows is by using the Start menu search bar.", "plan": "1. Open the Start menu using the Windows key. 2. Type 'Spotify' into the search bar. 3. Press Enter to launch Spotify. 4. Verify that Spotify is running and focused.", "actions": [{"step": 1, "description": "Press the Windows key to open the Start menu.", "action": "key_press", "parameters": {"key": "win"}, "verification": {"expected_outcome": "The Start menu and search bar should appear.", "verification_method": "visual", "success_indicators": ["Start menu visible", "Search bar visible"]}}, {"step": 2, "description": "Type 'Spotify' into the search bar.", "action": "type", "parameters": {"text": "Spotify"}, "verification": {"expected_outcome": "Search results for 'Spotify' should appear, with the Spotify application likely as the top result.", "verification_method": "visual",
+2026-01-12 01:03:11,955 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010311_820.png | Cursor: (832, 937)
+2026-01-12 01:03:12,605 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010312_458.png | Cursor: (832, 937)
+2026-01-12 01:03:18,036 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010317_909.png | Cursor: (857, 852)
+2026-01-12 01:03:24,348 - INFO - [CONTROL] - LLM response received: {"element_found": true, "element_name": "Start Button (Windows Logo)", "coordinates": [28, 1055], "element_type": "button", "state": "enabled", "description": "The Windows Start button icon located in the bottom-left corner of the taskbar.", "confidence": "high"}
+2026-01-12 01:03:24,349 - ERROR - [CONTROL] - LLM returned invalid structure, missing 'type'. Raw response: ```json
+{
+  "element_found": true,
+  "element_name": "Start Button (Windows Logo)",
+  "coordinates": [28, 1055],
+  "element_type": "button",
+  "state": "enabled",
+  "description": "The Windows Start button icon located in the bottom-left corner of the taskbar.",
+  "confidence": "high"
+}
+```
+2026-01-12 01:03:24,792 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010324_651.png | Cursor: (857, 852)
+2026-01-12 01:03:25,446 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010325_296.png | Cursor: (857, 852)
+2026-01-12 01:03:31,112 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010330_964.png | Cursor: (857, 852)
+2026-01-12 01:03:31,757 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010331_616.png | Cursor: (857, 852)

@@ -6,11 +6,17 @@ on:
     paths:
       - 'backend_modified.py'
       - 'assets/wakeword/wakeword_helper.py'
+      - 'vosk-server.py'
+      - 'vosk-streaming-server.py'
+      - 'requirements.txt'
   pull_request:
     branches: [ main ]
     paths:
       - 'backend_modified.py'
       - 'assets/wakeword/wakeword_helper.py'
+      - 'vosk-server.py'
+      - 'vosk-streaming-server.py'
+      - 'requirements.txt'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +33,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller pillow mss pyautogui google-generativeai python-dotenv
+        pip install -r requirements.txt
+        pip install pyinstaller
     
     - name: Build backend_modified.exe
       run: |
@@ -38,6 +45,14 @@ jobs:
         cd assets/wakeword
         pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
     
+    - name: Build vosk-server.exe
+      run: |
+        pyinstaller --onefile --console --name vosk-server vosk-server.py
+    
+    - name: Build vosk-streaming-server.exe
+      run: |
+        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
+    
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
@@ -45,6 +60,8 @@ jobs:
         path: |
           dist/backend_modified.exe
           assets/wakeword/dist/wakeword_helper.exe
+          dist/vosk-server.exe
+          dist/vosk-streaming-server.exe
 
   build-macos:
     runs-on: macos-latest
@@ -59,7 +76,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller pillow mss pyautogui google-generativeai python-dotenv
+        pip install -r requirements.txt
+        pip install pyinstaller
     
     - name: Build backend_modified.dmg
       run: |
@@ -70,16 +88,27 @@ jobs:
         cd assets/wakeword
         pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
     
+    - name: Build vosk-server
+      run: |
+        pyinstaller --onefile --console --name vosk-server vosk-server.py
+    
+    - name: Build vosk-streaming-server
+      run: |
+        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
+    
     - name: Create DMG packages
       run: |
         # Create temporary directories
-        mkdir -p temp/backend temp/wakeword
+        mkdir -p temp/backend temp/wakeword temp/vosk
         # Copy executables
         cp dist/backend_modified.app temp/backend/
         cp assets/wakeword/dist/wakeword_helper temp/wakeword/
+        cp dist/vosk-server temp/vosk/
+        cp dist/vosk-streaming-server temp/vosk/
         # Create DMGs
         hdiutil create -volname "Backend Modified" -srcfolder temp/backend -ov -format UDZO backend_modified.dmg
         hdiutil create -volname "Wakeword Helper" -srcfolder temp/wakeword -ov -format UDZO wakeword_helper.dmg
+        hdiutil create -volname "Vosk Servers" -srcfolder temp/vosk -ov -format UDZO vosk-servers.dmg
     
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
@@ -88,6 +117,7 @@ jobs:
         path: |
           backend_modified.dmg
           wakeword_helper.dmg
+          vosk-servers.dmg
 
   build-linux:
     runs-on: ubuntu-latest
@@ -107,7 +137,8 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pyinstaller pillow mss pyautogui google-generativeai python-dotenv
+        pip install -r requirements.txt
+        pip install pyinstaller
     
     - name: Build backend_modified.AppImage
       run: |
@@ -129,10 +160,41 @@ jobs:
         EOF
         chmod +x AppImage/wakeword_helper.AppImage
     
+    - name: Build vosk-server
+      run: |
+        pyinstaller --onefile --console --name vosk-server vosk-server.py
+    
+    - name: Build vosk-streaming-server
+      run: |
+        pyinstaller --onefile --console --name vosk-streaming-server vosk-streaming-server.py
+    
+    - name: Create Vosk AppImage wrappers
+      run: |
+        mkdir -p AppImage/vosk
+        cp dist/vosk-server AppImage/vosk/
+        cp dist/vosk-streaming-server AppImage/vosk/
+        cat > AppImage/vosk-server.AppImage << 'EOF'
+        #!/bin/bash
+        HERE="$(dirname "$(readlink -f "${0}")")"
+        export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH}"
+        exec "${HERE}/vosk/vosk-server" "$@"
+        EOF
+        cat > AppImage/vosk-streaming-server.AppImage << 'EOF'
+        #!/bin/bash
+        HERE="$(dirname "$(readlink -f "${0}")")"
+        export LD_LIBRARY_PATH="${HERE}/lib:${LD_LIBRARY_PATH}"
+        exec "${HERE}/vosk/vosk-streaming-server" "$@"
+        EOF
+        chmod +x AppImage/*.AppImage
+    
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4
       with:
         name: python-linux
         path: |
           dist/backend_modified
+          dist/vosk-server
+          dist/vosk-streaming-server
           AppImage/wakeword_helper.AppImage
+          AppImage/vosk-server.AppImage
+          AppImage/vosk-streaming-server.AppImage

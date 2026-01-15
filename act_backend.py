@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import re
+import platform
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple, List
 from datetime import datetime
@@ -26,21 +27,43 @@ if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv  # type: ignore
+except ImportError:
+    def load_dotenv():
+        pass
+    print("Warning: python-dotenv not found. Please install: pip install python-dotenv", file=sys.stderr)
 
 try:
     GUI_AVAILABLE = False
     
-    import mss
     try:
-        import pyperclip
+        import mss  # type: ignore
     except ImportError:
-        pyperclip = None
-    from PIL import Image, ImageDraw, ImageFont
-    import google.generativeai as genai
+        mss = None
+        print("Warning: mss not found. Please install: pip install mss", file=sys.stderr)
     
     try:
-        import pyautogui
+        import pyperclip  # type: ignore
+    except ImportError:
+        pyperclip = None
+    
+    try:
+        from PIL import Image, ImageDraw, ImageFont  # type: ignore
+    except ImportError:
+        Image = None
+        ImageDraw = None
+        ImageFont = None
+        print("Warning: Pillow not found. Please install: pip install Pillow", file=sys.stderr)
+    
+    try:
+        import google.generativeai as genai  # type: ignore
+    except ImportError:
+        genai = None
+        print("Warning: google.generativeai not found. Please install: pip install google-generativeai", file=sys.stderr)
+    
+    try:
+        import pyautogui  # type: ignore
         GUI_AVAILABLE = True
     except ImportError:
         pyautogui = None
@@ -49,7 +72,6 @@ try:
 except ImportError as e:
     print(f"Missing dependency: {e}", file=sys.stderr)
     print("Please run: pip install -r requirements.txt", file=sys.stderr)
-    sys.exit(1)
 
 load_dotenv()
 
@@ -64,105 +86,87 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Control, an intelligent AI assistant that can:
-1. ANSWER QUESTIONS: Respond to queries, provide information, explanations
-2. EXECUTE TASKS: Control computer - click, type, open apps, manipulate files
+SYSTEM_PROMPT = """You are Control (Act Mode), an intelligent AI assistant designed for GUI automation and task execution.
 
-**SCREEN CONTEXT:**
-You will receive screen dimensions (width x height) and cursor position (x, y) with each screenshot.
-- Use these to understand the available screen space
-- Cursor position shows where the user's mouse currently is
-- Calculate coordinates precisely within the screen bounds (0,0 is top-left, max is bottom-right)
-- The cursor is marked with a RED CIRCLE on screenshots for visual reference
+**YOUR ROLE:**
+- You are an AGENTIC AI that EXECUTES TASKS on the user's computer.
+- You can make plans, make decisions, and adapt strategies to complete tasks to user satisfaction.
+- You DO NOT answer general questions (e.g., "What is the capital of France?").
+- If the request is a task (e.g., "Open Calculator", "Check emails"), EXECUTE IT immediately.
+- If the request is a question, REJECT IT and ask the user to switch to "Ask" mode.
+- You will receive the operating system type in screen context - use OS-specific commands and navigation patterns.
 
-**DETERMINE REQUEST TYPE:**
-- QUESTION: "What is X?", "How do I?", "Explain", "Tell me about", "Why is", "Information requests"
-  → Respond naturally with information/explanation
-- TASK: "Open X", "Create Y", "Send message", "Move file", "Click button", "Action requests" e.t.c
-  → Execute computer actions
+**RESPONSE FORMAT:**
+- Always respond with a JSON object.
+- If you can execute the task, provide the plan and actions.
+- If it is not a task, return a specialized error/message.
 
-**FOR QUESTIONS - RESPOND WITH:**
-{
-  "type": "question",
-  "response": "Your detailed answer to the user",
-  "requires_action": false
-}
-
-**FOR TASKS - RESPOND WITH:**
+**TASK RESPONSE FORMAT:**
 {
   "type": "task",
-  "analysis": "Brief analysis of current state, cursor position, and optimal approach",
-  "plan": "Concise step-by-step plan",
+  "analysis": "Current UI state and strategy (1 sentence)",
+  "plan": "Step-by-step action plan",
   "actions": [
     {
       "step": 1,
-      "description": "Brief description",
+      "description": "Action description",
       "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|analyze_ui",
       "parameters": {},
       "verification": {
-        "expected_outcome": "What should happen after this action",
+        "expected_outcome": "Specific change that should occur",
         "verification_method": "visual|terminal_output|window_check",
-        "success_indicators": ["indicator1", "indicator2"]
+        "success_indicators": ["visual marker 1"]
       }
     }
   ]
 }
 
-**CRITICAL: VERIFICATION REQUIREMENTS**
-Every action MUST include verification details:
-- expected_outcome: Clear description of what should change
-- verification_method: How to verify (visual check, terminal output, etc.)
-- success_indicators: Specific things to look for (button appeared, text changed, window opened, etc.)
+**SCREEN COORDINATES:**
+- Screen: (0,0) = top-left, max = bottom-right
+- Cursor marked with RED CIRCLE on screenshots
+- Use exact pixel coordinates from analyze_ui results
+- Always validate coordinates are within screen bounds
 
-**TASK PRINCIPLES:**
-- System Tasks (OS level): Use terminal for opening apps, file operations, folder manipulation, system commands
-- Application Tasks: Simulate real user - click, type, shortcuts
-- **MANDATORY WORKFLOW FOR ALL UI INTERACTIONS**: 
-  1. focus_window - Ensure correct app is focused
-  2. analyze_ui - Map ALL interactive elements with coordinates
-  3. Execute action using coordinates from analyze_ui
-  4. VERIFY success before proceeding to next action
-- ALWAYS re-analyze UI if verification fails or UI state changes
-- Each action must be verified before moving to next step
-- If verification fails, retry action up to 3 times with UI reanalysis
-- COORDINATE PRECISION: Always use fresh analyze_ui results
-- Never proceed if verification shows failure
-
-**ACTIONS:**
-1. screenshot - Capture screen with cursor. params: {}
-2. analyze_ui - Analyze application UI and map elements. params: {"app_name": "Chrome", "elements_to_find": ["search bar", "buttons"], "full_analysis": true}
-   - full_analysis: if true, maps entire screen comprehensively
-3. click - Single click. params: {"coordinates": [x, y]}
-4. double_click - Double click. params: {"coordinates": [x, y]}
-5. mouse_move - Move cursor. params: {"coordinates": [x, y]}
-6. drag - Click and drag. params: {"coordinates": [x, y], "end_coordinates": [x2, y2], "duration": 0.5}
-7. scroll - Scroll wheel. params: {"coordinates": [x, y], "direction": "up|down", "amount": 3}
-8. type - Type text. params: {"text": "hello", "clear_first": false}
-9. key_press - Keys/shortcuts. params: {"keys": ["ctrl", "a"], "combo": true}
-10. terminal - OS command. params: {"command": "command"}
-11. wait - Pause. params: {"duration": 1}
-12. focus_window - Switch to app window. params: {"app_name": "Chrome", "method": "alt_tab|search|terminal", "verify_focus": true}
+**CRITICAL GUI EXECUTION RULES:**
+1. ALWAYS start with analyze_ui to map interactive elements
+2. Use EXACT coordinates from analyze_ui - never estimate
+3. Focus window BEFORE clicking within it
+4. VERIFY each action succeeds before proceeding
+5. If verification fails 3x, try completely different approach
+6. Re-analyze UI after state changes
 
 **VERIFICATION RESPONSE FORMAT:**
-When asked to verify an action, respond with:
 {
   "verification_status": "success|failure|partial",
   "outcome_achieved": true/false,
-  "observations": "What you see on screen",
-  "indicators_found": ["list of success indicators found"],
-  "indicators_missing": ["list of expected indicators not found"],
-  "retry_suggestion": "If failed, what to try differently",
-  "ui_changed": true/false,
+  "observations": "What you observe on screen",
+  "indicators_found": ["List of expected indicators you see"],
+  "indicators_missing": ["Any indicators not visible"],
+  "retry_suggestion": "Alternative approach if failed",
   "requires_reanalysis": true/false
 }
 
-**RULES:**
-- ALWAYS verify each action before proceeding
-- Re-analyze UI if verification shows changes or failures
-- Never use stale coordinates - always get fresh analyze_ui before clicking
-- Maximum 3 retries per action with fresh analysis each time
-- If action repeatedly fails, try completely different approach
-- Speed is secondary to correctness and verification"""
+**ACTION REFERENCE:**
+- screenshot: Capture current screen with cursor
+- analyze_ui: Analyze screenshot to identify specific element location (returns coordinates for the element you identify, not all elements)
+- click [x,y]: Single click at coordinates
+- type text: Input text (use clear_first: true to replace)
+- key_press: Keyboard shortcuts (ctrl+c, alt+tab, etc)
+- focus_window app: Bring app to focus
+- terminal command: Execute OS command (use when GUI automation is insufficient or more efficient)
+- wait duration: Pause for UI loading
+- execute_pyautogui: Execute any valid PyAutoGUI command string dynamically (for advanced actions)
+
+**DECISION MAKING:**
+- Use terminal commands when: batch operations, file system operations, system configuration, or when more reliable than GUI
+- Use PyAutoGUI when: GUI interactions are required, visual elements need to be clicked, or when terminal is not suitable
+- Always prefer the most reliable and efficient method for the task
+
+**HUMAN-IN-THE-LOOP:**
+- For high-risk actions (file deletion, system changes, network operations), you may request user confirmation
+- The system will prompt the user with the action details and wait for approval
+- Use this sparingly and only for truly dangerous operations
+"""
 
 
 class FrontendIntegration:
@@ -180,7 +184,6 @@ class FrontendIntegration:
                 "data": data,
                 "timestamp": datetime.now().isoformat()
             }
-            # Send to stdout for frontend to capture
             print(f"FRONTEND_MESSAGE:{json.dumps(message)}")
             sys.stdout.flush()
         except Exception as e:
@@ -246,17 +249,14 @@ class ActionVerifier:
         try:
             verification_info = action.get('verification', {})
             if not verification_info:
-                # No verification specified, assume success
                 return {
                     "verified": True,
                     "status": "success",
                     "message": "No verification specified, assuming success"
                 }
             
-            # Take screenshot after action
             screenshot_path, metadata = self.take_screenshot()
             
-            # Build verification prompt
             verification_prompt = f"""VERIFICATION TASK:
 
 Action executed: {action.get('action')}
@@ -284,7 +284,6 @@ Respond ONLY with JSON in this exact format:
   "requires_reanalysis": true/false
 }}"""
             
-            # Use simple content for verification (no system context needed)
             verification_response = self._send_verification_to_llm(
                 verification_prompt, 
                 screenshot_path, 
@@ -321,7 +320,6 @@ Respond ONLY with JSON in this exact format:
         try:
             content_parts = []
             
-            # Add screen context
             screen_context = f"""SCREEN CONTEXT:
 - Screen: {metadata.get('screen_width')}x{metadata.get('screen_height')}
 - Cursor: ({metadata.get('cursor_x')}, {metadata.get('cursor_y')})
@@ -329,7 +327,6 @@ Respond ONLY with JSON in this exact format:
 """
             content_parts.append(screen_context + prompt)
             
-            # Add screenshot
             if screenshot_path and os.path.exists(screenshot_path):
                 with open(screenshot_path, 'rb') as f:
                     image_data = f.read()
@@ -372,25 +369,24 @@ class ComputerUseAgentBackend:
         self.screenshot_dir.mkdir(exist_ok=True)
         self.execution_history = []
         
-        # Frontend integration
         self.frontend = FrontendIntegration()
-        
-        # Get screen size
         self.screen_size = self.get_screen_size()
-        
         self.setup_gemini_api()
         self.setup_computer_control()
-        
-        # Initialize verifier
         self.verifier = ActionVerifier(
             self.model,
             self.take_screenshot,
             lambda: {"screen_width": self.screen_size[0], "screen_height": self.screen_size[1]}
         )
         
-        # Configuration
-        self.max_action_retries = 3  # Retries per individual action
-        self.verification_wait = 0.5  # Wait before verification
+        self.max_action_retries = 3
+        self.verification_wait = 0.5
+        
+        self.verification_wait = 0.5
+        
+        # Threading support for cancellation
+        self.stop_event = threading.Event()
+        self.execution_thread = None
         
         logger.info(f"Control Backend initialized - Screen: {self.screen_size[0]}x{self.screen_size[1]}")
     
@@ -421,6 +417,11 @@ class ComputerUseAgentBackend:
             return (0, 0)
     
     def setup_gemini_api(self):
+        if genai is None:
+            logger.error("google.generativeai not available. Please install: pip install google-generativeai")
+            self.model = None
+            return
+        
         api_key = os.getenv('GEMINI_FREE_KEY')
         if not api_key:
             api_key = "test_api_key"
@@ -529,7 +530,6 @@ class ComputerUseAgentBackend:
             if retry > 0:
                 print(f"[RETRY {retry}/{max_retries-1}] Attempting action again...\n")
                 
-                # If verification suggested reanalysis, do it
                 if ui_context.get('requires_reanalysis'):
                     print(f"[REANALYSIS] UI changed, re-analyzing before retry...")
                     reanalysis_action = {
@@ -542,16 +542,11 @@ class ComputerUseAgentBackend:
                     }
                     reanalysis_result = self.execute_action(reanalysis_action)
                     if reanalysis_result.get('success'):
-                        # Update action with new coordinates if applicable
                         if reanalysis_result.get('ui_elements'):
                             print(f"[REANALYSIS] Found {len(reanalysis_result['ui_elements'])} elements")
-                            # Store for potential coordinate updates
                             ui_context['ui_elements'] = reanalysis_result['ui_elements']
             
-            # Notify frontend of action start
             self.frontend.send_action_start(action.get('description', 'Executing action'))
-            
-            # Execute the action
             print(f"[EXECUTE] {action.get('description', 'Action')}")
             result = self.execute_action(action)
             
@@ -568,10 +563,7 @@ class ComputerUseAgentBackend:
                         "final_result": result
                     }
             
-            # Wait before verification
             time.sleep(self.verification_wait)
-            
-            # Verify the action
             print(f"[VERIFY] Checking if action succeeded...")
             verification = self.verifier.verify_action(action, result)
             
@@ -688,50 +680,50 @@ class ComputerUseAgentBackend:
             
             elif action_type == 'analyze_ui':
                 app_name = params.get('app_name', 'application')
-                elements_to_find = params.get('elements_to_find', ['buttons', 'input fields'])
-                full_analysis = params.get('full_analysis', True)
+                element_to_find = params.get('element_to_find', '')
+                description = params.get('description', '')
                 
                 screenshot_path, metadata = self.take_screenshot()
                 
-                analysis_prompt = f"""Analyze the '{app_name}' application UI.
+                analysis_prompt = f"""Analyze the screenshot to locate a specific UI element.
 
-{"Perform COMPREHENSIVE analysis of ALL interactive elements on screen." if full_analysis else f"Focus on finding: {', '.join(elements_to_find)}"}
+Application: '{app_name}'
+Element to find: {element_to_find if element_to_find else 'The element described in the task'}
+Description: {description if description else 'Identify the element needed for the current task'}
 
-For EACH interactive element, provide:
-1. Element name/description
-2. EXACT coordinates [x, y] for clicking
-3. Element type
-4. Current state
-5. Location description (top-left, center, bottom-right, etc.)
+Your task: Look at the screenshot and identify the EXACT pixel coordinates [x, y] where this element is located.
 
-Be EXTREMELY PRECISE with coordinates. Consider screen dimensions: {metadata['screen_width']}x{metadata['screen_height']}
+Screen dimensions: {metadata['screen_width']}x{metadata['screen_height']}
+Cursor position: ({metadata.get('cursor_x', 0)}, {metadata.get('cursor_y', 0)})
 
 Respond ONLY with JSON:
 {{
-  "ui_elements": [
-    {{
-      "name": "Element name",
-      "type": "button|input|link|icon|menu",
-      "coordinates": [x, y],
-      "state": "enabled|disabled|focused",
-      "description": "Detailed description and location"
-    }}
-  ],
-  "app_ready": true/false,
-  "layout_description": "Overall UI layout description",
-  "notes": "Any important observations"
+  "element_found": true/false,
+  "element_name": "Name/description of the element",
+  "coordinates": [x, y],
+  "element_type": "button|input|link|icon|menu|text|other",
+  "state": "enabled|disabled|focused|visible",
+  "description": "Brief description of the element and its location",
+  "confidence": "high|medium|low"
 }}"""
                 
                 ui_analysis = self.send_to_llm(analysis_prompt, screenshot_path, metadata)
                 
                 if ui_analysis.get('status') != 'error':
-                    ui_elements = ui_analysis.get('ui_elements', [])
-                    result["success"] = True
-                    result["message"] = f"Found {len(ui_elements)} UI elements"
+                    element_found = ui_analysis.get('element_found', False)
+                    coordinates = ui_analysis.get('coordinates', [])
+                    result["success"] = element_found and len(coordinates) == 2
+                    result["message"] = f"Element found at {coordinates}" if result["success"] else "Element not found"
                     result["screenshot"] = screenshot_path
                     result["metadata"] = metadata
-                    result["ui_elements"] = ui_elements
-                    result["layout"] = ui_analysis.get('layout_description', '')
+                    result["element"] = {
+                        "name": ui_analysis.get('element_name', ''),
+                        "coordinates": coordinates,
+                        "type": ui_analysis.get('element_type', ''),
+                        "state": ui_analysis.get('state', ''),
+                        "description": ui_analysis.get('description', ''),
+                        "confidence": ui_analysis.get('confidence', 'medium')
+                    }
                 else:
                     result["message"] = "Failed to analyze UI"
             
@@ -835,14 +827,23 @@ Respond ONLY with JSON:
             
             elif action_type == 'mouse_move':
                 if GUI_AVAILABLE and pyautogui:
-                    x, y = params.get('coordinates', [0, 0])
-                    pyautogui.moveTo(x, y)
-                    time.sleep(0.2)
-                    screenshot_path, metadata = self.take_screenshot()
-                    result["success"] = True
-                    result["message"] = f"Moved to ({x}, {y})"
-                    result["screenshot"] = screenshot_path
-                    result["metadata"] = metadata
+                    coordinates = params.get('coordinates')
+                    if not coordinates or len(coordinates) < 2:
+                        result["success"] = False
+                        result["message"] = "Coordinates required for mouse_move"
+                    else:
+                        x, y = coordinates[0], coordinates[1]
+                        if x < 0 or y < 0:
+                            result["success"] = False
+                            result["message"] = "Invalid coordinates: cannot move to negative position"
+                        else:
+                            pyautogui.moveTo(x, y)
+                            time.sleep(0.2)
+                            screenshot_path, metadata = self.take_screenshot()
+                            result["success"] = True
+                            result["message"] = f"Moved to ({x}, {y})"
+                            result["screenshot"] = screenshot_path
+                            result["metadata"] = metadata
                 else:
                     result["message"] = "GUI not available"
             
@@ -865,21 +866,67 @@ Respond ONLY with JSON:
             
             elif action_type == 'drag':
                 if GUI_AVAILABLE and pyautogui:
-                    start_x, start_y = params.get('coordinates', [0, 0])
-                    end_x, end_y = params.get('end_coordinates', [0, 0])
-                    duration = params.get('duration', 0.5)
-                    button = params.get('button', 'left')
-                    
-                    pyautogui.moveTo(start_x, start_y)
-                    pyautogui.drag(end_x - start_x, end_y - start_y, duration=duration, button=button)
-                    time.sleep(0.3)
-                    screenshot_path, metadata = self.take_screenshot()
-                    result["success"] = True
-                    result["message"] = f"Dragged from ({start_x}, {start_y}) to ({end_x}, {end_y})"
-                    result["screenshot"] = screenshot_path
-                    result["metadata"] = metadata
+                    coordinates = params.get('coordinates')
+                    end_coordinates = params.get('end_coordinates')
+                    if not coordinates or len(coordinates) < 2 or not end_coordinates or len(end_coordinates) < 2:
+                        result["success"] = False
+                        result["message"] = "Both start and end coordinates required for drag"
+                    else:
+                        start_x, start_y = coordinates[0], coordinates[1]
+                        end_x, end_y = end_coordinates[0], end_coordinates[1]
+                        if start_x < 0 or start_y < 0 or end_x < 0 or end_y < 0:
+                            result["success"] = False
+                            result["message"] = "Invalid coordinates: cannot drag to/from negative position"
+                        else:
+                            duration = params.get('duration', 0.5)
+                            button = params.get('button', 'left')
+                            pyautogui.moveTo(start_x, start_y)
+                            pyautogui.drag(end_x - start_x, end_y - start_y, duration=duration, button=button)
+                            time.sleep(0.3)
+                            screenshot_path, metadata = self.take_screenshot()
+                            result["success"] = True
+                            result["message"] = f"Dragged from ({start_x}, {start_y}) to ({end_x}, {end_y})"
+                            result["screenshot"] = screenshot_path
+                            result["metadata"] = metadata
                 else:
                     result["message"] = "GUI not available"
+            
+            elif action_type == 'execute_pyautogui':
+                if GUI_AVAILABLE and pyautogui:
+                    command = params.get('command', '')
+                    if not command:
+                        result["success"] = False
+                        result["message"] = "PyAutoGUI command string required"
+                    else:
+                        try:
+                            safe_globals = {'pyautogui': pyautogui, '__builtins__': __builtins__}
+                            safe_locals = {}
+                            exec(f"result_value = {command}", safe_globals, safe_locals)
+                            time.sleep(0.2)
+                            screenshot_path, metadata = self.take_screenshot()
+                            result["success"] = True
+                            result["message"] = f"Executed PyAutoGUI command: {command}"
+                            result["screenshot"] = screenshot_path
+                            result["metadata"] = metadata
+                        except Exception as e:
+                            result["success"] = False
+                            result["message"] = f"PyAutoGUI execution error: {str(e)}"
+                else:
+                    result["message"] = "GUI not available"
+            
+            elif action_type == 'human_in_the_loop':
+                action_description = params.get('action_description', '')
+                risk_level = params.get('risk_level', 'medium')
+                if not action_description:
+                    result["success"] = False
+                    result["message"] = "Action description required for human-in-the-loop"
+                else:
+                    result["success"] = True
+                    result["message"] = "Human-in-the-loop requested"
+                    result["requires_approval"] = True
+                    result["action_description"] = action_description
+                    result["risk_level"] = risk_level
+                    result["user_approved"] = False
             
             else:
                 result["message"] = f"Unknown action: {action_type}"
@@ -890,7 +937,7 @@ Respond ONLY with JSON:
         
         return result
     
-    def send_to_llm(self, prompt: str, screenshot_path: str = None, metadata: Dict[str, Any] = None, retry_info: str = None) -> Dict[str, Any]:
+    def send_to_llm(self, prompt: str, screenshot_path: str = None, metadata: Dict[str, Any] = None, retry_info: str = None, attachments: list = None) -> Dict[str, Any]:
         try:
             if not self.model:
                 return {"status": "error", "actions": []}
@@ -898,7 +945,10 @@ Respond ONLY with JSON:
             content_parts = []
             
             if metadata:
+                os_type = platform.system()
+                os_version = platform.version()
                 screen_context = f"""SCREEN CONTEXT:
+- Operating System: {os_type} {os_version}
 - Screen Resolution: {metadata.get('screen_width', self.screen_size[0])}x{metadata.get('screen_height', self.screen_size[1])}
 - Current Cursor Position: ({metadata.get('cursor_x', 0)}, {metadata.get('cursor_y', 0)})
 - Cursor is marked with RED CIRCLE on the screenshot
@@ -908,6 +958,49 @@ Respond ONLY with JSON:
             
             if retry_info:
                 content_parts.append(f"RETRY NOTICE: {retry_info}\n\n")
+            
+            if attachments:
+                for att in attachments:
+                    if att.get('path') and os.path.exists(att.get('path')):
+                        mime_types = {
+                            'png': 'image/png', 
+                            'jpg': 'image/jpeg', 
+                            'jpeg': 'image/jpeg', 
+                            'webp': 'image/webp',
+                            'gif': 'image/gif',
+                            'bmp': 'image/bmp'
+                        }
+                        ext = att.get('path').split('.')[-1].lower()
+                        if ext in mime_types:
+                            try:
+                                with open(att.get('path'), 'rb') as f:
+                                    image_data = f.read()
+                                content_parts.append({
+                                    "mime_type": mime_types[ext],
+                                    "data": image_data
+                                })
+                                logger.info(f"Added image attachment to LLM: {att.get('name', 'unknown')} ({len(image_data)} bytes)")
+                            except Exception as e:
+                                logger.error(f"Failed to read image attachment {att.get('path')}: {e}")
+                        elif ext == 'pdf':
+                            try:
+                                with open(att.get('path'), 'rb') as f:
+                                    pdf_data = f.read()
+                                content_parts.append({
+                                    "mime_type": "application/pdf",
+                                    "data": pdf_data
+                                })
+                                logger.info(f"Added PDF attachment to LLM: {att.get('name', 'unknown')} ({len(pdf_data)} bytes)")
+                            except Exception as e:
+                                logger.error(f"Failed to read PDF attachment {att.get('path')}: {e}")
+                        else:
+                            try:
+                                with open(att.get('path'), 'r', encoding='utf-8') as f:
+                                    text_content = f.read()
+                                content_parts.append(f"\n[Attachment: {att.get('name', 'file')}]\n{text_content}\n")
+                                logger.info(f"Added text attachment to LLM: {att.get('name', 'unknown')}")
+                            except Exception as e:
+                                logger.warning(f"Could not read attachment as text: {e}")
             
             content_parts.append(prompt)
             
@@ -933,20 +1026,41 @@ Respond ONLY with JSON:
                     raise ValueError("No JSON found")
             
             llm_response = json.loads(json_str)
-            logger.info("LLM response received")
+            logger.info("LLM response received: %s", json.dumps(llm_response)[:1000])
+
+            if not isinstance(llm_response, dict) or 'type' not in llm_response:
+                logger.error("LLM returned invalid structure, missing 'type'. Raw response: %s", response_text)
+                return {"status": "error", "actions": []}
+
+            if llm_response.get('type') == 'task':
+                actions = llm_response.get('actions')
+                if not isinstance(actions, list) or len(actions) == 0:
+                    logger.error("LLM task response missing actions. Raw: %s", response_text)
+                    return {"status": "error", "actions": []}
+
+                for a in actions:
+                    if not isinstance(a, dict) or 'action' not in a or 'description' not in a:
+                        logger.error("LLM action item malformed: %s", json.dumps(a))
+                        return {"status": "error", "actions": []}
+
             return llm_response
         
         except Exception as e:
             logger.error(f"LLM error: {e}")
             return {"status": "error", "actions": []}
     
-    def execute_task(self, user_request: str) -> None:
+    def execute_task(self, user_request: str, attachments: list = None) -> None:
         print(f"\n{'='*80}")
         print(f" REQUEST: {user_request}")
+        if attachments:
+            print(f" ATTACHMENTS: {len(attachments)} file(s)")
         print(f"{'='*80}\n")
         
-        # Notify frontend of task start
         self.frontend.send_task_start(user_request)
+        try:
+            self.frontend.send_action_start(user_request)
+        except Exception as e:
+            logger.error(f"Failed to send action_start: {e}")
         
         screenshot_path, metadata = self.take_screenshot()
         if not screenshot_path:
@@ -956,15 +1070,15 @@ Respond ONLY with JSON:
         
         print(f"[SCREEN] {metadata['screen_width']}x{metadata['screen_height']} | Cursor: ({metadata['cursor_x']}, {metadata['cursor_y']})\n")
         
+        print(f"[SCREEN] {metadata['screen_width']}x{metadata['screen_height']} | Cursor: ({metadata['cursor_x']}, {metadata['cursor_y']})\n")
+        
         prompt = f"""User Request: {user_request}
 
-Determine if this is a QUESTION or a TASK:
-- QUESTION: Information request, explanation, asking for knowledge 
-- TASK: Action request, computer control needed
-
-Respond with appropriate JSON format with verification details for tasks."""
+Analyze the current screen state and the user request.
+Provide a step-by-step PLAN to execute this task.
+Respond with the JSON TASK structure defined in the system prompt."""
         
-        initial_response = self.send_to_llm(prompt, screenshot_path, metadata)
+        initial_response = self.send_to_llm(prompt, screenshot_path, metadata, attachments=attachments)
         
         if initial_response.get('status') == 'error':
             print(f"[ERROR] Failed to process request\n")
@@ -972,27 +1086,14 @@ Respond with appropriate JSON format with verification details for tasks."""
             self.cleanup_screenshots()
             return
         
-        request_type = initial_response.get('type', 'unknown')
-        
-        if request_type == 'question':
-            print(f"[TYPE] Question detected\n")
-            response = initial_response.get('response', '')
-            print(f"[ANSWER]\n{response}\n")
-            print(f"{'='*80}\n")
-            
-            # Send response to frontend
-            self.frontend.send_response(response, is_action=False)
-            self.cleanup_screenshots()
-            return
-        
-        elif request_type == 'task':
-            print(f"[TYPE] Task detected\n")
-            self._execute_task_with_verification(user_request, initial_response, screenshot_path, metadata)
-        
-        else:
-            print(f"[ERROR] Unknown request type: {request_type}\n")
-            self.frontend.send_error(f"Unknown request type: {request_type}")
-            self.cleanup_screenshots()
+        if initial_response.get('type') != 'task':
+             print(f"[ERROR] LLM did not return a task plan. Response type: {initial_response.get('type')}\n")
+             self.frontend.send_error("I can only perform actions in Act mode. Please switch to Ask mode for questions.")
+             self.cleanup_screenshots()
+             return
+
+        print(f"[TYPE] Task detected\n")
+        self._execute_task_with_verification(user_request, initial_response, screenshot_path, metadata)
     
     def _execute_task_with_verification(self, task: str, llm_response: Dict[str, Any], initial_screenshot: str, initial_metadata: Dict[str, Any]) -> None:
         """Execute task with per-action verification"""
@@ -1004,12 +1105,21 @@ Respond with appropriate JSON format with verification details for tasks."""
         print(f"[PLAN] {plan}\n")
         print(f"[EXECUTING] {len(actions)} steps with verification\n")
         
+        self.frontend.send_action_start(f"{task} ({len(actions)} steps)")
         step_results = []
         current_step = 0
         ui_context = {}
         task_success = True
         
         while current_step < len(actions):
+            if self.stop_event.is_set():
+                print(f"\n{'='*80}")
+                print(f" [CANCELLED] Task stopped by user")
+                print(f"{'='*80}\n")
+                self.frontend.send_action_complete(task, False, "Task cancelled by user")
+                self.frontend.send_task_complete(task, False)
+                return
+
             action = actions[current_step]
             step_num = current_step + 1
             
@@ -1017,7 +1127,13 @@ Respond with appropriate JSON format with verification details for tasks."""
             print(f"[STEP {step_num}/{len(actions)}] {action.get('description', 'Executing action')}")
             print(f"{'─'*80}")
             
-            # Execute action with verification and retries
+            self.frontend.send_message("action_step", {
+                "step": step_num,
+                "total_steps": len(actions),
+                "description": action.get('description', 'Executing action'),
+                "action_type": action.get('action')
+            })
+            
             result = self.execute_action_with_verification(action, attempt=step_num)
             
             step_results.append({
@@ -1027,7 +1143,6 @@ Respond with appropriate JSON format with verification details for tasks."""
                 "verified": result.get('verified', False)
             })
             
-            # Store UI context if this was an analyze_ui action
             if action.get('action') == 'analyze_ui' and result.get('success'):
                 ui_context['ui_elements'] = result.get('result', {}).get('ui_elements', [])
                 ui_context['layout'] = result.get('result', {}).get('layout', '')
@@ -1040,9 +1155,7 @@ Respond with appropriate JSON format with verification details for tasks."""
                 print(f"[STEP_FAILED] ✗ Step {step_num} could not be completed")
                 task_success = False
                 
-                # Ask LLM for recovery strategy
                 print(f"\n[RECOVERY] Requesting alternative approach...")
-                
                 recovery_screenshot, recovery_metadata = self.take_screenshot()
                 
                 recovery_prompt = f"""Task: {task}
@@ -1078,20 +1191,25 @@ Respond ONLY with JSON for a TASK with NEW actions starting from the failed step
                     print(f"[RECOVERY_PLAN] {recovery_strategy}")
                     print(f"[NEW_ACTIONS] {len(recovery_actions)} alternative steps\n")
                     
-                    # Replace remaining actions with recovery actions
                     actions = actions[:current_step] + recovery_actions
-                    
-                    # Continue with next step (don't increment current_step, retry same position)
                 else:
                     print(f"[ERROR] Could not generate recovery plan. Aborting task.\n")
                     break
             
             time.sleep(0.3)
         
-        # Final verification
         print(f"\n{'='*80}")
         print(f" FINAL VERIFICATION")
         print(f"{'='*80}\n")
+        
+        if task_success:
+            completion_message = f"Task completed successfully in {len(actions)} steps"
+            self.frontend.send_action_complete(task, True, completion_message)
+            print(f"[SUCCESS] {completion_message}")
+        else:
+            completion_message = "Task could not be completed - recovery strategies exhausted"
+            self.frontend.send_action_complete(task, False, completion_message)
+            print(f"[FAILED] {completion_message}")
         
         final_screenshot, final_metadata = self.take_screenshot()
         
@@ -1134,12 +1252,29 @@ Respond ONLY with JSON:
         print(f"Completion: {completion_pct}%")
         print(f"{'='*80}\n")
         
-        # Notify frontend of task completion
         self.frontend.send_task_complete(task, completed)
         
-        # Send final response to frontend
-        final_response = verification.get('response', 'Task execution completed.')
-        self.frontend.send_response(final_response, is_action=True)
+        try:
+            quota_issue = False
+            for r in step_results:
+                msg = r.get('result', {}).get('message', '') or ''
+                if 'quota' in msg.lower() or 'exceeded' in msg.lower():
+                    quota_issue = True
+                    break
+            if not quota_issue:
+                vmsg = str(verification.get('state', '') or '')
+                if 'quota' in vmsg.lower() or 'exceeded' in vmsg.lower():
+                    quota_issue = True
+
+            if quota_issue:
+                err_msg = 'Task failed due to LLM quota limits. Please check API usage or try again later.'
+                self.frontend.send_response(err_msg, is_action=False)
+                self.frontend.send_error(err_msg)
+            final_response = verification.get('response', 'Task execution completed.')
+            self.frontend.send_response(final_response, is_action=True)
+        except Exception as e:
+            logger.error(f"Failed to send final response: {e}")
+            self.frontend.send_response('Task execution completed.', is_action=True)
         
         self.cleanup_screenshots()
     
@@ -1158,32 +1293,42 @@ Respond ONLY with JSON:
         try:
             while self.running:
                 try:
-                    # Read from stdin for frontend messages
                     line = sys.stdin.readline()
                     if not line:
                         break
                     
                     line = line.strip()
                     if line.startswith('FRONTEND_REQUEST:'):
-                        # Extract JSON request
                         try:
                             request_json = line[len('FRONTEND_REQUEST:'):].strip()
                             request = json.loads(request_json)
                             
-                            # Support multiple request types from the frontend
                             if request.get('type') == 'execute_task':
+                                if self.execution_thread and self.execution_thread.is_alive():
+                                    self.frontend.send_error("Agent is busy with another task")
+                                    continue
+
+                                self.stop_event.clear()
                                 user_request = request.get('request', '')
-                                # If the request is an object with attachments, fold attachments into text context
+                                attachments = []
+                                text = ""
                                 if isinstance(user_request, dict):
                                     text = user_request.get('text', '') or ''
                                     attachments = user_request.get('attachments', [])
-                                    if attachments:
-                                        names = [a.get('name') for a in attachments]
-                                        text = text + '\n\nAttachments: ' + ', '.join(names)
-                                    self.execute_task(text)
                                 else:
-                                    if user_request:
-                                        self.execute_task(user_request)
+                                    text = user_request
+
+                                if text:
+                                    self.execution_thread = threading.Thread(
+                                        target=self.execute_task,
+                                        args=(text, attachments)
+                                    )
+                                    self.execution_thread.daemon = True
+                                    self.execution_thread.start()
+                            
+                            elif request.get('type') == 'cancel_task':
+                                logger.info("Received cancel request")
+                                self.stop_event.set()
                         
                         except json.JSONDecodeError as e:
                             logger.error(f"Failed to parse frontend request: {e}")

@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('entryAPI', {
     maximizeWindow: () => ipcRenderer.invoke('maximize-window'),
     closeWindow: () => ipcRenderer.invoke('close-window', 'entry'),
     
+    // Window dragging
+    dragWindow: (delta) => ipcRenderer.send('window-drag', delta),
+    
     // External links
     openWebsite: () => ipcRenderer.invoke('open-website'),
     

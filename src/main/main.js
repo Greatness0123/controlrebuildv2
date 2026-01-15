@@ -6,6 +6,15 @@ const isDev = require('electron-is-dev');
 
 app.disableHardwareAcceleration();
 
+// Global error handlers
+process.on('uncaughtException', (error) => {
+    console.error('[Main] Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[Main] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Import our custom modules
 const WindowManager = require('./window-manager');
 const HotkeyManager = require('./hotkey-manager');
@@ -13,7 +22,7 @@ const SecurityManager = require('./security-manager-fixed');
 const BackendManager = require('./backend-manager-fixed');
 const WakewordManager = require('./wakeword-manager');
 const EdgeTTSManager = require('./edge-tts');
-const TranscriptionService = require('./transcription-service');
+const VoskServerManager = require('./vosk-server-manager');
 const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
 
@@ -23,20 +32,37 @@ class ComputerUseAgent {
         this.isQuitting = false;
         this.isAuthenticated = false; // ✅ NEW: Track authentication state
         this.tray = null;
-        
+
         // Initialize managers
         this.windowManager = new WindowManager();
+        global.windowManager = this.windowManager; // Required for BackendManager broadcasting
         this.hotkeyManager = new HotkeyManager();
         this.securityManager = new SecurityManager();
         this.backendManager = new BackendManager();
         this.wakewordManager = new WakewordManager();
         this.edgeTTS = new EdgeTTSManager();
-        this.transcriptionService = new TranscriptionService();
+        this.voskServerManager = new VoskServerManager();
         this.settingsManager = new SettingsManager();
-        
+
         // Load persisted settings
         this.appSettings = this.settingsManager.getSettings();
-        
+        // Initialize defaults if not present
+        if (this.appSettings.autoSendAfterWakeWord === undefined) {
+            this.appSettings.autoSendAfterWakeWord = false;
+        }
+        if (!this.appSettings.lastMode) {
+            this.appSettings.lastMode = 'act';
+        }
+        if (this.appSettings.windowVisibility === undefined) {
+            this.appSettings.windowVisibility = true;
+        }
+        if (this.appSettings.wakeWordToggleChat === undefined) {
+            this.appSettings.wakeWordToggleChat = false;
+        }
+
+        // Make settings available to window manager
+        global.appSettings = this.appSettings;
+
         this.setupEventHandlers();
         this.setupIPCHandlers();
 
@@ -44,27 +70,84 @@ class ComputerUseAgent {
         process.on('hotkey-triggered', (payload) => {
             try {
                 const { event, data } = payload;
+                console.log(`[Main] hotkey-triggered: ${event}`, data || '');
+
                 switch (event) {
-                    case 'toggle-chat':
-                        // Hide settings when toggling chat
-                        this.windowManager.hideWindow('settings');
-                        
-                        // ✅ FIXED: Check authentication state instead of duplicating logic
+                    case 'wakeword-detected':
+                        // Optimize: Only hide settings if it might be visible (or let toggleChat handle it if needed)
+                        // Checking visibility via window manager state would be faster than OS call
+                        const settingsWin = this.windowManager.getWindow('settings');
+                        if (settingsWin && settingsWin.isVisible()) {
+                            this.windowManager.hideWindow('settings');
+                        }
+
                         if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
-                            // User needs to authenticate first - show PIN modal
-                            console.log('[Main] PIN required, requesting authentication');
+                            console.log('[Main] PIN required');
                             const mainWin = this.windowManager.getWindow('main');
                             if (mainWin && !mainWin.isDestroyed()) {
-                                this.windowManager.setInteractive(false); 
+                                this.windowManager.setInteractive(true);
                                 mainWin.webContents.send('request-pin-and-toggle');
                             }
                         } else {
-                            // User is authenticated or PIN disabled - just toggle
-                            console.log('[Main] User authenticated or PIN disabled, toggling chat');
+                            // FAST PATH: Handle chat toggle/show immediately
+
+                            // Check if wake word should toggle chat or just open it
+                            if (this.appSettings.wakeWordToggleChat) {
+                                // Toggle mode
+                                this.windowManager.toggleChat();
+
+                                // Only send wakeword-detected if chat became visible
+                                if (this.windowManager.chatVisible) {
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        chatWin.webContents.send('wakeword-detected');
+                                    }
+                                }
+                            } else {
+                                // Default behavior: Ensure open
+                                // Optimize: Check if already visible to avoid unnecessary show/focus calls if possible,
+                                // but we need to ensure focus, so show() is usually needed.
+                                // However, we can avoid the log spam.
+
+                                if (!this.windowManager.chatVisible) {
+                                    this.windowManager.showWindow('chat');
+                                } else {
+                                    // If already visible, just ensure focus (faster than full show flow)
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) chatWin.focus();
+                                }
+
+                                // Notify renderer
+                                const chatWin = this.windowManager.getWindow('chat');
+                                if (chatWin && !chatWin.isDestroyed()) {
+                                    chatWin.webContents.send('wakeword-detected');
+                                }
+                            }
+                        }
+                        break;
+                    case 'toggle-chat':
+                        console.log('[Main] Toggle chat event received');
+                        // Hide settings when toggling chat
+                        this.windowManager.hideWindow('settings');
+
+                        if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
+                            console.log('[Main] PIN required for toggle - requesting authentication');
+                            const mainWin = this.windowManager.getWindow('main');
+                            if (mainWin && !mainWin.isDestroyed()) {
+                                this.windowManager.setInteractive(true);
+                                mainWin.webContents.send('request-pin-and-toggle');
+                            }
+                        } else {
+                            console.log('[Main] Toggle chat - proceed to windowManager.toggleChat()');
                             this.windowManager.toggleChat();
                         }
                         break;
+                    case 'stop-action':
+                        console.log('[Main] Stop action event received');
+                        this.backendManager.stopTask();
+                        break;
                     case 'stop-task':
+                        console.log('[Main] Stop task event received');
                         this.backendManager.stopTask();
                         break;
                     default:
@@ -86,29 +169,57 @@ class ComputerUseAgent {
         });
     }
 
-   async onAppReady() {
+    async onAppReady() {
         try {
             console.log('[Main] Control starting...');
-            
+
             // Set up security and permissions
             await this.setupPermissions();
-            
+
             // Initialize all windows (they are created with visible: false and show: false)
             await this.windowManager.initializeWindows();
 
             // Show main overlay after all windows are initialized
             this.windowManager.showWindow('main');
-            
+
             // Set up global hotkeys
             this.hotkeyManager.setupHotkeys();
-            
+
             // Start backend process
             await this.backendManager.startBackend();
 
-            // âœ… Log loaded settings
+            // Start Vosk Server
+            await this.voskServerManager.start();
+
+            // Log loaded settings
             console.log('[Main] Loaded app settings:', this.appSettings);
 
-            // âœ… ENABLE EDGETTS ONLY IF voiceResponse IS ENABLED IN SETTINGS
+            // Wait for backend to be fully integrated before showing entry
+            await this.backendManager.waitForReady();
+
+            // Apply window visibility setting on startup
+            this.updateWindowVisibility(this.appSettings.windowVisibility);
+
+            // Check for cached user to bypass login
+            const cachedUser = firebaseService.checkCachedUser();
+            if (cachedUser) {
+                console.log('[Main] Cached user found, auto-login:', cachedUser.id);
+                this.isAuthenticated = true;
+                this.currentUser = cachedUser;
+                this.settingsManager.updateSettings({
+                    userAuthenticated: true,
+                    userDetails: cachedUser
+                });
+
+                this.windowManager.showWindow('main');
+            } else {
+                console.log('[Main] No cached user, showing login');
+                this.isAuthenticated = false;
+                this.windowManager.showWindow('main');
+                this.windowManager.showWindow('entry');
+            }
+
+            // ENABLE EDGETTS ONLY IF voiceResponse IS ENABLED IN SETTINGS
             if (this.appSettings.voiceResponse) {
                 console.log('[Main] Voice response enabled in settings, enabling EdgeTTS');
                 this.edgeTTS.enable(true);
@@ -116,7 +227,24 @@ class ComputerUseAgent {
                 console.log('[Main] Voice response disabled in settings, EdgeTTS will remain disabled');
                 this.edgeTTS.enable(false);
             }
-            
+
+            // Setup EdgeTTS event listeners for audio state tracking
+            this.edgeTTS.on('speaking', () => {
+                console.log('[Main] Audio started playing');
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('audio-started', {});
+                }
+            });
+
+            this.edgeTTS.on('stopped', () => {
+                console.log('[Main] Audio stopped');
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('audio-stopped', {});
+                }
+            });
+
             // Start wakeword helper if voice activation is enabled in saved settings
             if (this.appSettings.voiceActivation) {
                 console.log('[Main] Voice activation enabled, starting wakeword manager');
@@ -131,7 +259,7 @@ class ComputerUseAgent {
                 console.log('[Main] Response data:', JSON.stringify(data, null, 2));
                 console.log('[Main] voiceResponse setting:', this.appSettings.voiceResponse);
                 console.log('[Main] TTS enabled:', this.edgeTTS.isEnabled());
-                
+
                 // Send to renderer for display
                 const chatWin = this.windowManager.getWindow('chat');
                 if (chatWin && !chatWin.isDestroyed()) {
@@ -140,7 +268,7 @@ class ComputerUseAgent {
                 } else {
                     console.log('[Main] Chat window not found or destroyed');
                 }
-                
+
                 // Speak response only if BOTH conditions are met:
                 // 1. voiceResponse setting is enabled
                 // 2. Response contains text
@@ -165,6 +293,15 @@ class ComputerUseAgent {
                 return { success: true };
             });
 
+            ipcMain.handle('stop-audio', () => {
+                console.log('[Main] [IPC] stop-audio requested');
+                this.edgeTTS.stop();
+                if (this.chatWindow && !this.chatWindow.isDestroyed()) {
+                    this.chatWindow.webContents.send('audio-stopped', {});
+                }
+                return { success: true };
+            });
+
             ipcMain.handle('tts-get-voices', async () => {
                 console.log('[Main] [IPC] tts-get-voices requested');
                 const voices = await this.edgeTTS.getAvailableVoices();
@@ -183,16 +320,22 @@ class ComputerUseAgent {
                 this.edgeTTS.setRate(rate);
                 return { success: true };
             });
-            
+
             // Setup system tray
             this.setupTray();
-            
-            // Show entry window by default
-            this.windowManager.showWindow('entry');
-            
+
             this.isReady = true;
             console.log('[Main] Control initialized successfully');
-            
+
+            // Notify chat window that initialization is complete (for greeting)
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                // Small delay to ensure chat window is ready
+                setTimeout(() => {
+                    chatWin.webContents.send('app-initialized', {});
+                }, 500);
+            }
+
         } catch (error) {
             console.error('[Main] Application initialization failed:', error);
             app.quit();
@@ -224,7 +367,7 @@ class ComputerUseAgent {
         // ✅ SINGLE toggle-chat handler - checks authentication state internally
         ipcMain.handle('toggle-chat', () => {
             console.log('[Main] toggle-chat handler called');
-            
+
             // Check if authentication is required
             if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
                 console.log('[Main] Authentication required, requesting PIN');
@@ -235,7 +378,7 @@ class ComputerUseAgent {
                 }
                 return { success: false, needsAuth: true };
             }
-            
+
             // User is authenticated or PIN disabled
             console.log('[Main] Calling windowManager.toggleChat()');
             const result = this.windowManager.toggleChat();
@@ -291,77 +434,81 @@ class ComputerUseAgent {
 
         // Authentication & entry window
         ipcMain.handle('authenticate-user', async (event, userId) => {
-    try {
-        const result = await firebaseService.getUserById(userId);
-        
-        if (result.success) {
-            this.settingsManager.updateSettings({
-                userAuthenticated: true,
-                userDetails: result.user
-            });
-        }
-        
-        return result;
-    } catch (error) {
-        console.error('Authentication error:', error);
-        return {
-            success: false,
-            message: 'Authentication failed. Please try again.'
-        };
-    }
-});
+            try {
+                const result = await firebaseService.getUserById(userId);
 
-       ipcMain.handle('get-user-info', async () => {
-    try {
-        const settings = this.settingsManager.getSettings();
-        
-        if (settings.userAuthenticated && settings.userDetails) {
-            // Optionally refresh from Firebase
-            const result = await firebaseService.getUserById(settings.userDetails.id);
-            
-            if (result.success) {
+                if (result.success) {
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: result.user
+                    });
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Authentication error:', error);
                 return {
-                    success: true,
-                    isAuthenticated: true,
-                    ...result.user
+                    success: false,
+                    message: 'Authentication failed. Please try again.'
                 };
             }
-        }
-        
-        return {
-            success: false,
-            isAuthenticated: false
-        };
-    } catch (error) {
-        return {
-            success: false,
-            isAuthenticated: false
-        };
-    }
-});
+        });
+
+        ipcMain.handle('get-user-info', async () => {
+            try {
+                const settings = this.settingsManager.getSettings();
+
+                if (settings.userAuthenticated && settings.userDetails) {
+                    // Optionally refresh from Firebase
+                    const result = await firebaseService.getUserById(settings.userDetails.id);
+
+                    if (result.success) {
+                        return {
+                            success: true,
+                            isAuthenticated: true,
+                            ...result.user
+                        };
+                    }
+                }
+
+                return {
+                    success: false,
+                    isAuthenticated: false
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    isAuthenticated: false
+                };
+            }
+        });
 
         // Entry verification (Firebase placeholder)
         ipcMain.handle('verify-entry-id', async (event, entryId) => {
-    try {
-        const result = await firebaseService.verifyEntryID(entryId);
-        
-        if (result.success) {
-            // Store user info in settings
-            this.settingsManager.updateSettings({
-                userAuthenticated: true,
-                userDetails: result.user
-            });
-        }
-        
-        return result;
-    } catch (error) {
-        console.error('Entry ID verification error:', error);
-        return {
-            success: false,
-            message: 'Verification failed. Please try again.'
-        };
-    }
-});
+            try {
+                const result = await firebaseService.verifyEntryID(entryId);
+
+                if (result.success) {
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: result.user
+                    });
+
+                    this.isAuthenticated = true;
+                    this.currentUser = result.user;
+
+                    this.windowManager.showWindow('main');
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Entry ID verification error:', error);
+                return {
+                    success: false,
+                    message: 'Verification failed. Please try again.'
+                };
+            }
+        });
 
         // Window helpers
         ipcMain.handle('minimize-window', (event) => {
@@ -387,6 +534,23 @@ class ComputerUseAgent {
             this.windowManager.hideWindow('settings');
         });
 
+        // Window dragging
+        ipcMain.on('window-drag', (event, delta) => {
+            const window = BrowserWindow.fromWebContents(event.sender);
+            if (window && !window.isDestroyed()) {
+                const bounds = window.getBounds();
+                window.setPosition(bounds.x + delta.deltaX, bounds.y + delta.deltaY);
+            }
+        });
+
+        // Window visibility
+        ipcMain.handle('set-window-visibility', (event, visible) => {
+            this.appSettings.windowVisibility = !!visible;
+            this.updateWindowVisibility(visible);
+            this.settingsManager.updateSettings({ windowVisibility: visible });
+            return { success: true };
+        });
+
         // Overlay hover: temporarily enable interactions when hovering the floating button
         ipcMain.on('overlay-hover', (event, isHover) => {
             try {
@@ -408,11 +572,28 @@ class ComputerUseAgent {
             }
         });
 
-        // Logout placeholder
+        // Logout handler
         ipcMain.handle('logout', async () => {
-            // Clear authentication state on logout
-            // this.isAuthenticated = false;
-            // return { success: true };
+            console.log('[Main] Logout requested');
+            // Clear authentication state
+            this.isAuthenticated = false;
+            this.currentUser = null;
+
+            // Clear cache
+            firebaseService.clearCachedUser();
+
+            // Update settings
+            this.settingsManager.updateSettings({
+                userAuthenticated: false,
+                userDetails: null
+            });
+
+            // Reset UI
+            this.windowManager.closeWindow('chat');
+            this.windowManager.closeWindow('settings');
+            this.windowManager.showWindow('entry');
+
+            return { success: true };
         });
 
         // New conversation placeholder
@@ -452,19 +633,77 @@ class ComputerUseAgent {
         });
 
         // Backend communication
-        ipcMain.handle('execute-task', async (event, task) => {
-            return await this.backendManager.executeTask(task);
+        ipcMain.handle('set-wakeword-enabled', (event, enabled) => {
+            if (enabled) {
+                // Only enable if globally enabled in settings
+                if (this.appSettings.voiceActivation) {
+                    this.wakewordManager.enable(true);
+                }
+            } else {
+                this.wakewordManager.enable(false);
+            }
+            return true;
+        });
+
+        ipcMain.handle('execute-task', async (event, task, mode) => {
+            console.log('[Main] [IPC] execute-task:', mode, task);
+            try {
+                return await this.backendManager.executeTask(task, mode);
+            } catch (error) {
+                console.error('[Main] Execute task error:', error);
+                throw error;
+            }
+        });
+
+        ipcMain.handle('transcribe-audio', async (event, audioData, audioType) => {
+            console.log('[Main] [IPC] transcribe-audio requested');
+            return { success: false, message: 'Transcription now handled via WebSockets' };
         });
 
         ipcMain.handle('stop-task', () => {
             return this.backendManager.stopTask();
         });
 
-        // Transcription
-        ipcMain.handle('transcribe-audio', async (event, audioData, audioType) => {
-            const result = await this.transcriptionService.transcribe(audioData, audioType, false);
-            return result;
+        ipcMain.handle('stop-action', () => {
+            console.log('[Main] Stop action requested');
+            return this.backendManager.stopTask();
         });
+
+        ipcMain.on('log-to-terminal', (event, message) => {
+            console.log('[Terminal Log]', message);
+        });
+
+        // Greeting TTS handlers (moved from onAppReady to be available immediately)
+        ipcMain.handle('should-speak-greeting', () => {
+            const shouldSpeak = this.appSettings.greetingTTS || false;
+            console.log('[Main] [IPC] should-speak-greeting requested. Setting:', shouldSpeak);
+            return { shouldSpeak };
+        });
+
+        ipcMain.handle('speak-greeting', (event, text) => {
+            console.log('[Main] [IPC] speak-greeting requested:', text);
+            console.log('[Main] [IPC] greetingTTS setting:', this.appSettings.greetingTTS);
+            console.log('[Main] [IPC] edgeTTS currently enabled:', this.edgeTTS.isEnabled());
+
+            if (this.appSettings.greetingTTS && text) {
+                console.log('[Main] [IPC] ✓ All conditions met - Speaking greeting via EdgeTTS');
+                // Enable EdgeTTS for greeting (even if voiceResponse is disabled)
+                if (!this.edgeTTS.isEnabled()) {
+                    console.log('[Main] [IPC] Temporarily enabling EdgeTTS for greeting');
+                    this.edgeTTS.enable(true);
+                }
+                this.edgeTTS.speak(text);
+                console.log('[Main] [IPC] Greeting sent to EdgeTTS');
+                return { success: true, message: 'Greeting spoken' };
+            } else {
+                console.log('[Main] [IPC] ✗ Cannot speak greeting:');
+                console.log('    - greetingTTS enabled:', this.appSettings.greetingTTS);
+                console.log('    - Text provided:', !!text);
+                return { success: false, message: 'Greeting TTS disabled or no text provided' };
+            }
+        });
+
+
 
         // Settings
         ipcMain.handle('get-settings', () => {
@@ -473,6 +712,20 @@ class ComputerUseAgent {
 
         ipcMain.handle('save-settings', (event, settings) => {
             return this.saveSettings(settings);
+        });
+
+        ipcMain.handle('update-floating-button', (event, visible) => {
+            // Update settings
+            this.appSettings.floatingButtonVisible = visible;
+            this.saveSettings(this.appSettings);
+
+            // Broadcast to overlay window
+            const mainWin = this.windowManager.getWindow('main');
+            if (mainWin && !mainWin.isDestroyed()) {
+                mainWin.webContents.send('floating-button-toggle', visible);
+            }
+
+            return { success: true };
         });
 
         ipcMain.handle('open-website', () => {
@@ -502,7 +755,30 @@ class ComputerUseAgent {
         const settings = this.settingsManager.getSettings();
         // Ensure security manager PIN status is reflected
         settings.pinEnabled = this.securityManager.isEnabled();
+        // Include autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
+        settings.autoSendAfterWakeWord = this.appSettings.autoSendAfterWakeWord || false;
+        settings.lastMode = this.appSettings.lastMode || 'act';
+        settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
+        settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
         return settings;
+    }
+
+    updateWindowVisibility(visible) {
+        this.appSettings.windowVisibility = visible;
+        global.appSettings = this.appSettings;
+
+        const chatWindow = this.windowManager.getWindow('chat');
+        const settingsWindow = this.windowManager.getWindow('settings');
+
+        if (chatWindow && !chatWindow.isDestroyed()) {
+            chatWindow.setContentProtection(!visible);
+            chatWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+        }
+
+        if (settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.setContentProtection(!visible);
+            settingsWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+        }
     }
 
     async saveSettings(settings) {
@@ -525,17 +801,44 @@ class ComputerUseAgent {
                 this.appSettings.voiceResponse = !!settings.voiceResponse;
                 this.edgeTTS.enable(this.appSettings.voiceResponse);
             }
-            
+            if (settings.greetingTTS !== undefined) {
+                this.appSettings.greetingTTS = !!settings.greetingTTS;
+            }
+            if (settings.autoSendAfterWakeWord !== undefined) {
+                this.appSettings.autoSendAfterWakeWord = !!settings.autoSendAfterWakeWord;
+            }
+            if (settings.lastMode !== undefined) {
+                this.appSettings.lastMode = settings.lastMode;
+            }
+            if (settings.windowVisibility !== undefined) {
+                this.appSettings.windowVisibility = !!settings.windowVisibility;
+                this.updateWindowVisibility(this.appSettings.windowVisibility);
+            }
+            if (settings.wakeWordToggleChat !== undefined) {
+                this.appSettings.wakeWordToggleChat = !!settings.wakeWordToggleChat;
+            }
+
             // Save all settings to persistent storage
             this.settingsManager.updateSettings({
                 pinEnabled: settings.pinEnabled !== undefined ? settings.pinEnabled : this.appSettings.pinEnabled,
                 voiceActivation: settings.voiceActivation !== undefined ? settings.voiceActivation : this.appSettings.voiceActivation,
                 voiceResponse: settings.voiceResponse !== undefined ? settings.voiceResponse : this.appSettings.voiceResponse,
                 muteNotifications: settings.muteNotifications !== undefined ? settings.muteNotifications : this.appSettings.muteNotifications,
+                greetingTTS: settings.greetingTTS !== undefined ? settings.greetingTTS : this.appSettings.greetingTTS,
+                autoSendAfterWakeWord: settings.autoSendAfterWakeWord !== undefined ? settings.autoSendAfterWakeWord : this.appSettings.autoSendAfterWakeWord,
+                lastMode: settings.lastMode !== undefined ? settings.lastMode : this.appSettings.lastMode,
+                windowVisibility: settings.windowVisibility !== undefined ? settings.windowVisibility : this.appSettings.windowVisibility,
+                wakeWordToggleChat: settings.wakeWordToggleChat !== undefined ? settings.wakeWordToggleChat : this.appSettings.wakeWordToggleChat,
                 userAuthenticated: settings.userAuthenticated !== undefined ? settings.userAuthenticated : this.appSettings.userAuthenticated,
                 userDetails: settings.userDetails !== undefined ? settings.userDetails : this.appSettings.userDetails
             });
-            
+
+            // Broadcast update to chat window for immediate effect
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.webContents.send('settings-updated', this.getSettings());
+            }
+
             return { success: true };
         } catch (error) {
             console.error('Failed to save settings:', error);
@@ -559,7 +862,8 @@ class ComputerUseAgent {
 
     onWillQuit() {
         this.hotkeyManager.unregisterAll();
-        this.backendManager.stopBackend();
+        if (this.backendManager) this.backendManager.stopBackend();
+        if (this.voskServerManager) this.voskServerManager.stop();
         this.windowManager.closeAllWindows();
     }
 
@@ -567,11 +871,11 @@ class ComputerUseAgent {
         try {
             // Path to tray icon
             const iconPath = path.join(__dirname, '../../assets/icons/icon-removebg-preview.png');
-            
+
             // Create tray icon
             this.tray = new Tray(iconPath);
             this.tray.setToolTip('Control - AI Assistant');
-            
+
             // Create tray context menu
             const contextMenu = Menu.buildFromTemplate([
                 {
@@ -594,14 +898,14 @@ class ComputerUseAgent {
                     }
                 }
             ]);
-            
+
             this.tray.setContextMenu(contextMenu);
-            
+
             // Double click to toggle chat
             this.tray.on('double-click', () => {
                 this.windowManager.toggleChat();
             });
-            
+
             console.log('System tray initialized');
         } catch (error) {
             console.error('Failed to setup system tray:', error);

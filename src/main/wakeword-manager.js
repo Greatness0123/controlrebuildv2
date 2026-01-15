@@ -22,7 +22,7 @@ class WakewordManager {
         if (fs.existsSync(pyHelper)) {
             cmd = 'python';
             spawnArgs = [pyHelper, '--model', path.join(__dirname, '../../assets/wakeword/hey-control_en_windows_v4_0_0.ppn')];
-            
+
             // Add access key if available from environment variable
             const accessKey = process.env.PORCUPINE_ACCESS_KEY;
             if (accessKey) {
@@ -44,7 +44,7 @@ class WakewordManager {
                 const s = buf.toString().trim();
                 console.log('Wakeword stdout:', s);
                 if (/DETECTED|detected|wakeword/i.test(s)) {
-                    process.emit && process.emit('hotkey-triggered', { event: 'toggle-chat' });
+                    process.emit && process.emit('hotkey-triggered', { event: 'wakeword-detected' });
                 }
                 if (/PORCUPINE_MISSING/i.test(s) || /Porcupine\/PyAudio not installed/i.test(s)) {
                     console.warn('Wakeword helper missing dependencies');
@@ -64,7 +64,7 @@ class WakewordManager {
     stop() {
         if (!this.isRunning) return;
         if (this.proc) {
-            try { this.proc.kill(); } catch (e) {}
+            try { this.proc.kill(); } catch (e) { }
             this.proc = null;
         }
         this.isRunning = false;

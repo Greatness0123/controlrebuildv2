@@ -9,15 +9,15 @@ const os = require('os');
 class SettingsManager {
     constructor() {
         // Use app data directory for settings storage
-        const appDataDir = process.env.APPDATA || 
-                          path.join(os.homedir(), 'AppData', 'Roaming');
-        
+        const appDataDir = process.env.APPDATA ||
+            path.join(os.homedir(), 'AppData', 'Roaming');
+
         this.settingsDir = path.join(appDataDir, 'ComputerUseAgent');
         this.settingsFile = path.join(this.settingsDir, 'settings.json');
-        
+
         // Ensure settings directory exists
         fs.ensureDirSync(this.settingsDir);
-        
+
         // Load settings from file or initialize defaults
         this.settings = this._loadSettings();
     }
@@ -35,13 +35,17 @@ class SettingsManager {
         } catch (err) {
             console.warn('Failed to load settings file, using defaults:', err.message);
         }
-        
+
         // Return default settings
         return {
             pinEnabled: false,
-            voiceActivation: false,
-            voiceResponse: false,
+            voiceActivation: true,
+            voiceResponse: true,
             muteNotifications: false,
+            greetingTTS: false,
+            autoSendAfterWakeWord: false,
+            lastMode: 'act',
+            windowVisibility: true,
             userAuthenticated: false,
             userDetails: null
         };
@@ -87,7 +91,7 @@ class SettingsManager {
                 ...this.settings,
                 ...updates
             };
-            
+
             // Save to file
             this._saveToFile();
             return true;
@@ -106,6 +110,7 @@ class SettingsManager {
             voiceActivation: false,
             voiceResponse: false,
             muteNotifications: false,
+            greetingTTS: false,
             userAuthenticated: false,
             userDetails: null
         };

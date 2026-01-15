@@ -7,16 +7,78 @@ class EntryWindow {
         this.successMessage = document.getElementById('successMessage');
         this.unauthenticatedState = document.getElementById('unauthenticatedState');
         this.authenticatedState = document.getElementById('authenticatedState');
-        
+
         this.isAuthenticated = false;
         this.currentUser = null;
-        
+
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.checkAuthentication();
+        this.animateTips();
+        this.setupDragging();
+    }
+
+    animateTips() {
+        const tips = Array.from(document.querySelectorAll('.tip-item'));
+        if (tips.length === 0) return;
+
+        let currentIndex = 0;
+        const showDuration = 2000; // 2 seconds as requested
+        const fadeDuration = 500;
+
+        const showNextTip = () => {
+            tips.forEach(tip => {
+                tip.classList.remove('show');
+                tip.style.display = 'none';
+            });
+
+            const currentTip = tips[currentIndex];
+            currentTip.style.display = 'flex';
+            setTimeout(() => {
+                currentTip.classList.add('show');
+            }, 10);
+
+            setTimeout(() => {
+                currentTip.classList.remove('show');
+                setTimeout(() => {
+                    currentIndex = (currentIndex + 1) % tips.length;
+                    showNextTip();
+                }, fadeDuration);
+            }, showDuration);
+        };
+
+        showNextTip();
+    }
+
+    setupDragging() {
+        let isDragging = false;
+        let startPos = { x: 0, y: 0 };
+
+        const leftSection = document.querySelector('.left-section');
+        if (!leftSection) return;
+
+        leftSection.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.tip-item, .feature-item, .version-info, button, input')) return;
+            isDragging = true;
+            startPos = { x: e.clientX, y: e.clientY };
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging && window.entryAPI && window.entryAPI.dragWindow) {
+                const deltaX = e.clientX - startPos.x;
+                const deltaY = e.clientY - startPos.y;
+                window.entryAPI.dragWindow({ deltaX, deltaY });
+                startPos = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
     }
 
     setupEventListeners() {
@@ -102,7 +164,7 @@ class EntryWindow {
 
             // Call verifyEntryID through IPC
             const result = await window.entryAPI.verifyEntryID(userId);
-            
+
             console.log('Verification result:', result);
 
             this.handleAuthenticationResult(result);
@@ -120,10 +182,10 @@ class EntryWindow {
             this.isAuthenticated = true;
             this.currentUser = result.user;
             this.showSuccess('Authentication successful!');
-            
+
             // Update UI with user info
             this.updateUserInfo(result.user);
-            
+
             // Show authenticated state after delay
             setTimeout(() => {
                 this.showAuthenticatedState();

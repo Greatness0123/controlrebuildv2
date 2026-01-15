@@ -13,13 +13,14 @@ class EdgeTTSManager extends EventEmitter {
         this.queue = [];
         this.useOfflineFallback = true;
         this.checkingAvailability = true;
-        this.voice = 'en-US-JennyNeural';
+        this.voice = 'en-US-AriaNeural'; // More natural, expressive voice
         this.offlineVoice = null;
-        this.rate = 1.0;
+        this.rate = 1.1; // Slightly faster for more responsive feel
         this.volume = 1.0;
+        this.useStreaming = true; // Enable streaming for real-time playback
         this.currentProcess = null;
         this.pythonCommand = null; // Store which python command works
-        
+
         console.log('[EdgeTTS] Starting availability check...');
         this.checkEdgeTTSAvailability();
     }
@@ -37,20 +38,20 @@ class EdgeTTSManager extends EventEmitter {
                 windowsHide: true,
                 timeout: 5000
             });
-            
+
             let output = '';
             let hasError = false;
             let resolved = false;
-            
+
             child.stdout.on('data', (data) => {
                 output += data.toString();
             });
-            
+
             child.stderr.on('data', (data) => {
                 console.log(`[EdgeTTS] ${pythonCmd} stderr:`, data.toString());
                 hasError = true;
             });
-            
+
             child.on('error', (error) => {
                 if (resolved) return;
                 resolved = true;
@@ -65,7 +66,7 @@ class EdgeTTSManager extends EventEmitter {
                     resolve();
                 }
             });
-            
+
             child.on('exit', (code) => {
                 if (resolved) return;
                 resolved = true;
@@ -88,7 +89,7 @@ class EdgeTTSManager extends EventEmitter {
                     }
                 }
             });
-            
+
             setTimeout(() => {
                 if (!resolved && child && !child.killed) {
                     resolved = true;
@@ -103,7 +104,7 @@ class EdgeTTSManager extends EventEmitter {
                     }
                 }
             }, 5000);
-            
+
         } catch (error) {
             console.log(`[EdgeTTS] ${pythonCmd} spawn error:`, error.message);
             if (pythonCmd === 'python') {
@@ -118,7 +119,7 @@ class EdgeTTSManager extends EventEmitter {
     enable(enabled) {
         this.enabled = !!enabled;
         console.log('[EdgeTTS] enabled:', this.enabled);
-        
+
         if (!enabled && this.isSpeaking) {
             this.stop();
         }
@@ -154,7 +155,7 @@ class EdgeTTSManager extends EventEmitter {
         console.log('[EdgeTTS] Using offline fallback:', this.useOfflineFallback);
 
         const cleanedText = this.cleanTextForSpeech(text);
-        
+
         if (!cleanedText) {
             console.log('[EdgeTTS] Cleaned text is empty, skipping');
             return;
@@ -162,7 +163,7 @@ class EdgeTTSManager extends EventEmitter {
 
         this.queue.push(cleanedText);
         console.log('[EdgeTTS] Added to queue, queue length:', this.queue.length);
-        
+
         if (!this.isSpeaking) {
             if (this.checkingAvailability) {
                 console.log('[EdgeTTS] Availability check in progress, waiting 500ms...');
@@ -222,6 +223,166 @@ class EdgeTTSManager extends EventEmitter {
      * ✅ IMPROVED: Better error handling and diagnostics
      */
     async speakOnline(text) {
+        // Use streaming for faster, real-time playback (for shorter texts)
+        // Streaming reduces latency by starting playback as audio chunks are generated
+        if (this.useStreaming && text.length < 800) {
+            console.log('[EdgeTTS] Using optimized streaming mode for faster response');
+            return this.speakOnlineStreaming(text);
+        }
+
+        // File-based for longer texts (more reliable, but slightly slower)
+        console.log('[EdgeTTS] Using file-based mode for longer text');
+        return this.speakOnlineFileBased(text);
+    }
+
+    async speakOnlineStreaming(text) {
+        return new Promise((resolve, reject) => {
+            console.log('[EdgeTTS] Using streaming mode for real-time playback');
+
+            // Escape text properly for Python
+            const escapedText = text
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, '\\n')
+                .replace(/\r/g, '\\r');
+
+            const pythonScript = `
+import asyncio
+import edge_tts
+import sys
+import subprocess
+import platform
+
+async def main():
+    try:
+        tts = edge_tts.Communicate(
+            text="""${escapedText}""",
+            voice="${this.voice}",
+            rate="${this.rateToString()}",
+            volume="${this.volumeToString()}"
+        )
+        
+        # Optimized streaming: Save chunks as they arrive for faster playback
+        # This allows playback to start before all audio is generated
+        import tempfile
+        import os
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+        
+        # Stream and save chunks immediately
+        chunk_count = 0
+        with open(temp_file, 'wb') as f:
+            async for chunk in tts.stream():
+                if chunk["type"] == "audio":
+                    f.write(chunk["data"])
+                    f.flush()  # Flush immediately for faster file availability
+                    chunk_count += 1
+                    # Start playing after first few chunks (reduces latency)
+                    if chunk_count == 3:
+                        print(f"TTS_START_PLAY:{temp_file}")
+        
+        print(f"TTS_FILE:{temp_file}")
+    except Exception as e:
+        print(f"TTS_ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+
+asyncio.run(main())
+`;
+
+            const tempDir = path.join(os.tmpdir(), 'control-tts');
+            if (!fs.existsSync(tempDir)) {
+                fs.mkdirSync(tempDir, { recursive: true });
+            }
+            const scriptFile = path.join(tempDir, `stream-${Date.now()}.py`);
+            fs.writeFileSync(scriptFile, pythonScript, 'utf8');
+
+            const pythonCmd = this.pythonCommand || 'python';
+            let child = spawn(pythonCmd, [scriptFile], {
+                windowsHide: true,
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+
+            this.currentProcess = child;
+            this.emit('speaking', text);
+
+            let stdout = '';
+            let stderr = '';
+            let errorHandled = false;
+
+            child.stdout.on('data', (data) => {
+                stdout += data.toString();
+            });
+
+            child.stderr.on('data', (data) => {
+                stderr += data.toString();
+            });
+
+            child.on('error', (error) => {
+                if (errorHandled) return;
+                errorHandled = true;
+                console.error('[EdgeTTS] Streaming error:', error.message);
+                this.cleanup(scriptFile, null);
+                // Fallback to file-based
+                this.speakOnlineFileBased(text).then(resolve).catch(reject);
+            });
+
+            child.on('exit', (code) => {
+                if (errorHandled) return;
+                errorHandled = true;
+
+                if (code === 0) {
+                    // Check for early playback start signal (for faster response)
+                    if (stdout.includes('TTS_START_PLAY:')) {
+                        const fileMatch = stdout.match(/TTS_START_PLAY:(.+)/);
+                        if (fileMatch) {
+                            const audioFile = fileMatch[1].trim();
+                            console.log('[EdgeTTS] Starting early playback for faster response');
+                            // Start playing while generation may still be continuing
+                            this.playAudioFile(audioFile)
+                                .then(() => {
+                                    this.cleanup(scriptFile, audioFile);
+                                    resolve();
+                                })
+                                .catch((error) => {
+                                    this.cleanup(scriptFile, audioFile);
+                                    reject(error);
+                                });
+                            return; // Don't wait for TTS_FILE message
+                        }
+                    }
+
+                    // Standard file-based playback
+                    if (stdout.includes('TTS_FILE:')) {
+                        const fileMatch = stdout.match(/TTS_FILE:(.+)/);
+                        if (fileMatch) {
+                            const audioFile = fileMatch[1].trim();
+                            console.log('[EdgeTTS] Playing generated audio file');
+                            this.playAudioFile(audioFile)
+                                .then(() => {
+                                    this.cleanup(scriptFile, audioFile);
+                                    resolve();
+                                })
+                                .catch((error) => {
+                                    this.cleanup(scriptFile, audioFile);
+                                    reject(error);
+                                });
+                        } else {
+                            this.cleanup(scriptFile, null);
+                            resolve();
+                        }
+                    } else {
+                        this.cleanup(scriptFile, null);
+                        resolve();
+                    }
+                } else {
+                    console.error('[EdgeTTS] Streaming failed, falling back to file-based');
+                    this.cleanup(scriptFile, null);
+                    this.speakOnlineFileBased(text).then(resolve).catch(reject);
+                }
+            });
+        });
+    }
+
+    async speakOnlineFileBased(text) {
         return new Promise((resolve, reject) => {
             const tempDir = path.join(os.tmpdir(), 'control-tts');
             if (!fs.existsSync(tempDir)) {
@@ -229,14 +390,14 @@ class EdgeTTSManager extends EventEmitter {
             }
 
             const audioFile = path.join(tempDir, `tts-${Date.now()}.mp3`);
-            
+
             // ✅ Escape text properly for Python
             const escapedText = text
                 .replace(/\\/g, '\\\\')
                 .replace(/"/g, '\\"')
                 .replace(/\n/g, '\\n')
                 .replace(/\r/g, '\\r');
-            
+
             const pythonScript = `
 import asyncio
 import edge_tts
@@ -273,7 +434,7 @@ asyncio.run(main())
             });
 
             this.currentProcess = child;
-            
+
             let stdout = '';
             let stderr = '';
             let errorHandled = false;
@@ -289,7 +450,7 @@ asyncio.run(main())
             child.on('error', (error) => {
                 if (errorHandled) return;
                 errorHandled = true;
-                
+
                 console.error('[EdgeTTS] Python execution error:', error.message);
                 console.error('[EdgeTTS] Stdout:', stdout);
                 console.error('[EdgeTTS] Stderr:', stderr);
@@ -300,15 +461,15 @@ asyncio.run(main())
             child.on('exit', (code) => {
                 if (errorHandled) return;
                 errorHandled = true;
-                
+
                 console.log('[EdgeTTS] Python exited with code:', code);
-                
+
                 if (stdout) console.log('[EdgeTTS] Python stdout:', stdout.trim());
                 if (stderr) console.error('[EdgeTTS] Python stderr:', stderr.trim());
-                
+
                 if (code === 0 && fs.existsSync(audioFile) && stdout.includes('TTS_SUCCESS')) {
                     console.log('[EdgeTTS] Audio file generated successfully');
-                    
+
                     // ✅ Verify file has content
                     const stats = fs.statSync(audioFile);
                     if (stats.size === 0) {
@@ -317,9 +478,9 @@ asyncio.run(main())
                         reject(new Error('Generated audio file is empty'));
                         return;
                     }
-                    
+
                     console.log('[EdgeTTS] Audio file size:', stats.size, 'bytes');
-                    
+
                     this.playAudioFile(audioFile)
                         .then(() => {
                             this.cleanup(scriptFile, audioFile);
@@ -335,14 +496,14 @@ asyncio.run(main())
                     console.error('[EdgeTTS] - Exit code:', code);
                     console.error('[EdgeTTS] - File exists:', fs.existsSync(audioFile));
                     console.error('[EdgeTTS] - Success marker:', stdout.includes('TTS_SUCCESS'));
-                    
+
                     if (stderr.includes('TTS_ERROR:')) {
                         const errorMatch = stderr.match(/TTS_ERROR: (.+)/);
                         if (errorMatch) {
                             console.error('[EdgeTTS] Python error:', errorMatch[1]);
                         }
                     }
-                    
+
                     this.cleanup(scriptFile, audioFile);
                     reject(new Error(`Edge TTS generation failed: ${stderr || 'Unknown error'}`));
                 }
@@ -358,7 +519,7 @@ asyncio.run(main())
             };
 
             console.log('[EdgeTTS] Using offline TTS');
-            this.emit('speaking-start', text);
+            this.emit('speaking', text);
 
             say.speak(text, options.voice, options.speed, (error) => {
                 if (error) {
@@ -366,7 +527,7 @@ asyncio.run(main())
                     reject(error);
                 } else {
                     console.log('[EdgeTTS] Offline TTS completed');
-                    this.emit('speaking-end');
+                    this.emit('stopped');
                     resolve();
                 }
             });
@@ -377,17 +538,17 @@ asyncio.run(main())
         return new Promise((resolve, reject) => {
             let player;
             let completed = false;
-            
+
             const cleanup = () => {
                 if (completed) return;
                 completed = true;
-                this.emit('speaking-end');
+                this.emit('stopped');
             };
-            
+
             try {
                 if (process.platform === 'win32') {
                     console.log('[EdgeTTS] Playing MP3 on Windows via Windows Media Player');
-                    
+
                     const powerShellCmd = `
 Add-Type -AssemblyName presentationCore
 $mediaPlayer = New-Object System.Windows.Media.MediaPlayer
@@ -410,7 +571,7 @@ Start-Sleep -Seconds ([Math]::Ceiling($duration))
 $mediaPlayer.Close()
 Write-Host "Playback complete"
 `;
-                    
+
                     player = spawn('powershell.exe', [
                         '-NoProfile',
                         '-NonInteractive',
@@ -420,59 +581,56 @@ Write-Host "Playback complete"
                         windowsHide: true,
                         stdio: ['pipe', 'pipe', 'pipe']
                     });
-                    
+
                     this.currentProcess = player;
-                    this.emit('speaking-start', audioFile);
-                    
+                    this.emit('speaking', audioFile);
+
                     console.log('[EdgeTTS] Windows Media Player spawned');
-                    
+
                     player.stdout.on('data', (data) => {
                         console.log('[EdgeTTS] PowerShell:', data.toString().trim());
                     });
-                    
+
                     player.stderr.on('data', (data) => {
                         const msg = data.toString().trim();
                         if (msg) console.log('[EdgeTTS] PowerShell stderr:', msg);
                     });
-                    
+
                     const timeoutHandle = setTimeout(() => {
                         if (!completed) {
-                            completed = true;
                             console.log('[EdgeTTS] Playback timeout, killing player');
                             player.kill();
                             cleanup();
                             resolve();
                         }
                     }, 60000);
-                    
+
                     player.on('error', (error) => {
                         if (!completed) {
-                            completed = true;
                             clearTimeout(timeoutHandle);
                             console.error('[EdgeTTS] PowerShell error:', error.message);
                             cleanup();
                             reject(error);
                         }
                     });
-                    
+
                     player.on('exit', (code) => {
                         if (!completed) {
-                            completed = true;
                             clearTimeout(timeoutHandle);
                             console.log('[EdgeTTS] PowerShell exited with code:', code);
                             cleanup();
                             resolve();
                         }
                     });
-                    
+
                 } else if (process.platform === 'darwin') {
                     console.log('[EdgeTTS] Playing audio on macOS via afplay');
-                    
+
                     player = spawn('afplay', [audioFile], { stdio: 'pipe' });
-                    
+
                     this.currentProcess = player;
                     this.emit('speaking-start', audioFile);
-                    
+
                     player.on('error', (error) => {
                         if (!completed) {
                             completed = true;
@@ -480,7 +638,7 @@ Write-Host "Playback complete"
                             reject(error);
                         }
                     });
-                    
+
                     player.on('exit', (code) => {
                         if (!completed) {
                             completed = true;
@@ -494,12 +652,12 @@ Write-Host "Playback complete"
                             }
                         }
                     });
-                    
+
                 } else {
                     console.log('[EdgeTTS] Playing audio on Linux');
-                    
+
                     const players = ['paplay', 'aplay', 'ffplay'];
-                    
+
                     const tryPlayer = (index) => {
                         if (index >= players.length) {
                             if (!completed) {
@@ -509,28 +667,28 @@ Write-Host "Playback complete"
                             }
                             return;
                         }
-                        
+
                         const playerCmd = players[index];
                         console.log(`[EdgeTTS] Trying Linux player: ${playerCmd}`);
-                        
+
                         let args = [];
                         if (playerCmd === 'ffplay') {
                             args = ['-nodisp', '-autoexit', '-loglevel', 'quiet', audioFile];
                         } else {
                             args = [audioFile];
                         }
-                        
+
                         player = spawn(playerCmd, args);
                         this.currentProcess = player;
                         this.emit('speaking-start', audioFile);
-                        
+
                         player.on('error', (error) => {
                             if (!completed) {
                                 console.log(`[EdgeTTS] ${playerCmd} not found, trying next...`);
                                 tryPlayer(index + 1);
                             }
                         });
-                        
+
                         player.on('exit', (code) => {
                             if (!completed) {
                                 completed = true;
@@ -545,10 +703,10 @@ Write-Host "Playback complete"
                             }
                         });
                     };
-                    
+
                     tryPlayer(0);
                 }
-                
+
             } catch (error) {
                 if (!completed) {
                     completed = true;
@@ -571,7 +729,7 @@ Write-Host "Playback complete"
 
     stop() {
         this.queue = [];
-        
+
         if (this.currentProcess) {
             try {
                 this.currentProcess.kill();

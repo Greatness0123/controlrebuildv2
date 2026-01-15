@@ -13,10 +13,10 @@ class HotkeyManager {
             this.emitToMain('toggle-chat');
         });
 
-        // Stop current task (Alt+Z)
-        this.registerShortcut('Alt+Z', 'stop-task', () => {
-            console.log('Stop task hotkey triggered');
-            this.emitToMain('stop-task');
+        // Stop AI action execution (Alt+Z) - NOT the backend
+        this.registerShortcut('Alt+Z', 'stop-action', () => {
+            console.log('Stop AI action hotkey triggered');
+            this.emitToMain('stop-action');
         });
 
         console.log('Global hotkeys registered successfully');
@@ -24,14 +24,14 @@ class HotkeyManager {
 
     registerShortcut(accelerator, id, handler) {
         const success = globalShortcut.register(accelerator, handler);
-        
+
         if (success) {
             this.shortcuts.set(id, { accelerator, handler });
             console.log(`Registered hotkey: ${accelerator} for ${id}`);
         } else {
             console.error(`Failed to register hotkey: ${accelerator} for ${id}`);
         }
-        
+
         return success;
     }
 
@@ -68,7 +68,7 @@ class HotkeyManager {
         if (global.mainWindow && !global.mainWindow.isDestroyed()) {
             global.mainWindow.webContents.send('hotkey-triggered', { event, data });
         }
-        
+
         // Also emit to the main process if available
         if (process.emit) {
             process.emit('hotkey-triggered', { event, data });

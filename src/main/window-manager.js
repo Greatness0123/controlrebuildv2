@@ -1,4 +1,4 @@
-const {app,BrowserWindow, screen } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const { initializeAppapp } = require('firebase-admin');
@@ -16,23 +16,23 @@ class WindowManager {
     async initializeWindows() {
         // Create main overlay window (transparent, always on top)
         await this.createMainWindow();
-        
+
         // Create chat window (hidden by default)
         await this.createChatWindow();
-        
+
         // Create settings window (hidden by default)
         await this.createSettingsWindow();
-        
+
         // Create entry window
         await this.createEntryWindow();
-        
+
         // Setup window management
         this.setupWindowManagement();
     }
 
     async createMainWindow() {
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-        
+
         this.mainWindow = new BrowserWindow({
             width: width,
             height: height,
@@ -59,8 +59,8 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-         this.mainWindow.setContentProtection(true);
-        this.mainWindow.setAlwaysOnTop(true,'screen-saver')
+        this.mainWindow.setContentProtection(true);
+        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
         // Make window click-through only when not interactive
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
@@ -76,6 +76,7 @@ class WindowManager {
 
     async createChatWindow() {
         console.log('[WindowManager] Creating chat window...');
+        const iconPath = path.join(__dirname, '../../assets/icons/icon.ico');
         const chatWindow = new BrowserWindow({
             width: 360,
             height: 480,
@@ -83,9 +84,10 @@ class WindowManager {
             y: screen.getPrimaryDisplay().workAreaSize.height - 520,
             frame: false,
             transparent: true,
-            backgroundColor:'#00000000',
+            backgroundColor: '#00000000',
             alwaysOnTop: true,
             skipTaskbar: true,
+            icon: iconPath,
             resizable: true,
             minWidth: 320,
             minHeight: 480,
@@ -96,6 +98,7 @@ class WindowManager {
             maximizable: false,
             closable: false,
             fullscreenable: false,
+            roundedCorners: true,
             show: false,
             visible: false,
             hasShadow: false,
@@ -107,9 +110,11 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-        
-        chatWindow.setContentProtection(true);
-        chatWindow.setAlwaysOnTop(true,'screen-saver')
+
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        chatWindow.setContentProtection(!windowVisibility);
+        chatWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
+        chatWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
             await chatWindow.loadFile(
@@ -125,6 +130,21 @@ class WindowManager {
 
         // Make chat window draggable
         this.setupDraggableWindow(chatWindow);
+
+        // Add crash listeners for debugging
+        chatWindow.webContents.on('render-process-gone', (event, details) => {
+            console.error('[WindowManager] Chat window renderer process gone:', details.reason, details.exitCode);
+        });
+
+        chatWindow.on('unresponsive', () => {
+            console.error('[WindowManager] Chat window became unresponsive');
+        });
+
+        // Forward console logs to terminal
+        chatWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            console.log(`[Chat Renderer ${level}] ${message} (${sourceId}:${line})`);
+        });
+
         console.log('[WindowManager] Chat window created and registered');
     }
 
@@ -135,7 +155,7 @@ class WindowManager {
             height: 500,
             frame: false,
             transparent: true,
-            roundedCorners:true,
+            roundedCorners: true,
             alwaysOnTop: true,
             skipTaskbar: true,
             resizable: true,
@@ -155,8 +175,10 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-            settingsWindow.setContentProtection(true);
-            settingsWindow.setAlwaysOnTop(true,'screen-saver')
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        settingsWindow.setContentProtection(!windowVisibility);
+        settingsWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
+        settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
             await settingsWindow.loadFile(
                 path.join(__dirname, '../renderer/settings-modal.html')
@@ -177,7 +199,7 @@ class WindowManager {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
                         settingsWindow.hide();
                     }
-                } catch (e) {}
+                } catch (e) { }
             }, 150);
         });
         console.log('[WindowManager] Settings window created and registered');
@@ -185,7 +207,7 @@ class WindowManager {
 
     async createEntryWindow() {
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-        
+
         const entryWindow = new BrowserWindow({
             width: 800,
             height: 600,
@@ -217,32 +239,19 @@ class WindowManager {
         );
 
         this.windows.set('entry', entryWindow);
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        entryWindow.setContentProtection(!windowVisibility);
+        entryWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
 
-        // Make entry window draggable
+        // Make entry window draggable via IPC
         this.setupDraggableWindow(entryWindow);
     }
 
     setupDraggableWindow(window) {
-        let isDragging = false;
-        let currentX;
-        let currentY;
-        let startX;
-        let startY;
-
-        window.webContents.on('before-input-event', (event, input) => {
-            if (input.type === 'mouseDown' && input.button === 'left') {
+        window.webContents.on('ipc-message', (event, channel, data) => {
+            if (channel === 'window-drag') {
                 const bounds = window.getBounds();
-                isDragging = true;
-                currentX = bounds.x;
-                currentY = bounds.y;
-                startX = input.x;
-                startY = input.y;
-            } else if (input.type === 'mouseUp' && input.button === 'left') {
-                isDragging = false;
-            } else if (input.type === 'mouseMove' && isDragging) {
-                const newX = currentX + (input.x - startX);
-                const newY = currentY + (input.y - startY);
-                window.setPosition(newX, newY);
+                window.setPosition(bounds.x + data.deltaX, bounds.y + data.deltaY);
             }
         });
     }
@@ -257,12 +266,12 @@ class WindowManager {
     ensureWindowsOnScreen() {
         const displays = screen.getAllDisplays();
         const primaryDisplay = screen.getPrimaryDisplay();
-        
+
         this.windows.forEach((window, type) => {
             if (window && !window.isDestroyed() && window.isVisible()) {
                 const bounds = window.getBounds();
                 let onScreen = false;
-                
+
                 for (const display of displays) {
                     if (
                         bounds.x < display.bounds.x + display.bounds.width &&
@@ -274,7 +283,7 @@ class WindowManager {
                         break;
                     }
                 }
-                
+
                 if (!onScreen) {
                     // Move window to primary display
                     window.setPosition(
@@ -299,7 +308,7 @@ class WindowManager {
                 this.setInteractive(false);
                 this.hideFloatingButton();
             }
-            console.log(`[WindowManager] Calling show() and focus() for ${windowType}`);
+            console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             browserWindow.show();
             browserWindow.focus();
             return true;
@@ -317,18 +326,22 @@ class WindowManager {
             // Always restore overlay to non-interactive default after closing a window
             this.setInteractive(false);
             this.showFloatingButton();
-            
+
             browserWindow.hide();
+            console.log(`[WindowManager] hideWindow: Hiding ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             return true;
         }
         return false;
     }
 
     toggleChat() {
+        console.log(`[WindowManager] toggleChat: Current chatVisible=${this.chatVisible}`);
         if (this.chatVisible) {
+            console.log('[WindowManager] toggleChat: Hiding chat');
             this.hideWindow('chat');
             return { visible: false };
         } else {
+            console.log('[WindowManager] toggleChat: Showing chat');
             this.showWindow('chat');
             return { visible: true };
         }
@@ -364,7 +377,7 @@ class WindowManager {
         if (mainWindow && !mainWindow.isDestroyed()) {
             // Toggle click-through behavior
             mainWindow.setIgnoreMouseEvents(!interactive, { forward: !interactive });
-            
+
             // Notify renderer about interaction mode
             mainWindow.webContents.send('interaction-mode-changed', { interactive });
         }

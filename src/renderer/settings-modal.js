@@ -7,9 +7,13 @@ class SettingsModal {
             voiceActivation: false,
             voiceResponse: false,
             muteNotifications: false,
-            autoSendAfterWakeWord: false
+            autoSendAfterWakeWord: false,
+            floatingButtonVisible: true,
+            greetingTTS: false,
+            windowVisibility: false,
+            wakeWordToggleChat: false
         };
-        
+
         this.init();
     }
 
@@ -20,13 +24,10 @@ class SettingsModal {
         await this.loadSettings();
         this.updateUI();
         this.initializeLucideIcons();
-        
-        // Ensure static PIN modal is hidden at startup
+
         const staticPin = document.getElementById('pinModal');
-        if (staticPin) staticPin.classList.remove('show');
-        
-        // Close PIN modal if clicking outside content
         if (staticPin) {
+            staticPin.classList.remove('show');
             staticPin.addEventListener('click', (e) => {
                 if (e.target === staticPin) staticPin.classList.remove('show');
             });
@@ -59,6 +60,22 @@ class SettingsModal {
 
         document.getElementById('muteToggle')?.addEventListener('click', () => {
             this.toggleMuteNotifications();
+        });
+
+        document.getElementById('greetingTTSToggle')?.addEventListener('click', () => {
+            this.toggleGreetingTTS();
+        });
+
+        document.getElementById('floatingButtonToggle')?.addEventListener('click', () => {
+            this.toggleFloatingButton();
+        });
+
+        document.getElementById('windowVisibilityToggle')?.addEventListener('click', () => {
+            this.toggleWindowVisibility();
+        });
+
+        document.getElementById('wakeWordToggleChatToggle')?.addEventListener('click', () => {
+            this.toggleWakeWordToggleChat();
         });
 
         // Buttons
@@ -189,13 +206,13 @@ class SettingsModal {
     updateUI() {
         // Update user info
         this.updateUserInfo();
-        
+
         // Update toggle states
         this.updateToggleStates();
-        
+
         // Update button states
         this.updateButtonStates();
-        
+
         // Re-initialize Lucide icons after UI updates
         setTimeout(() => {
             if (typeof lucide !== 'undefined') {
@@ -324,6 +341,46 @@ class SettingsModal {
                 muteToggle.classList.remove('active');
             }
         }
+
+        // Update greeting TTS toggle
+        const greetingTTSToggle = document.getElementById('greetingTTSToggle');
+        if (greetingTTSToggle) {
+            if (this.settings.greetingTTS) {
+                greetingTTSToggle.classList.add('active');
+            } else {
+                greetingTTSToggle.classList.remove('active');
+            }
+        }
+
+        // Update floating button toggle
+        const floatingButtonToggle = document.getElementById('floatingButtonToggle');
+        if (floatingButtonToggle) {
+            if (this.settings.floatingButtonVisible) {
+                floatingButtonToggle.classList.add('active');
+            } else {
+                floatingButtonToggle.classList.remove('active');
+            }
+        }
+
+        // Update window visibility toggle
+        const windowVisibilityToggle = document.getElementById('windowVisibilityToggle');
+        if (windowVisibilityToggle) {
+            if (this.settings.windowVisibility !== false) {
+                windowVisibilityToggle.classList.add('active');
+            } else {
+                windowVisibilityToggle.classList.remove('active');
+            }
+        }
+
+        // Update wake word toggle chat toggle
+        const wakeWordToggleChatToggle = document.getElementById('wakeWordToggleChatToggle');
+        if (wakeWordToggleChatToggle) {
+            if (this.settings.wakeWordToggleChat) {
+                wakeWordToggleChatToggle.classList.add('active');
+            } else {
+                wakeWordToggleChatToggle.classList.remove('active');
+            }
+        }
     }
 
     updateButtonStates() {
@@ -338,7 +395,7 @@ class SettingsModal {
         // Allow local PIN enable even if not authenticated
         this.settings.pinEnabled = !this.settings.pinEnabled;
         this.updateToggleStates();
-        
+
         try {
             if (window.settingsAPI) {
                 const res = await window.settingsAPI.enableSecurityPin(this.settings.pinEnabled);
@@ -347,7 +404,7 @@ class SettingsModal {
                 }
             }
             await this.saveSettings();
-            
+
             if (this.settings.pinEnabled) {
                 this.showToast('PIN protection enabled', 'success');
                 this.showSetPinModal();
@@ -365,7 +422,7 @@ class SettingsModal {
         this.settings.voiceActivation = !this.settings.voiceActivation;
         this.updateToggleStates();
         await this.saveSettings();
-        
+
         this.showToast(
             this.settings.voiceActivation ? 'Voice activation enabled' : 'Voice activation disabled',
             'success'
@@ -377,14 +434,14 @@ class SettingsModal {
         this.settings.autoSendAfterWakeWord = !this.settings.autoSendAfterWakeWord;
         this.updateToggleStates();
         await this.saveSettings();
-        
+
         this.showToast(
-            this.settings.autoSendAfterWakeWord 
-                ? 'Auto-send after wake word enabled' 
+            this.settings.autoSendAfterWakeWord
+                ? 'Auto-send after wake word enabled'
                 : 'Auto-send after wake word disabled',
             'success'
         );
-        
+
         console.log('Auto-send toggled:', this.settings.autoSendAfterWakeWord);
     }
 
@@ -392,7 +449,7 @@ class SettingsModal {
         this.settings.voiceResponse = !this.settings.voiceResponse;
         this.updateToggleStates();
         await this.saveSettings();
-        
+
         this.showToast(
             this.settings.voiceResponse ? 'Voice response enabled' : 'Voice response disabled',
             'success'
@@ -403,9 +460,58 @@ class SettingsModal {
         this.settings.muteNotifications = !this.settings.muteNotifications;
         this.updateToggleStates();
         await this.saveSettings();
-        
+
         this.showToast(
             this.settings.muteNotifications ? 'Notifications muted' : 'Notifications unmuted',
+            'success'
+        );
+    }
+
+    async toggleGreetingTTS() {
+        this.settings.greetingTTS = !this.settings.greetingTTS;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.greetingTTS ? 'Greeting voice enabled' : 'Greeting voice disabled',
+            'success'
+        );
+    }
+
+    async toggleFloatingButton() {
+        this.settings.floatingButtonVisible = !this.settings.floatingButtonVisible;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        // Send message to main process to update floating button visibility
+        if (window.settingsAPI && window.settingsAPI.updateFloatingButton) {
+            window.settingsAPI.updateFloatingButton(this.settings.floatingButtonVisible);
+        }
+
+        this.showToast(
+            this.settings.floatingButtonVisible ? 'Floating button shown' : 'Floating button hidden',
+            'success'
+        );
+    }
+
+    async toggleWindowVisibility() {
+        this.settings.windowVisibility = !this.settings.windowVisibility;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.windowVisibility ? 'Windows visible in screenshots' : 'Windows hidden in screenshots',
+            'success'
+        );
+    }
+
+    async toggleWakeWordToggleChat() {
+        this.settings.wakeWordToggleChat = !this.settings.wakeWordToggleChat;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.wakeWordToggleChat ? 'Wake word will toggle chat' : 'Wake word will only open chat',
             'success'
         );
     }
@@ -431,9 +537,9 @@ class SettingsModal {
                     ${type === 'set' ? 'Set Security PIN' : 'Change Security PIN'}
                 </h3>
                 <p class="pin-description">
-                    ${type === 'set' 
-                        ? 'Choose a 4-digit PIN to secure your application' 
-                        : 'Enter your current PIN and choose a new one'}
+                    ${type === 'set'
+                ? 'Choose a 4-digit PIN to secure your application'
+                : 'Enter your current PIN and choose a new one'}
                 </p>
                 
                 ${type === 'change' ? `
