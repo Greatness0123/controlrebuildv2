@@ -12,7 +12,7 @@
     "build-app": "electron-builder",
     "dist": "npm run build-backend && electron-builder --publish=never",
     "pack": "electron-builder --dir",
-    "postinstall": "electron-builder install-app-deps && electron-rebuild"
+    "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
     "electron",
@@ -132,6 +132,7 @@
   "devDependencies": {
     "cross-env": "^7.0.3",
     "electron": "^28.0.0",
-    "electron-builder": "^24.0.0"
+    "electron-builder": "^24.0.0",
+    "electron-rebuild": "^3.1.5"
   }
 }

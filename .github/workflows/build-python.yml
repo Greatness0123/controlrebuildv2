@@ -73,6 +73,8 @@ jobs:
 
     - name: Install dependencies
       run: |
+        export CFLAGS="-I/$(brew --prefix portaudio)/include"
+        export LDFLAGS="-L/$(brew --prefix portaudio)/lib"
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pyinstaller
