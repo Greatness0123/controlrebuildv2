@@ -22,7 +22,7 @@
     "computer-use",
     "assistant"
   ],
-  "author": "Control Team",
+  "author": "Control Team <grucookorie@gmail.com>",
   "license": "MIT",
   "type": "commonjs",
   "build": {
