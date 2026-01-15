@@ -81,6 +81,7 @@ jobs:
     
     - name: Build act_backend
       run: |
+        sips -s format icns assets/icons/icon-removebg-preview.png --out assets/icons/icon.icns
         pyinstaller --onefile --windowed --name act_backend --icon=assets/icons/icon.icns act_backend.py
     
     - name: Build ask_backend
