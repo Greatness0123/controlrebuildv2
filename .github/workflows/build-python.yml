@@ -82,12 +82,12 @@ jobs:
     - name: Build act_backend
       run: |
 
-        sips -s format icns assets/icons/icon-removebg-preview.png --out app_icon.icns
-        pyinstaller --onefile --windowed --name act_backend --icon=app_icon.icns act_backend.py
+        pyinstaller --onefile --windowed --name act_backend --icon=assets/icons/icon-removebg-preview.png act_backend.py
+
     
     - name: Build ask_backend
       run: |
-        pyinstaller --onefile --windowed --name ask_backend --icon=app_icon.icns ask_backend.py
+        pyinstaller --onefile --windowed --name ask_backend --icon=assets/icons/icon-removebg-preview.png ask_backend.py
     
     - name: Build vosk_server_v2
       run: |
