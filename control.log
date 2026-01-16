@@ -108,3 +108,5 @@
 2026-01-12 01:03:25,446 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010325_296.png | Cursor: (857, 852)
 2026-01-12 01:03:31,112 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010330_964.png | Cursor: (857, 852)
 2026-01-12 01:03:31,757 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010331_616.png | Cursor: (857, 852)
+2026-01-16 09:08:02,038 - INFO - [CONTROL] - API configured
+2026-01-16 09:08:02,046 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
