@@ -89,38 +89,40 @@ class ComputerUseAgent {
                                 mainWin.webContents.send('request-pin-and-toggle');
                             }
                         } else {
-                            // FAST PATH: Handle chat toggle/show immediately
+                            // Track if chat was closed before this wake word
+                            const wasVisible = this.windowManager.chatVisible;
 
                             // Check if wake word should toggle chat or just open it
                             if (this.appSettings.wakeWordToggleChat) {
                                 // Toggle mode
                                 this.windowManager.toggleChat();
 
-                                // Only send wakeword-detected if chat became visible
-                                if (this.windowManager.chatVisible) {
+                                // Only send wakeword-detected if chat became visible (was closed, now open)
+                                if (this.windowManager.chatVisible && !wasVisible) {
                                     const chatWin = this.windowManager.getWindow('chat');
                                     if (chatWin && !chatWin.isDestroyed()) {
-                                        chatWin.webContents.send('wakeword-detected');
+                                        // Send with flag indicating this opened a closed chat
+                                        chatWin.webContents.send('wakeword-detected', { openedChat: true });
                                     }
                                 }
                             } else {
                                 // Default behavior: Ensure open
-                                // Optimize: Check if already visible to avoid unnecessary show/focus calls if possible,
-                                // but we need to ensure focus, so show() is usually needed.
-                                // However, we can avoid the log spam.
-
-                                if (!this.windowManager.chatVisible) {
+                                if (!wasVisible) {
+                                    // Chat was closed, open it and start transcription
                                     this.windowManager.showWindow('chat');
-                                } else {
-                                    // If already visible, just ensure focus (faster than full show flow)
-                                    const chatWin = this.windowManager.getWindow('chat');
-                                    if (chatWin && !chatWin.isDestroyed()) chatWin.focus();
-                                }
 
-                                // Notify renderer
-                                const chatWin = this.windowManager.getWindow('chat');
-                                if (chatWin && !chatWin.isDestroyed()) {
-                                    chatWin.webContents.send('wakeword-detected');
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        // Send with flag indicating this opened a closed chat
+                                        chatWin.webContents.send('wakeword-detected', { openedChat: true });
+                                    }
+                                } else {
+                                    // Chat already visible, just focus - NO auto-transcription
+                                    const chatWin = this.windowManager.getWindow('chat');
+                                    if (chatWin && !chatWin.isDestroyed()) {
+                                        chatWin.focus();
+                                    }
+                                    console.log('[Main] Chat already visible, not starting auto-transcription');
                                 }
                             }
                         }
@@ -211,6 +213,19 @@ class ComputerUseAgent {
                     userDetails: cachedUser
                 });
 
+                // Sync rate counts with Firebase
+                await firebaseService.syncRateCounts(cachedUser.id);
+
+                // Refresh user data after sync
+                const syncedUser = firebaseService.checkCachedUser();
+                if (syncedUser) {
+                    this.currentUser = syncedUser;
+                }
+
+                // Broadcast to all windows
+                this.windowManager.broadcast('user-changed', this.currentUser);
+                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+
                 this.windowManager.showWindow('main');
             } else {
                 console.log('[Main] No cached user, showing login');
@@ -274,8 +289,9 @@ class ComputerUseAgent {
                 // 2. Response contains text
                 if (this.appSettings.voiceResponse && data && data.text) {
                     console.log('[Main] ✓ All conditions met - Speaking AI response');
-                    console.log('[Main] Text to speak:', data.text);
-                    this.edgeTTS.speak(data.text);
+                    const cleanText = this.cleanMarkdownForTTS(data.text);
+                    console.log('[Main] Cleaned text to speak:', cleanText);
+                    this.edgeTTS.speak(cleanText);
                 } else {
                     console.log('[Main] ✗ Cannot speak response:');
                     console.log('    - voiceResponse enabled:', this.appSettings.voiceResponse);
@@ -459,16 +475,27 @@ class ComputerUseAgent {
                 const settings = this.settingsManager.getSettings();
 
                 if (settings.userAuthenticated && settings.userDetails) {
-                    // Optionally refresh from Firebase
-                    const result = await firebaseService.getUserById(settings.userDetails.id);
-
-                    if (result.success) {
-                        return {
-                            success: true,
-                            isAuthenticated: true,
-                            ...result.user
-                        };
+                    // Try to refresh from Firebase, but use cached data if it fails
+                    try {
+                        // Use verifyEntryID which works with 12-digit IDs
+                        const result = await firebaseService.verifyEntryID(settings.userDetails.id);
+                        if (result.success) {
+                            return {
+                                success: true,
+                                isAuthenticated: true,
+                                ...result.user
+                            };
+                        }
+                    } catch (refreshError) {
+                        console.log('[Main] Firebase refresh failed, using cached data');
                     }
+
+                    // Return cached data if refresh failed
+                    return {
+                        success: true,
+                        isAuthenticated: true,
+                        ...settings.userDetails
+                    };
                 }
 
                 return {
@@ -476,6 +503,7 @@ class ComputerUseAgent {
                     isAuthenticated: false
                 };
             } catch (error) {
+                console.error('[Main] get-user-info error:', error);
                 return {
                     success: false,
                     isAuthenticated: false
@@ -496,6 +524,10 @@ class ComputerUseAgent {
 
                     this.isAuthenticated = true;
                     this.currentUser = result.user;
+
+                    // Broadcast user data to all windows
+                    this.windowManager.broadcast('user-changed', result.user);
+                    this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
 
                     this.windowManager.showWindow('main');
                 }
@@ -645,10 +677,60 @@ class ComputerUseAgent {
             return true;
         });
 
+        ipcMain.handle('set-auto-start', (event, enabled) => {
+            console.log('[Main] Setting auto-start to:', enabled);
+            app.setLoginItemSettings({
+                openAtLogin: enabled,
+                path: app.getPath('exe')
+            });
+            this.appSettings.openAtLogin = enabled;
+            this.settingsManager.updateSettings({ openAtLogin: enabled });
+            return { success: true };
+        });
+
         ipcMain.handle('execute-task', async (event, task, mode) => {
             console.log('[Main] [IPC] execute-task:', mode, task);
+
+            // 1. Check Authentication & Profile
+            if (this.securityManager.isEnabled() && !this.isAuthenticated) {
+                throw new Error('Authentication required');
+            }
+
+            const currentUser = this.currentUser || firebaseService.checkCachedUser();
+            if (!currentUser) {
+                throw new Error('User profile not loaded. Please sign in.');
+            }
+
+            // 2. Check Rate Limit
+            const rateResult = await firebaseService.checkRateLimit(currentUser.id, mode);
+            if (!rateResult.allowed) {
+                throw new Error(rateResult.error || 'Rate limit exceeded');
+            }
+
+            // 3. Get API Key based on Plan
+            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            if (!apiKey) {
+                console.log('Using default env API key');
+                apiKey = process.env.GEMINI_API_KEY;
+            }
+            task.api_key = apiKey;
+
             try {
-                return await this.backendManager.executeTask(task, mode);
+                const result = await this.backendManager.executeTask(task, mode);
+                await firebaseService.incrementTaskCount(currentUser.id, mode);
+
+                // Re-fetch and broadcast updated user data
+                const updatedUser = await firebaseService.getUserById(currentUser.id);
+                if (updatedUser.success) {
+                    this.currentUser = updatedUser.user;
+                    // Update cache
+                    firebaseService.cacheUser(this.currentUser);
+                    // Broadcast
+                    this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                    this.windowManager.broadcast('user-data-updated', this.currentUser);
+                }
+
+                return result;
             } catch (error) {
                 console.error('[Main] Execute task error:', error);
                 throw error;
@@ -918,6 +1000,21 @@ class ComputerUseAgent {
             this.tray.destroy();
         }
         app.quit();
+    }
+
+    cleanMarkdownForTTS(text) {
+        if (!text) return '';
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Bold
+            .replace(/\*([^*\n]+)\*/g, '$1') // Italic
+            .replace(/__([^_]+)__/g, '$1') // Bold/Italic
+            .replace(/`([^`]+)`/g, '$1') // Inline code
+            .replace(/```[\s\S]*?```/g, 'Code block skipped') // Code blocks (skip content or say "code")
+            .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Links: [text](url) -> text
+            .replace(/^#+\s+/gm, '') // Headers
+            .replace(/^\s*[-*+]\s+/gm, '') // List bullets
+            .replace(/[*_~`]/g, '') // Remaining markdown symbols
+            .trim();
     }
 }
 

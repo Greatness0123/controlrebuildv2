@@ -193,9 +193,11 @@
             0% {
                 opacity: 0;
             }
+
             20% {
                 opacity: 1;
             }
+
             100% {
                 opacity: 0;
             }
@@ -215,7 +217,7 @@
             background: transparent;
             opacity: 0;
             transition: opacity 0.3s ease;
-            box-shadow: 
+            box-shadow:
                 inset 0 0 20px rgba(102, 126, 234, 0.3),
                 0 0 30px rgba(102, 126, 234, 0.2);
         }
@@ -224,7 +226,7 @@
             opacity: 1;
             animation: edge-glow-pulse 2s ease-in-out infinite, shimmer-rotate 4s linear infinite;
             /* Create gradient border effect using box-shadow */
-            box-shadow: 
+            box-shadow:
                 inset 0 0 20px rgba(102, 126, 234, 0.3),
                 0 0 30px rgba(102, 126, 234, 0.2),
                 inset -4px 0 20px rgba(102, 126, 234, 0.4),
@@ -234,8 +236,10 @@
         }
 
         @keyframes edge-glow-pulse {
-            0%, 100% {
-                box-shadow: 
+
+            0%,
+            100% {
+                box-shadow:
                     inset 0 0 20px rgba(102, 126, 234, 0.3),
                     0 0 30px rgba(102, 126, 234, 0.2),
                     inset -4px 0 20px rgba(102, 126, 234, 0.4),
@@ -243,8 +247,9 @@
                     inset 0 -4px 20px rgba(240, 147, 251, 0.4),
                     inset 0 4px 20px rgba(102, 126, 234, 0.4);
             }
+
             50% {
-                box-shadow: 
+                box-shadow:
                     inset 0 0 40px rgba(118, 75, 162, 0.5),
                     0 0 60px rgba(118, 75, 162, 0.3),
                     inset -6px 0 30px rgba(102, 126, 234, 0.5),
@@ -258,15 +263,19 @@
             0% {
                 background-position: 0% 50%;
             }
+
             25% {
                 background-position: 100% 0%;
             }
+
             50% {
                 background-position: 100% 100%;
             }
+
             75% {
                 background-position: 0% 100%;
             }
+
             100% {
                 background-position: 0% 50%;
             }
@@ -1012,7 +1021,10 @@
                 setTimeout(() => this.notificationIndicator.classList.remove('ping'), 1000);
             }
 
-            showFlashOverlay() {
+            async showFlashOverlay() {
+                // Check if edge glow is enabled in settings
+                if (!await this.isEdgeGlowEnabled()) return;
+
                 // Show flash overlay for 1 second
                 this.flashOverlay.classList.add('active');
                 // Remove after animation completes
@@ -1021,12 +1033,29 @@
                 }, 1000);
             }
 
-            showEdgeGlow() {
+            async showEdgeGlow() {
+                // Check if edge glow is enabled in settings
+                if (!await this.isEdgeGlowEnabled()) return;
+
                 this.edgeGlow.classList.add('active');
             }
 
             hideEdgeGlow() {
                 this.edgeGlow.classList.remove('active');
+            }
+
+            async isEdgeGlowEnabled() {
+                try {
+                    if (window.settingsAPI && window.settingsAPI.getSettings) {
+                        const settings = await window.settingsAPI.getSettings();
+                        // Default to true if not set
+                        return settings.edgeGlowEnabled !== false;
+                    }
+                    return true;
+                } catch (e) {
+                    console.error('[Overlay] Error checking edgeGlowEnabled:', e);
+                    return true;
+                }
             }
 
             showStatus(message, type = 'info') {

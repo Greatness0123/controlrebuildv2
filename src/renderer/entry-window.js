@@ -127,6 +127,18 @@ class EntryWindow {
         document.getElementById('closeButton').addEventListener('click', () => {
             this.closeWindow();
         });
+
+        // Online/Offline listeners
+        window.addEventListener('offline', () => {
+            this.showError('You are offline. Please check your internet connection.');
+            this.showLoading(false);
+        });
+
+        window.addEventListener('online', () => {
+            this.hideMessages();
+            this.showSuccess('Internet connection restored.');
+            setTimeout(() => this.hideMessages(), 3000);
+        });
     }
 
     formatUserId(input) {
@@ -137,6 +149,11 @@ class EntryWindow {
 
     async authenticate() {
         let userId = this.userIdInput.value.trim();
+
+        if (!navigator.onLine) {
+            this.showError('You are offline. Please check your internet connection.');
+            return;
+        }
 
         if (!userId) {
             this.showError('Please enter your 12-digit User ID');

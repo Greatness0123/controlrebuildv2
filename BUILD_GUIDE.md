@@ -104,10 +104,10 @@ After conversion, update the following files to use the executables instead of P
 this.serverScriptPath = path.join(__dirname, '../../vosk_server_v2.py');
 
 // NEW (Windows):
-this.serverScriptPath = path.join(__dirname, '../../dist/vosk_server_v2.exe');
+this.serverScriptPath = path.join(process.resourcesPath, 'assets/binaries/vosk_server_v2.exe');
 
 // NEW (macOS/Linux):
-this.serverScriptPath = path.join(__dirname, '../../dist/vosk_server_v2');
+this.serverScriptPath = path.join(process.resourcesPath, 'assets/binaries/vosk_server_v2');
 ```
 
 **File: `src/main/backend-manager-fixed.js`**
@@ -117,12 +117,12 @@ const actScript = path.join(__dirname, '../../act_backend.py');
 const askScript = path.join(__dirname, '../../ask_backend.py');
 
 // NEW (Windows):
-const actScript = path.join(__dirname, '../../dist/act_backend.exe');
-const askScript = path.join(__dirname, '../../dist/ask_backend.exe');
+const actScript = path.join(process.resourcesPath, 'assets/binaries/act_backend.exe');
+const askScript = path.join(process.resourcesPath, 'assets/binaries/ask_backend.exe');
 
 // NEW (macOS/Linux):
-const actScript = path.join(__dirname, '../../dist/act_backend');
-const askScript = path.join(__dirname, '../../dist/ask_backend');
+const actScript = path.join(process.resourcesPath, 'assets/binaries/act_backend');
+const askScript = path.join(process.resourcesPath, 'assets/binaries/ask_backend');
 ```
 
 **File: `src/main/wakeword-manager.js` (if exists)**
@@ -131,10 +131,10 @@ const askScript = path.join(__dirname, '../../dist/ask_backend');
 const wakewordScript = path.join(__dirname, '../../assets/wakeword/wakeword_helper.py');
 
 // NEW (Windows):
-const wakewordScript = path.join(__dirname, '../../dist/wakeword_helper.exe');
+const wakewordScript = path.join(process.resourcesPath, 'assets/binaries/wakeword_helper.exe');
 
 // NEW (macOS/Linux):
-const wakewordScript = path.join(__dirname, '../../dist/wakeword_helper');
+const wakewordScript = path.join(process.resourcesPath, 'assets/binaries/wakeword_helper');
 ```
 
 #### Step 4: Platform Detection
@@ -199,11 +199,6 @@ Ensure your `package.json` includes the Python executables in the build:
   "build": {
     "extraResources": [
       {
-        "from": "dist/",
-        "to": "dist/",
-        "filter": ["**/*.exe", "**/*"]
-      },
-      {
         "from": "assets/",
         "to": "assets/",
         "filter": ["**/*"]
@@ -213,7 +208,17 @@ Ensure your `package.json` includes the Python executables in the build:
 }
 ```
 
-### Step 3: Build Electron Application
+### Step 3: Move Executables to Assets Directory
+
+The application expects executables to be in `assets/binaries/`.
+
+1. Create directory `assets/binaries/` if it doesn't exist.
+2. Move the generated executables from `dist/` to `assets/binaries/`.
+   - `act_backend.exe` (or `act_backend`)
+   - `ask_backend.exe` (or `ask_backend`)
+   - `vosk_server_v2.exe` (or `vosk_server_v2`)
+
+### Step 4: Build Electron Application
 
 #### Windows (.exe)
 ```bash

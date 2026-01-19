@@ -254,7 +254,9 @@ class BackendManager {
         });
 
         pythonProcess.stderr.on('data', (buf) => {
-            console.error(`[${label}] Stderr:`, buf.toString());
+            const errStr = buf.toString();
+            console.error(`[${label}] Stderr:`, errStr);
+            this.logToFile(`[${label}] Stderr: ${errStr}`);
         });
 
         return pythonProcess;
@@ -274,6 +276,7 @@ class BackendManager {
                 }
             } else {
                 console.log(`[${label}]:`, line);
+                this.logToFile(`[${label}]: ${line}`);
             }
         }
     }
@@ -317,9 +320,13 @@ class BackendManager {
 
         // Prepare request
         let requestType = mode === 'ask' ? 'ask_question' : 'execute_task';
+
+        // Clone task to avoid mutation side-effects and ensure clean payload
+        const requestTask = { ...task };
+
         let requestPayload = {
             type: requestType,
-            request: task,
+            request: requestTask,
             timestamp: new Date().toISOString()
         };
 
@@ -330,43 +337,74 @@ class BackendManager {
 
             // Handle attachments logic (shared)
             if (task && task.attachments && Array.isArray(task.attachments)) {
-                requestPayload.request.attachments = [];
+                const msg1 = `[BackendManager] Found ${task.attachments.length} attachments in task`;
+                console.log(msg1);
+                this.logToFile(msg1);
+
+                const processedAttachments = [];
+
                 for (const at of task.attachments) {
-                    if (at.data && Array.isArray(at.data)) {
-                        // Raw binary data as Uint8Array array - convert directly to buffer
-                        const filename = `${Date.now()}-${at.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-                        const filePath = path.join(tmpDir, filename);
-                        const buffer = Buffer.from(at.data);
-                        fs.writeFileSync(filePath, buffer);
-                        requestPayload.request.attachments.push({ name: at.name, path: filePath, type: at.type });
-                    } else if (at.path) {
-                        // Already a file path
-                        requestPayload.request.attachments.push({ name: at.name, path: at.path, type: at.type });
-                    } else if (at.data && typeof at.data === 'string' && at.data.startsWith('data:')) {
-                        // Legacy base64 data URL support
-                        const b64 = at.data.replace(/^data:.*;base64,/, '');
-                        const filename = `${Date.now()}-${at.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-                        const filePath = path.join(tmpDir, filename);
-                        fs.writeFileSync(filePath, Buffer.from(b64, 'base64'));
-                        requestPayload.request.attachments.push({ name: at.name, path: filePath, type: at.type });
-                    } else if (at.data && typeof at.data === 'string') {
-                        // Legacy base64 string (without data: prefix)
-                        const filename = `${Date.now()}-${at.name}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-                        const filePath = path.join(tmpDir, filename);
-                        fs.writeFileSync(filePath, Buffer.from(at.data, 'base64'));
-                        requestPayload.request.attachments.push({ name: at.name, path: filePath, type: at.type });
+                    try {
+                        let filePath = null;
+                        let fileName = at.name || 'unknown_file';
+
+                        // Sanitize filename
+                        const safeName = `${Date.now()}-${fileName}`.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+                        filePath = path.join(tmpDir, safeName);
+
+                        if (at.data && Array.isArray(at.data)) {
+                            // Raw binary data as Uint8Array array
+                            const buffer = Buffer.from(at.data);
+                            fs.writeFileSync(filePath, buffer);
+                            const msg = `[BackendManager] Saved binary attachment to ${filePath} (${buffer.length} bytes)`;
+                            console.log(msg);
+                            this.logToFile(msg);
+                        } else if (at.path) {
+                            // Already a file path, just use it (or copy it? using directly is fine)
+                            filePath = at.path;
+                            const msg = `[BackendManager] Using existing file path: ${filePath}`;
+                            console.log(msg);
+                            this.logToFile(msg);
+                        } else if (at.data && typeof at.data === 'string') {
+                            // Base64 string (legacy)
+                            const b64 = at.data.startsWith('data:') ? at.data.replace(/^data:.*;base64,/, '') : at.data;
+                            fs.writeFileSync(filePath, Buffer.from(b64, 'base64'));
+                            const msg = `[BackendManager] Saved base64 attachment to ${filePath}`;
+                            console.log(msg);
+                            this.logToFile(msg);
+                        }
+
+                        if (filePath) {
+                            processedAttachments.push({
+                                name: fileName,
+                                path: filePath,
+                                type: at.type || 'application/octet-stream'
+                            });
+                        }
+                    } catch (attErr) {
+                        const errMsg = `[BackendManager] Failed to process attachment ${at.name}: ${attErr}`;
+                        console.error(errMsg);
+                        this.logToFile(errMsg);
                     }
                 }
+
+                // Assign the processed attachments to the payload used for the REQUEST
+                requestPayload.request.attachments = processedAttachments;
+                const finalMsg = `[BackendManager] Sending ${processedAttachments.length} processed attachments to backend`;
+                console.log(finalMsg);
+                this.logToFile(finalMsg);
+            } else {
+                this.logToFile('[BackendManager] No attachments found in task object');
             }
 
             // Handle transcription (usually routed to ACT or specific Vosk, but here sticking to pattern)
             if (task && task.type === 'transcribe') {
                 // This might need specific handling, but assuming current Vosk flow sits side-by-side
-                // If transcription needs to go to python, it goes to ACT usually, or we use the new vosk server
-                // For now, let's assume transcription is handled via the separate Vosk server
             }
 
-            targetProcess.stdin.write(`FRONTEND_REQUEST:${JSON.stringify(requestPayload)}\n`);
+            const requestStr = JSON.stringify(requestPayload);
+            targetProcess.stdin.write(`FRONTEND_REQUEST:${requestStr}\n`);
+            this.logToFile(`[BackendManager] Sent request to ${targetLabel} backend (Payload size: ${requestStr.length})`);
             return { success: true, task };
         } catch (err) {
             console.error('executeTask error:', err);

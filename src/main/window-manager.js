@@ -13,6 +13,14 @@ class WindowManager {
         this.isInteractive = false; // overlay click-through by default; enable on hover when needed
     }
 
+    broadcast(channel, data) {
+        this.windows.forEach(window => {
+            if (window && !window.isDestroyed()) {
+                window.webContents.send(channel, data);
+            }
+        });
+    }
+
     async initializeWindows() {
         // Create main overlay window (transparent, always on top)
         await this.createMainWindow();

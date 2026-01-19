@@ -72,3 +72,233 @@
 [2026-01-16T08:07:52.472Z] Both Act and Ask backends started successfully
 [2026-01-16T08:08:50.238Z] [ASK] Process terminated unexpectedly
 [2026-01-16T08:08:50.268Z] [ACT] Process terminated unexpectedly
+[2026-01-19T07:06:58.420Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:06:58.421Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:07:03.459Z] Both Act and Ask backends started successfully
+[2026-01-19T07:10:16.229Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:10:16.229Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:10:21.275Z] Both Act and Ask backends started successfully
+[2026-01-19T07:20:24.222Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:20:24.223Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:20:29.338Z] Both Act and Ask backends started successfully
+[2026-01-19T07:22:35.274Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:22:35.275Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:22:40.444Z] Both Act and Ask backends started successfully
+[2026-01-19T07:30:52.675Z] Starting Act Backend: py C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:30:52.677Z] Starting Ask Backend: py C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:30:57.823Z] Both Act and Ask backends started successfully
+[2026-01-19T07:41:59.777Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:41:59.778Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:42:04.839Z] Both Act and Ask backends started successfully
+[2026-01-19T07:46:25.783Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:46:25.785Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:46:30.867Z] Both Act and Ask backends started successfully
+[2026-01-19T07:56:50.119Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T07:56:50.120Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T07:56:55.218Z] Both Act and Ask backends started successfully
+[2026-01-19T07:59:27.899Z] [ASK] Process terminated unexpectedly
+[2026-01-19T07:59:48.960Z] [ACT] Process terminated unexpectedly
+[2026-01-19T07:59:49.013Z] [ASK] Process terminated unexpectedly
+[2026-01-19T08:05:06.979Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T08:05:06.980Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T08:05:12.011Z] Both Act and Ask backends started successfully
+[2026-01-19T08:27:05.719Z] [ASK] Process terminated unexpectedly
+[2026-01-19T08:27:15.004Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T08:27:15.006Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T08:27:20.047Z] Both Act and Ask backends started successfully
+[2026-01-19T08:35:14.909Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T08:35:14.909Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T08:35:19.947Z] Both Act and Ask backends started successfully
+[2026-01-19T08:51:54.045Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T08:51:54.045Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T08:51:59.088Z] Both Act and Ask backends started successfully
+[2026-01-19T08:59:52.394Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T08:59:52.394Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T08:59:57.436Z] Both Act and Ask backends started successfully
+[2026-01-19T09:06:50.327Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:06:50.327Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:06:55.368Z] Both Act and Ask backends started successfully
+[2026-01-19T09:17:33.271Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:17:33.272Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:17:38.303Z] Both Act and Ask backends started successfully
+[2026-01-19T09:17:39.423Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:17:39.426Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:17:44.469Z] Both Act and Ask backends started successfully
+[2026-01-19T09:18:10.782Z] [ASK] Process terminated unexpectedly
+[2026-01-19T09:18:10.788Z] [ACT] Process terminated unexpectedly
+[2026-01-19T09:18:21.745Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:18:21.746Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:18:26.772Z] Both Act and Ask backends started successfully
+[2026-01-19T09:23:48.480Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:23:48.480Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:23:53.513Z] Both Act and Ask backends started successfully
+[2026-01-19T09:24:35.828Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:24:35.837Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768814675829-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:24:35.841Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:24:35.842Z] [BackendManager] Sent request to ASK backend (Payload size: 290)
+[2026-01-19T09:25:57.099Z] [ASK] Process terminated unexpectedly
+[2026-01-19T09:28:22.664Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:28:22.665Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:28:27.699Z] Both Act and Ask backends started successfully
+[2026-01-19T09:30:21.862Z] [ACT] Process terminated unexpectedly
+[2026-01-19T09:30:21.889Z] [ASK] Process terminated unexpectedly
+[2026-01-19T09:30:31.369Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:30:31.370Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:30:36.410Z] Both Act and Ask backends started successfully
+[2026-01-19T09:31:09.049Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:31:09.051Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:31:14.371Z] Both Act and Ask backends started successfully
+[2026-01-19T09:31:51.426Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:31:51.449Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768815111426-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:31:51.451Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:31:51.452Z] [BackendManager] Sent request to ACT backend (Payload size: 296)
+[2026-01-19T09:32:32.890Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:32:32.899Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768815152891-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:32:32.906Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:32:32.906Z] [BackendManager] Sent request to ASK backend (Payload size: 297)
+[2026-01-19T09:33:04.193Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:33:04.219Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768815184194-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:33:04.225Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:33:04.226Z] [BackendManager] Sent request to ASK backend (Payload size: 256)
+[2026-01-19T09:33:57.200Z] [ACT] Process terminated unexpectedly
+[2026-01-19T09:36:03.154Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:36:03.154Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:36:08.186Z] Both Act and Ask backends started successfully
+[2026-01-19T09:36:54.896Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:36:54.899Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768815414897-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:36:54.901Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:36:54.901Z] [BackendManager] Sent request to ASK backend (Payload size: 276)
+[2026-01-19T09:42:35.618Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:42:35.620Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:42:40.701Z] Both Act and Ask backends started successfully
+[2026-01-19T09:43:17.834Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:43:17.867Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768815797835-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:43:17.878Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:43:17.880Z] [BackendManager] Sent request to ASK backend (Payload size: 284)
+[2026-01-19T09:47:00.009Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:47:00.010Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:47:05.068Z] Both Act and Ask backends started successfully
+[2026-01-19T09:47:05.603Z] [ASK]: 2026-01-19 10:47:05,601 - INFO - [ASK] - Gemini API configured
+[2026-01-19T09:47:05.616Z] [ASK]: 2026-01-19 10:47:05,601 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T09:47:05.623Z] [ASK]: 2026-01-19 10:47:05,601 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T09:47:07.059Z] [ACT]: [API] Ready
+[2026-01-19T09:47:07.083Z] [ACT]: 2026-01-19 10:47:07,052 - INFO - [CONTROL] - API configured
+[2026-01-19T09:47:07.107Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T09:47:07.109Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T09:47:07.126Z] [ACT]: 2026-01-19 10:47:07,100 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T09:51:39.781Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:51:39.783Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:51:44.950Z] Both Act and Ask backends started successfully
+[2026-01-19T09:52:20.217Z] [ASK] Process terminated unexpectedly
+[2026-01-19T09:52:28.711Z] [ASK] Process terminated unexpectedly
+[2026-01-19T09:52:28.724Z] [ACT] Process terminated unexpectedly
+[2026-01-19T09:52:34.484Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T09:52:34.485Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T09:52:39.538Z] Both Act and Ask backends started successfully
+[2026-01-19T09:52:48.852Z] [ASK]: 2026-01-19 10:52:48,825 - INFO - [ASK] - Gemini API configured
+[2026-01-19T09:52:48.879Z] [ASK]: 2026-01-19 10:52:48,828 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T09:52:48.898Z] [ASK]: 2026-01-19 10:52:48,829 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T09:52:52.124Z] [ACT]: [API] Ready
+[2026-01-19T09:52:52.200Z] [ACT]: 2026-01-19 10:52:52,066 - INFO - [CONTROL] - API configured
+[2026-01-19T09:52:52.270Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T09:52:52.281Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T09:52:52.283Z] [ACT]: 2026-01-19 10:52:52,069 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T09:53:08.794Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:53:08.798Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768816388795-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:53:08.802Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:53:08.803Z] [BackendManager] Sent request to ACT backend (Payload size: 284)
+[2026-01-19T09:53:08.843Z] [ACT]: ================================================================================
+[2026-01-19T09:53:08.853Z] [ACT]:  Control - Frontend Integration Mode
+[2026-01-19T09:53:08.911Z] [ACT]: ================================================================================
+[2026-01-19T09:53:08.913Z] [ACT]: Ready for frontend communication...
+[2026-01-19T09:53:08.930Z] [ACT]: Screen: 1920x1080
+[2026-01-19T09:53:08.961Z] [ACT]: Max retries per action: 3
+[2026-01-19T09:53:08.979Z] [ACT]: Waiting for requests from frontend...
+[2026-01-19T09:53:08.998Z] [ACT]: ================================================================================
+[2026-01-19T09:53:09.009Z] [ACT]:  REQUEST: what is in the attached file
+[2026-01-19T09:53:09.047Z] [ACT]:  ATTACHMENTS: 1 file(s)
+[2026-01-19T09:53:09.057Z] [ACT]: ================================================================================
+[2026-01-19T09:53:09.816Z] [ACT]: 2026-01-19 10:53:09,812 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_105308_813.png | Cursor: (1832, 836)
+[2026-01-19T09:53:09.862Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1832, 836)
+[2026-01-19T09:53:09.877Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1832, 836)
+[2026-01-19T09:53:09.902Z] [ACT]: 2026-01-19 10:53:09,817 - INFO - [CONTROL] - Added text attachment to LLM: RCF Confession.txt
+[2026-01-19T09:53:10.271Z] [ACT] Stderr: WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768816390.227943   17556 alts_credentials.cc:93] ALTS creds ignored. Not running on GCP and untrusted ALTS is not enabled.
+
+[2026-01-19T09:53:11.427Z] [ACT]: 2026-01-19 10:53:11,420 - INFO - [CONTROL] - Received cancel request
+[2026-01-19T09:53:32.608Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T09:53:32.633Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768816412608-RCF_Confession.txt (583 bytes)
+[2026-01-19T09:53:32.636Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T09:53:32.637Z] [BackendManager] Sent request to ASK backend (Payload size: 284)
+[2026-01-19T09:53:32.699Z] [ASK]: [DEBUG_DUMP] Full Request Keys: ['type', 'request', 'timestamp']
+[2026-01-19T09:53:32.716Z] [ASK]: [DEBUG_DUMP] Request Data Type: <class 'dict'>
+[2026-01-19T09:53:32.778Z] [ASK]: 2026-01-19 10:53:32,637 - INFO - [ASK] - Parsed request dict: text_len=28, attachments=1
+[2026-01-19T09:53:32.781Z] [ASK]: 2026-01-19 10:53:32,637 - INFO - [ASK] - First attachment: {'name': 'RCF Confession.txt', 'path': 'C:\\Users\\USER\\Downloads\\rebuild\\tmp\\1768816412608-RCF_Confession.txt', 'type': 'text/plain'}
+[2026-01-19T09:53:32.786Z] [ASK]: 2026-01-19 10:53:32,638 - INFO - [ASK] - Added text attachment: RCF Confession.txt (553 chars)
+[2026-01-19T09:53:32.808Z] [ASK] Stderr: WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768816412.665484   11880 alts_credentials.cc:93] ALTS creds ignored. Not running on GCP and untrusted ALTS is not enabled.
+
+[2026-01-19T09:53:34.975Z] [ACT]: 2026-01-19 10:53:34,971 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user is asking for the content of the attached file 'RCF Confession.txt'. The screenshot shows a file named '1768815414897-RCF_Confession.txt' open in VS Code, displaying its content. I need to extract this visible text.", "plan": "Identify the text content of the currently open file '1768815414897-RCF_Confession.txt' in the editor and present it to the user.", "actions": [{"step": 1, "description": "Extract the visible text content from the editor pane where '1768815414897-RCF_Confession.txt' is displayed.", "action": "analyze_ui", "parameters": {"query": "text content within the main editor area of the '1768815414897-RCF_Confession.txt' file"}, "verification": {"expected_outcome": "The text content of the file should be successfully extracted.", "verification_method": "visual", "success_indicators": ["'We are members of the same body,'", "'Amennnnnn'"]}}]}
+[2026-01-19T09:53:34.980Z] [ACT]: [TYPE] Task detected
+[2026-01-19T09:53:34.988Z] [ACT]: [ANALYSIS] The user is asking for the content of the attached file 'RCF Confession.txt'. The screenshot shows a file named '1768815414897-RCF_Confession.txt' open in VS Code, displaying its content. I need to extract this visible text.
+[2026-01-19T09:53:34.999Z] [ACT]: [PLAN] Identify the text content of the currently open file '1768815414897-RCF_Confession.txt' in the editor and present it to the user.
+[2026-01-19T09:53:35.004Z] [ACT]: [EXECUTING] 1 steps with verification
+[2026-01-19T09:53:35.017Z] [ACT]: ================================================================================
+[2026-01-19T09:53:35.019Z] [ACT]:  [CANCELLED] Task stopped by user
+[2026-01-19T09:53:35.034Z] [ACT]: ================================================================================
+[2026-01-19T10:04:43.882Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T10:04:43.883Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T10:04:48.917Z] Both Act and Ask backends started successfully
+[2026-01-19T10:04:50.669Z] [ASK]: 2026-01-19 11:04:50,667 - INFO - [ASK] - Gemini API configured
+[2026-01-19T10:04:50.681Z] [ASK]: 2026-01-19 11:04:50,667 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T10:04:50.685Z] [ASK]: 2026-01-19 11:04:50,667 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T10:04:53.624Z] [ACT]: [API] Ready
+[2026-01-19T10:04:53.635Z] [ACT]: 2026-01-19 11:04:53,620 - INFO - [CONTROL] - API configured
+[2026-01-19T10:04:53.642Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T10:04:53.645Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T10:04:53.647Z] [ACT]: 2026-01-19 11:04:53,625 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T10:09:29.081Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T10:09:29.124Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768817369084-SYSTEM_PROMPT_2.txt (6105 bytes)
+[2026-01-19T10:09:29.141Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T10:09:29.141Z] [BackendManager] Sent request to ASK backend (Payload size: 278)
+[2026-01-19T10:09:29.305Z] [ASK]: [DEBUG_DUMP] Full Request Keys: ['type', 'request', 'timestamp']
+[2026-01-19T10:09:29.357Z] [ASK]: [DEBUG_DUMP] Request Data Type: <class 'dict'>
+[2026-01-19T10:09:29.370Z] [ASK]: 2026-01-19 11:09:29,152 - INFO - [ASK] - Parsed request dict: text_len=20, attachments=1
+[2026-01-19T10:09:29.403Z] [ASK]: 2026-01-19 11:09:29,153 - INFO - [ASK] - First attachment: {'name': 'SYSTEM_PROMPT 2.txt', 'path': 'C:\\Users\\USER\\Downloads\\rebuild\\tmp\\1768817369084-SYSTEM_PROMPT_2.txt', 'type': 'text/plain'}
+[2026-01-19T10:09:29.406Z] [ASK]: 2026-01-19 11:09:29,198 - INFO - [ASK] - Added text attachment: SYSTEM_PROMPT 2.txt (6003 chars)
+[2026-01-19T10:09:33.885Z] [ASK]: 2026-01-19 11:09:33,850 - ERROR - [ASK] - Error processing request: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+[2026-01-19T10:09:33.900Z] [ASK]: * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
+[2026-01-19T10:09:33.905Z] [ASK]: Please retry in 26.189896929s. [links {
+[2026-01-19T10:09:33.915Z] [ASK]:   description: "Learn more about Gemini API quotas"
+[2026-01-19T10:09:33.919Z] [ASK]:   url: "https://ai.google.dev/gemini-api/docs/rate-limits"
+[2026-01-19T10:09:33.921Z] [ASK]: }
+[2026-01-19T10:09:33.929Z] [ASK]: , violations {
+[2026-01-19T10:09:33.936Z] [ASK]:   quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+[2026-01-19T10:09:33.938Z] [ASK]:   quota_id: "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+[2026-01-19T10:09:33.947Z] [ASK]:   quota_dimensions {
+[2026-01-19T10:09:33.949Z] [ASK]:     key: "model"
+[2026-01-19T10:09:33.989Z] [ASK]:     value: "gemini-2.5-flash"
+[2026-01-19T10:09:33.995Z] [ASK]:   }
+[2026-01-19T10:09:33.997Z] [ASK]:   quota_dimensions {
+[2026-01-19T10:09:34.035Z] [ASK]:     key: "location"
+[2026-01-19T10:09:34.070Z] [ASK]:     value: "global"
+[2026-01-19T10:09:34.136Z] [ASK]:   }
+[2026-01-19T10:09:34.146Z] [ASK]:   quota_value: 20
+[2026-01-19T10:09:34.148Z] [ASK]: }
+[2026-01-19T10:09:34.150Z] [ASK]: , retry_delay {
+[2026-01-19T10:09:34.166Z] [ASK]:   seconds: 26
+[2026-01-19T10:09:34.217Z] [ASK]: }
+[2026-01-19T10:09:34.221Z] [ASK]: ]
+[2026-01-19T10:09:38.995Z] [ACT] Process terminated unexpectedly
+[2026-01-19T10:09:39.039Z] [ASK] Process terminated unexpectedly
+[2026-01-19T10:11:38.974Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T10:11:38.975Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T10:11:44.019Z] Both Act and Ask backends started successfully
+[2026-01-19T10:11:45.398Z] [ASK]: 2026-01-19 11:11:45,393 - INFO - [ASK] - Gemini API configured
+[2026-01-19T10:11:45.401Z] [ASK]: 2026-01-19 11:11:45,393 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T10:11:45.403Z] [ASK]: 2026-01-19 11:11:45,393 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T10:11:48.169Z] [ACT]: [API] Ready
+[2026-01-19T10:11:48.174Z] [ACT]: 2026-01-19 11:11:48,168 - INFO - [CONTROL] - API configured
+[2026-01-19T10:11:48.185Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T10:11:48.197Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T10:11:48.221Z] [ACT]: 2026-01-19 11:11:48,183 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

@@ -115,8 +115,12 @@ class AskBackend:
             
             if attachments:
                 for att in attachments:
-                    if att.get('path') and os.path.exists(att.get('path')):
-                        mime_types = {
+                    file_path = att.get('path')
+                    if file_path and os.path.exists(file_path):
+                        ext = file_path.split('.')[-1].lower()
+                        
+                        # Image MIME types
+                        image_mime_types = {
                             'png': 'image/png', 
                             'jpg': 'image/jpeg', 
                             'jpeg': 'image/jpeg', 
@@ -124,23 +128,24 @@ class AskBackend:
                             'gif': 'image/gif',
                             'bmp': 'image/bmp'
                         }
-                        ext = att.get('path').split('.')[-1].lower()
-                        if ext in mime_types:
+                        
+                        if ext in image_mime_types:
+                            # Handle image files
                             try:
-                                with open(att.get('path'), 'rb') as f:
+                                with open(file_path, 'rb') as f:
                                     image_data = f.read()
                                 content_parts.append({
-                                    "mime_type": mime_types[ext],
+                                    "mime_type": image_mime_types[ext],
                                     "data": image_data
                                 })
                                 logger.info(f"Added image attachment: {att.get('name', 'unknown')} ({len(image_data)} bytes)")
                             except Exception as e:
-                                logger.error(f"Failed to read image attachment {att.get('path')}: {e}")
-                    elif att.get('path') and os.path.exists(att.get('path')):
-                        ext = att.get('path').split('.')[-1].lower()
-                        if ext == 'pdf':
+                                logger.error(f"Failed to read image attachment {file_path}: {e}")
+                        
+                        elif ext == 'pdf':
+                            # Handle PDF files
                             try:
-                                with open(att.get('path'), 'rb') as f:
+                                with open(file_path, 'rb') as f:
                                     pdf_data = f.read()
                                 content_parts.append({
                                     "mime_type": "application/pdf",
@@ -148,16 +153,20 @@ class AskBackend:
                                 })
                                 logger.info(f"Added PDF attachment: {att.get('name', 'unknown')} ({len(pdf_data)} bytes)")
                             except Exception as e:
-                                logger.error(f"Failed to read PDF attachment {att.get('path')}: {e}")
+                                logger.error(f"Failed to read PDF attachment {file_path}: {e}")
+                        
                         else:
+                            # Handle text files (default fallback)
                             try:
-                                # Try to read as text file
-                                with open(att.get('path'), 'r', encoding='utf-8') as f:
+                                with open(file_path, 'r', encoding='utf-8') as f:
                                     text_content = f.read()
-                                content_parts.append(f"\n[Attachment: {att.get('name', 'file')}]\n{text_content}\n")
-                                logger.info(f"Added text attachment: {att.get('name', 'unknown')}")
+                                # Include text content directly in the prompt
+                                content_parts.append(f"\n--- Attached File: {att.get('name', 'file')} ---\n{text_content}\n--- End of Attached File ---\n")
+                                logger.info(f"Added text attachment: {att.get('name', 'unknown')} ({len(text_content)} chars)")
                             except Exception as e:
                                 logger.warning(f"Could not read attachment as text: {e}")
+                    else:
+                        logger.warning(f"Attachment path missing or file does not exist: {att}")
             
             content_parts.append(user_request)
 
@@ -192,13 +201,35 @@ class AskBackend:
                         request = json.loads(request_json)
                         
                         if request.get('type') == 'ask_question':
-                            user_query = request.get('request', '')
+                            # The 'request' object from backend-manager now contains the task, e.g. { "text": "...", "attachments": [...] }
+                            # OR it might be just the text string if no attachments were present/processed (legacy)
+                            # Let's inspect 'requestPayload.request'
+                            
+                            # Dump full request for debugging
+                            print(f"[DEBUG_DUMP] Full Request Keys: {list(request.keys())}")
+                            print(f"[DEBUG_DUMP] Request Data Type: {type(request.get('request'))}")
+                            sys.stdout.flush()
+
+                            req_data = request.get('request', {})
+                            user_query = ""
                             attachments = []
                             
-                            # Handle object format
-                            if isinstance(user_query, dict):
-                                attachments = user_query.get('attachments', [])
-                                user_query = user_query.get('text', '')
+                            if isinstance(req_data, dict):
+                                user_query = req_data.get('text', '')
+                                attachments = req_data.get('attachments', [])
+                                logger.info(f"Parsed request dict: text_len={len(user_query)}, attachments={len(attachments)}")
+                                sys.stdout.flush()
+                                if attachments:
+                                    logger.info(f"First attachment: {attachments[0]}")
+                                    sys.stdout.flush()
+                            elif isinstance(req_data, str):
+                                user_query = req_data
+                                logger.info("Parsed request as string")
+                                sys.stdout.flush()
+                            else:
+                                user_query = str(req_data)
+                                logger.info(f"Parsed request as {type(req_data)}")
+                                sys.stdout.flush()
                             
                             self.process_request(user_query, attachments)
                             

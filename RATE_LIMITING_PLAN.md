@@ -1,70 +1,69 @@
 # Rate Limiting Implementation Plan
 
 ## Overview
-Implement rate limiting based on user subscription plans (Free, Pro, Master) with task counters stored in Firebase.
+Implement rate limiting based on user subscription plans (Free, Pro, Master) to manage resource usage. Provide visual feedback via a progress bar in the status area.
 
 ## Plan Structure
 
-### Subscription Tiers
-- **Free**: 10 tasks per week
-- **Pro**: 200 tasks per week  
-- **Master**: Unlimited
+### Subscription Tiers & Limits
+| Plan   | Act Tasks (per week) | Ask Tasks (per week) |
+| :---   | :---                 | :---                 |
+| **Free**   | 10                   | 20                   |
+| **Pro**    | 200                  | 300                  |
+| **Master** | Unlimited (∞)        | Unlimited (∞)        |
 
-### Implementation Steps
+### Implementation Details
 
-1. **Firebase Schema Update**
-   - Add `taskCount` field to user documents
-   - Add `taskResetDate` field to track weekly reset
-   - Add `plan` field if not already present (free, pro, master)
+#### 1. Data Storage (Firebase & Local)
+- **Firebase**:
+  - `users/{userId}`:
+    - `plan`: "free", "pro", "master"
+    - `actCount`: Integer
+    - `askCount`: Integer
+    - `lastTaskDate`: Timestamp
+- **Local Cache**:
+  - `cached_user.json` stores the user object including counts for offline checks.
 
-2. **Settings UI**
-   - Add subscription plan selector in settings
-   - Display current plan and remaining tasks
-   - Show task counter with progress bar
-   - Add upgrade prompts when limit is reached
+#### 2. Backend Enforcement (Main Process)
+- Before `execute-task`:
+  1. Check User Plan.
+  2. Check `actCount` or `askCount` against limits.
+  3. If limit exceeded -> Block & Error.
+  4. If allowed -> Execute -> Increment Count (in Firebase & Cache).
+- **API Key Fetching**:
+  - Fetch `gemini_api_key` from Firebase based on plan (Free vs Pro).
+  - Fallback to environment variable if fetch fails.
 
-3. **Backend Rate Limiting**
-   - Check task count before executing tasks
-   - Increment counter after successful task execution
-   - Reset counters weekly (on Monday 00:00 UTC)
-   - Return error if limit exceeded
+#### 3. Frontend UI (Chat Window)
+- **Location**: Bottom status bar (replaces status text when idle).
+- **Behavior**:
+  - Show "Act Usage: X/Y" or "Ask Usage: X/Y" based on active toggle.
+  - Progress bar visual.
+  - Master plan shows Infinity symbol `∞`.
+  - Briefly show status messages (e.g. "Sending...", "Thinking...") then revert to usage counter after timeout.
+- **Error Handling**:
+  - "User profile not loaded" -> Error prompt -> Force sign-in.
+  - "No plan detected" -> Error prompt.
 
-4. **Firebase Functions** (if using Cloud Functions)
-   - Scheduled function to reset weekly counters
-   - Function to check and update task counts
+#### 4. How to Update Limits
+To change the usage limits, you must update the `limits` object in **TWO** locations to ensure consistency between enforcement and display:
 
-5. **Frontend Integration**
-   - Display rate limit warnings
-   - Show remaining tasks in UI
-   - Block task execution when limit reached
-   - Show upgrade modal when appropriate
+1.  **Backend (Enforcement)**:
+    - File: `src/main/firebase-service.js`
+    - Function: `checkRateLimit`
+    - Update the `limits` constant.
 
-## Code Locations
+2.  **Frontend (Display)**:
+    - File: `src/renderer/chat-window.js`
+    - Function: `updateRateLimitDisplay`
+    - Update the `limits` constant to match the backend.
 
-### Settings UI
-- `src/renderer/settings-modal.html` - Add subscription section
-- `src/renderer/settings-modal.js` - Handle plan selection and display
+3.  **Documentation**:
+    - Update this file (`RATE_LIMITING_PLAN.md`) to reflect the new policy.
 
-### Backend Checks
-- `src/main/main.js` - Add rate limit check before task execution
-- `src/main/firebase-service.js` - Add methods for task counting
+## Verification
+- Test Free plan limit (set count to 9, run 1 task, try next).
+- Test Mode switching updates counter type.
+- Test Offline mode (uses cached counts).
 
-### Firebase Schema
-```javascript
-{
-  id: "123456789012",
-  name: "User Name",
-  email: "user@example.com",
-  plan: "free", // or "pro" or "master"
-  taskCount: 5,
-  taskResetDate: "2024-01-15T00:00:00Z",
-  isActive: true
-}
-```
-
-## Implementation Priority
-1. High: Basic rate limiting check
-2. Medium: UI display of limits
-3. Low: Weekly reset automation
-4. Low: Upgrade prompts
 

@@ -440,7 +440,8 @@ class ComputerUseAgentBackend:
     def setup_computer_control(self):
         try:
             if GUI_AVAILABLE and pyautogui:
-                pyautogui.FAILSAFE = True
+                # Disable fail-safe to prevent corner-trigger errors during automation
+                pyautogui.FAILSAFE = False
                 pyautogui.PAUSE = 0.05
                 print(f"[CONTROL] GUI libraries ready - Screen: {self.screen_size[0]}x{self.screen_size[1]}\n")
             
@@ -961,8 +962,12 @@ Respond ONLY with JSON:
             
             if attachments:
                 for att in attachments:
-                    if att.get('path') and os.path.exists(att.get('path')):
-                        mime_types = {
+                    file_path = att.get('path')
+                    if file_path and os.path.exists(file_path):
+                        ext = file_path.split('.')[-1].lower()
+                        
+                        # Image MIME types
+                        image_mime_types = {
                             'png': 'image/png', 
                             'jpg': 'image/jpeg', 
                             'jpeg': 'image/jpeg', 
@@ -970,21 +975,24 @@ Respond ONLY with JSON:
                             'gif': 'image/gif',
                             'bmp': 'image/bmp'
                         }
-                        ext = att.get('path').split('.')[-1].lower()
-                        if ext in mime_types:
+                        
+                        if ext in image_mime_types:
+                            # Handle image files
                             try:
-                                with open(att.get('path'), 'rb') as f:
+                                with open(file_path, 'rb') as f:
                                     image_data = f.read()
                                 content_parts.append({
-                                    "mime_type": mime_types[ext],
+                                    "mime_type": image_mime_types[ext],
                                     "data": image_data
                                 })
                                 logger.info(f"Added image attachment to LLM: {att.get('name', 'unknown')} ({len(image_data)} bytes)")
                             except Exception as e:
-                                logger.error(f"Failed to read image attachment {att.get('path')}: {e}")
+                                logger.error(f"Failed to read image attachment {file_path}: {e}")
+                        
                         elif ext == 'pdf':
+                            # Handle PDF files
                             try:
-                                with open(att.get('path'), 'rb') as f:
+                                with open(file_path, 'rb') as f:
                                     pdf_data = f.read()
                                 content_parts.append({
                                     "mime_type": "application/pdf",
@@ -992,15 +1000,20 @@ Respond ONLY with JSON:
                                 })
                                 logger.info(f"Added PDF attachment to LLM: {att.get('name', 'unknown')} ({len(pdf_data)} bytes)")
                             except Exception as e:
-                                logger.error(f"Failed to read PDF attachment {att.get('path')}: {e}")
+                                logger.error(f"Failed to read PDF attachment {file_path}: {e}")
+                        
                         else:
+                            # Handle text files (default fallback)
                             try:
-                                with open(att.get('path'), 'r', encoding='utf-8') as f:
+                                with open(file_path, 'r', encoding='utf-8') as f:
                                     text_content = f.read()
-                                content_parts.append(f"\n[Attachment: {att.get('name', 'file')}]\n{text_content}\n")
-                                logger.info(f"Added text attachment to LLM: {att.get('name', 'unknown')}")
+                                # Include text content directly in the prompt with clear delimiters
+                                content_parts.append(f"\n--- Attached File: {att.get('name', 'file')} ---\n{text_content}\n--- End of Attached File ---\n")
+                                logger.info(f"Added text attachment to LLM: {att.get('name', 'unknown')} ({len(text_content)} chars)")
                             except Exception as e:
                                 logger.warning(f"Could not read attachment as text: {e}")
+                    else:
+                        logger.warning(f"Attachment path missing or file does not exist: {att}")
             
             content_parts.append(prompt)
             
@@ -1309,14 +1322,18 @@ Respond ONLY with JSON:
                                     continue
 
                                 self.stop_event.clear()
-                                user_request = request.get('request', '')
-                                attachments = []
+                                # The 'request' object from backend-manager now contains the task, e.g. { "text": "...", "attachments": [...] }
+                                req_data = request.get('request', {})
                                 text = ""
-                                if isinstance(user_request, dict):
-                                    text = user_request.get('text', '') or ''
-                                    attachments = user_request.get('attachments', [])
+                                attachments = []
+                                
+                                if isinstance(req_data, dict):
+                                    text = req_data.get('text', '') or ''
+                                    attachments = req_data.get('attachments', [])
+                                elif isinstance(req_data, str):
+                                    text = req_data
                                 else:
-                                    text = user_request
+                                    text = str(req_data)
 
                                 if text:
                                     self.execution_thread = threading.Thread(

@@ -74,8 +74,16 @@ class SettingsModal {
             this.toggleWindowVisibility();
         });
 
+        document.getElementById('autoStartToggle')?.addEventListener('click', () => {
+            this.toggleAutoStart();
+        });
+
         document.getElementById('wakeWordToggleChatToggle')?.addEventListener('click', () => {
             this.toggleWakeWordToggleChat();
+        });
+
+        document.getElementById('edgeGlowToggle')?.addEventListener('click', () => {
+            this.toggleEdgeGlow();
         });
 
         // Buttons
@@ -362,6 +370,17 @@ class SettingsModal {
             }
         }
 
+        // Update edge glow toggle
+        const edgeGlowToggle = document.getElementById('edgeGlowToggle');
+        if (edgeGlowToggle) {
+            // Default to true if not explicitly set
+            if (this.settings.edgeGlowEnabled !== false) {
+                edgeGlowToggle.classList.add('active');
+            } else {
+                edgeGlowToggle.classList.remove('active');
+            }
+        }
+
         // Update window visibility toggle
         const windowVisibilityToggle = document.getElementById('windowVisibilityToggle');
         if (windowVisibilityToggle) {
@@ -381,6 +400,37 @@ class SettingsModal {
                 wakeWordToggleChatToggle.classList.remove('active');
             }
         }
+
+        // Update auto start toggle
+        const autoStartToggle = document.getElementById('autoStartToggle');
+        if (autoStartToggle) {
+            if (this.settings.openAtLogin) {
+                autoStartToggle.classList.add('active');
+            } else {
+                autoStartToggle.classList.remove('active');
+            }
+        }
+    }
+
+    async toggleAutoStart() {
+        this.settings.openAtLogin = !this.settings.openAtLogin;
+        this.updateToggleStates();
+
+        // Call main process to set login item
+        if (window.settingsAPI && window.settingsAPI.setAutoStart) {
+            try {
+                await window.settingsAPI.setAutoStart(this.settings.openAtLogin);
+            } catch (e) {
+                console.error('Failed to set auto-start:', e);
+            }
+        }
+
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.openAtLogin ? 'App will start when your computer starts' : 'App will not auto-start',
+            'success'
+        );
     }
 
     updateButtonStates() {
@@ -474,6 +524,18 @@ class SettingsModal {
 
         this.showToast(
             this.settings.greetingTTS ? 'Greeting voice enabled' : 'Greeting voice disabled',
+            'success'
+        );
+    }
+
+    async toggleEdgeGlow() {
+        // Default to true if undefined, then toggle
+        this.settings.edgeGlowEnabled = !(this.settings.edgeGlowEnabled !== false);
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.edgeGlowEnabled ? 'Edge glow enabled' : 'Edge glow disabled',
             'success'
         );
     }

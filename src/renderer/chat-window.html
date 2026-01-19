@@ -255,6 +255,38 @@
             opacity: 0.8;
             white-space: pre-wrap;
             margin-top: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+        }
+
+        .action-details.collapsed {
+            max-height: 0;
+            opacity: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .action-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0 4px;
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-toggle:hover {
+            color: var(--text-primary);
+        }
+
+        .action-toggle.collapsed {
+            transform: rotate(-90deg);
         }
 
         .action-icon {
@@ -290,15 +322,12 @@
 
         /* Attachments */
         .attachments-container {
-            position: fixed;
-            bottom: 90px;
-            left: 0;
-            right: 0;
             padding: 8px 16px;
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
-            overflow-x: auto;
             background: var(--bg-primary);
+            border-top: 1px solid var(--border-color);
             -webkit-app-region: no-drag;
         }
 
@@ -475,6 +504,45 @@
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
+        }
+
+        .rate-limit-container {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid var(--border-color);
+            height: 12px;
+            opacity: 0.7;
+        }
+
+        .rate-limit-bar {
+            width: 40px;
+            height: 4px;
+            background: var(--bg-tertiary);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .rate-limit-progress {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .rate-limit-text {
+            font-size: 9px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .rate-limit-infinity {
+            font-size: 14px;
+            line-height: 1;
+            margin-top: -2px;
         }
 
         /* Status Bar (Keep for other uses if needed, but we'll hide it for now) */
@@ -730,11 +798,10 @@
             </div>
         </div>
 
-        <!-- Attachments -->
-        <div class="attachments-container" id="attachmentsContainer"></div>
-
         <!-- Input -->
         <div class="input-container">
+            <!-- Attachments (displayed above input, inside container) -->
+            <div class="attachments-container" id="attachmentsContainer"></div>
             <div class="input-wrapper">
                 <button class="input-btn" id="attachButton" title="Attach file">
                     <i class="fas fa-paperclip"></i>
@@ -748,8 +815,17 @@
                 </button>
             </div>
             <div id="statusIndicator" class="status-bar-min">
-                <div id="statusDot" class="status-dot"></div>
-                <span id="statusText" class="status-text">Ready</span>
+                <div id="statusContent" style="display: flex; align-items: center; gap: 6px;">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="statusText" class="status-text">Ready</span>
+                </div>
+                <!-- Rate Limit Display (Hidden by default, shown via JS) -->
+                <div id="rateLimitContainer" class="rate-limit-container" style="display: none;">
+                    <div class="rate-limit-bar">
+                        <div id="rateLimitProgress" class="rate-limit-progress"></div>
+                    </div>
+                    <span id="rateLimitText" class="rate-limit-text">0/10</span>
+                </div>
             </div>
         </div>
     </div>

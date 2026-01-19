@@ -21,7 +21,8 @@ class ChatWindow {
         this.isTyping = false;
         this.isRecording = false;
         this.currentTask = null;
-        this.currentMode = 'act'; // 'act' or 'ask'
+        this.currentTask = null;
+        this.currentMode = 'act'; // Default, will override from settings
         this.actionStatuses = new Map();
         this.attachments = [];
 
@@ -76,10 +77,19 @@ class ChatWindow {
         this.initializeLucideIcons();
         this.updateSendButton();
         await this.loadSettings();
+
+        // Restore last mode from settings
+        if (this.settings && this.settings.lastMode) {
+            this.setMode(this.settings.lastMode);
+        }
+
         this.loadSessions();
         this.checkOfflineStatus();
         this.setupOnlineOfflineListeners();
-        this.startNewConversation(false);
+        // Don't auto-start new conversation here to avoid resetting UI state if restoring
+        if (!this.currentSessionId) {
+            this.startNewConversation(false);
+        }
     }
 
 
@@ -202,7 +212,8 @@ class ChatWindow {
         if (this.newChatButton) {
             this.newChatButton.addEventListener('click', () => {
                 this.saveCurrentSession();
-                this.startNewConversation();
+                // When starting new chat, KEEP CURRENT MODE (do not reset to default)
+                this.startNewConversation(true);
             });
         }
 
@@ -225,10 +236,10 @@ class ChatWindow {
         this.chatInput.addEventListener('input', () => {
             this.autoResizeTextarea();
             this.updateSendButton();
-            // Hide welcome screen when user starts typing
-            if (this.chatInput.value.trim().length > 0) {
-                this.hideWelcomeScreen();
-            }
+            // REMOVED: Hide welcome screen when user starts typing (User preference)
+            // if (this.chatInput.value.trim().length > 0) {
+            //     this.hideWelcomeScreen();
+            // }
         });
 
         // Escape key now clears input instead of closing window
@@ -277,14 +288,43 @@ class ChatWindow {
 
                     // Update UI components that rely on settings
                     this.updateSendButton();
+                    this.updateRateLimitDisplay();
 
                     // Note: window visibility and wake word settings are handled by main process, 
                     // but visual feedback logic in chat window should be aware of current state.
                 });
             }
 
+            // User Data updates
+            if (window.chatAPI.onUserDataUpdated) {
+                window.chatAPI.onUserDataUpdated((event, userData) => {
+                    console.log('[ChatWindow] User data updated:', userData);
+                    if (this.settings) {
+                        this.settings.userDetails = userData;
+                    }
+                    this.updateRateLimitDisplay();
+                });
+            }
+
+            // User Changed (login/logout)
+            if (window.chatAPI.onUserChanged) {
+                window.chatAPI.onUserChanged((event, userData) => {
+                    console.log('[ChatWindow] User changed:', userData);
+                    if (this.settings) {
+                        this.settings.userDetails = userData;
+                    }
+                    if (userData && userData.name) {
+                        this.userName = userData.name;
+                    }
+                    this.updateRateLimitDisplay();
+                });
+            }
+
             // AI responses
             window.chatAPI.onAIResponse((event, data) => {
+                // Force-clear ALL thinking indicators
+                this.forceStopThinking();
+
                 if (data.type === 'rejection' || data.type === 'error') {
                     this.addMessage(data.message, 'ai', false);
                 } else {
@@ -380,7 +420,12 @@ class ChatWindow {
             });
 
             window.chatAPI.onWakeWordDetected((event, data) => {
-                this.handleWakeWordDetection();
+                // Only handle if the wake word actually opened the chat (was closed before)
+                if (data && data.openedChat) {
+                    this.handleWakeWordDetection();
+                } else {
+                    console.log('[ChatWindow] Wake word detected but chat was already open, not auto-starting transcription');
+                }
             });
 
             window.chatAPI.onAudioStarted((event, data) => {
@@ -443,6 +488,13 @@ class ChatWindow {
                 console.error('Failed to save last mode:', error);
             }
         }
+
+        this.updateRateLimitDisplay();
+
+        // Force the rate limit bar to show if not busy
+        if (!this.currentTask && !this.isRecording) {
+            this.updateStatus('', 'ready');
+        }
     }
 
     async sendMessage() {
@@ -492,6 +544,14 @@ class ChatWindow {
         this.autoResizeTextarea();
         this.updateSendButton();
 
+        // Show thinking indicator for both Ask and Act modes
+        this.updateStatus('Thinking...', 'working');
+
+        // Add visual thinking message only for Ask mode (optional, but requested)
+        if (mode === 'ask') {
+            this.addActionMessage('Thinking...', 'running');
+        }
+
         try {
             if (window.chatAPI) {
                 taskPayload.attachments = attachmentsToSend.map(a => ({
@@ -505,6 +565,9 @@ class ChatWindow {
         } catch (error) {
             console.error('Failed to execute task:', error);
             this.addMessage(`Failed to execute task: ${error.message}`, 'ai', false);
+            this.updateStatus('Error', 'error');
+            // Clear thinking indicator if error
+            this.updateActionStatus('Thinking...', false, 'Failed to start.');
         }
     }
 
@@ -569,7 +632,7 @@ class ChatWindow {
         }
     }
 
-    startNewConversation(showWelcome = true) {
+    startNewConversation(showWelcome = true, keepMode = false) {
         if (this.currentSessionId) {
             this.saveCurrentSession();
         }
@@ -596,7 +659,10 @@ class ChatWindow {
             this.showWelcomeScreen();
         }
         this.updateStatus('Ready', 'ready');
-        this.setMode('act'); // Default to ACT
+
+        if (!keepMode) {
+            this.setMode('act'); // Default to ACT only if not keeping mode
+        }
     }
 
     // Voice recording with Vosk integration (V2 WebSocket)
@@ -941,17 +1007,30 @@ class ChatWindow {
     }
 
     async handleWakeWordDetection() {
-        console.log('Wake word detected - showing chat and focusing input');
-        this.updateStatus('Wake word detected', 'ready');
+        console.log('[ChatWindow] Wake word detected - showing chat and focusing input');
+        this.updateStatus('Wake word detected', 'listening');
+
         if (this.chatInput) {
             this.chatInput.focus();
         }
 
+        // Load latest settings
         await this.loadSettings();
+
+        console.log('[ChatWindow] Settings loaded. autoSendEnabled:', this.autoSendEnabled, 'isRecording:', this.isRecording);
+
         if (this.autoSendEnabled && !this.isRecording) {
-            console.log('[ChatWindow] Auto-send enabled, starting voice recording after wakeword.');
-            this.startVoiceRecording();
-            this.startSpeechTimeout();
+            console.log('[ChatWindow] Auto-send enabled, starting voice recording after small delay...');
+            // Small delay to ensure chat window is fully visible and focused
+            setTimeout(() => {
+                if (!this.isRecording) {
+                    console.log('[ChatWindow] Starting voice recording now...');
+                    this.startVoiceRecording();
+                    this.startSpeechTimeout();
+                }
+            }, 300);
+        } else {
+            console.log('[ChatWindow] Auto-send NOT enabled or already recording. autoSendEnabled:', this.autoSendEnabled);
         }
     }
 
@@ -1095,9 +1174,22 @@ class ChatWindow {
             <div class="action-header">
                 <div class="action-icon"><div class="action-spinner"></div></div>
                 <div class="action-title">${text}</div>
+                <button class="action-toggle" title="Toggle logs">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
             </div>
             <div class="action-details" id="actionDetails-${actionId}"></div>
         `;
+
+        // Wire up toggle button
+        const toggleBtn = contentDiv.querySelector('.action-toggle');
+        const detailsDiv = contentDiv.querySelector('.action-details');
+        if (toggleBtn && detailsDiv) {
+            toggleBtn.addEventListener('click', () => {
+                detailsDiv.classList.toggle('collapsed');
+                toggleBtn.classList.toggle('collapsed');
+            });
+        }
 
         messageDiv.appendChild(contentDiv);
         this.messagesContainer.appendChild(messageDiv);
@@ -1165,6 +1257,39 @@ class ChatWindow {
                 }
             }
         }
+    }
+
+    /**
+     * Force-stop all thinking indicators. Called when AI response is received.
+     * Aggressively clears all spinners and thinking states.
+     */
+    forceStopThinking() {
+        // Remove all 'Thinking...' action elements
+        for (const [id, data] of this.actionStatuses.entries()) {
+            if (data.text === 'Thinking...') {
+                if (data.element) {
+                    data.element.remove();
+                }
+                this.actionStatuses.delete(id);
+            }
+        }
+
+        // Also remove any spinners from remaining action elements
+        for (const [id, data] of this.actionStatuses.entries()) {
+            if (data.element) {
+                const spinner = data.element.querySelector('.action-spinner');
+                if (spinner) {
+                    spinner.remove();
+                }
+            }
+        }
+
+        // Clear lastActionId if it was thinking
+        this.lastActionId = null;
+
+        // Reset status bar to ready + rate display
+        this.updateStatus('Ready', 'ready');
+        this.updateRateLimitDisplay();
     }
 
     getOrCreateMessageGroup(timestamp) {
@@ -1246,8 +1371,8 @@ class ChatWindow {
         // 3. Lists (Bullet points) - Multi-line supported
         safeText = safeText.replace(/^\s*[\-\*]\s+(.*)$/gm, '&bull; $1');
 
-        // 4. Bold - strict matching to avoid stray asterisks
-        safeText = safeText.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+        // 4. Bold - lazy match to handle multiple instances per line
+        safeText = safeText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
         // 5. Italic - matches *text*
         safeText = safeText.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
@@ -1277,13 +1402,83 @@ class ChatWindow {
             console.warn('[ChatWindow] Status elements not found for update:', text);
             return;
         }
-        this.statusText.textContent = text;
-        this.statusDot.className = 'status-dot';
-        switch (type) {
-            case 'ready': this.statusDot.style.background = '#10b981'; break;
-            case 'working': this.statusDot.style.background = '#f59e0b'; break;
-            case 'error': this.statusDot.style.background = '#ef4444'; break;
-            default: this.statusDot.style.background = '#10b981';
+
+        const isReady = type === 'ready';
+        const rateLimitContainer = document.getElementById('rateLimitContainer');
+        const statusContent = document.getElementById('statusContent');
+
+        // Clear any existing status timeout
+        if (this.statusRevertTimeout) {
+            clearTimeout(this.statusRevertTimeout);
+            this.statusRevertTimeout = null;
+        }
+
+        if (isReady && rateLimitContainer && statusContent) {
+            statusContent.style.display = 'none';
+            rateLimitContainer.style.display = 'flex';
+            this.updateRateLimitDisplay();
+        } else {
+            if (statusContent) statusContent.style.display = 'flex';
+            if (rateLimitContainer) rateLimitContainer.style.display = 'none';
+
+            this.statusText.textContent = text;
+            this.statusDot.className = 'status-dot';
+            switch (type) {
+                case 'ready': this.statusDot.style.background = '#10b981'; break;
+                case 'working': this.statusDot.style.background = '#f59e0b'; break;
+                case 'error': this.statusDot.style.background = '#ef4444'; break;
+                case 'listening': this.statusDot.style.background = '#3b82f6'; break;
+                default: this.statusDot.style.background = '#10b981';
+            }
+
+            // Auto-revert to rate limit if not in a persistent state
+            if (type !== 'working' && type !== 'listening' && type !== 'error') {
+                this.statusRevertTimeout = setTimeout(() => {
+                    this.updateStatus('Ready', 'ready');
+                }, 3000); // Revert after 3 seconds
+            }
+        }
+    }
+
+    updateRateLimitDisplay() {
+        const rateLimitContainer = document.getElementById('rateLimitContainer');
+        if (!rateLimitContainer) return;
+
+        const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
+        const plan = user.plan || 'free';
+        const mode = this.currentMode || 'act';
+
+        // Limits
+        const limits = {
+            free: { act: 10, ask: 20 },
+            pro: { act: 200, ask: 300 },
+            master: { act: Infinity, ask: Infinity }
+        };
+
+        const limitObj = limits[plan && limits[plan] ? plan : 'free'];
+        const limit = limitObj ? limitObj[mode] : 10;
+        const currentCount = user[`${mode}Count`] || 0;
+        const remaining = Math.max(0, limit - currentCount);
+
+        const progressBar = document.getElementById('rateLimitProgress');
+        const textLabel = document.getElementById('rateLimitText');
+
+        if (plan === 'master') {
+            if (progressBar) progressBar.style.width = '100%';
+            if (textLabel) textLabel.innerHTML = '<span class="rate-limit-infinity">∞</span>';
+        } else {
+            const percentage = Math.min(100, (currentCount / limit) * 100);
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            // Show Count / Limit (e.g. 5/10) or Remaining? Prompt says "show the current counter".
+            // Let's show "5/10" format.
+            if (textLabel) textLabel.textContent = `${currentCount}/${limit}`;
+
+            // Color indication
+            if (percentage > 90) {
+                if (progressBar) progressBar.style.background = '#ef4444';
+            } else {
+                if (progressBar) progressBar.style.background = 'var(--accent-color)';
+            }
         }
     }
 

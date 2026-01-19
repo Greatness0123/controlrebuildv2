@@ -110,3 +110,77 @@
 2026-01-12 01:03:31,757 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260112_010331_616.png | Cursor: (857, 852)
 2026-01-16 09:08:02,038 - INFO - [CONTROL] - API configured
 2026-01-16 09:08:02,046 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:07:08,684 - INFO - [CONTROL] - API configured
+2026-01-19 08:07:08,693 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:10:21,863 - INFO - [CONTROL] - API configured
+2026-01-19 08:10:21,879 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:20:45,584 - INFO - [CONTROL] - API configured
+2026-01-19 08:20:45,600 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:23:12,281 - INFO - [CONTROL] - API configured
+2026-01-19 08:23:12,359 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:26:07,484 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_082604_823.png | Cursor: (1547, 833)
+2026-01-19 08:26:14,670 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user wants to open Spotify. The Spotify icon is visible in the Windows taskbar, so I will click it to launch the application.", "plan": "Click on the Spotify icon in the taskbar to open it, then verify that the Spotify window is in focus.", "actions": [{"step": 1, "description": "Click on the Spotify icon in the taskbar.", "action": "click", "parameters": {"x": 673, "y": 1058}, "verification": {"expected_outcome": "Spotify application window should open and be in focus.", "verification_method": "window_check", "success_indicators": ["Spotify"]}}]}
+2026-01-19 08:26:14,671 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-19 08:26:15,174 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-19 08:26:15,675 - ERROR - [CONTROL] - Action error: PyAutoGUI fail-safe triggered from mouse moving to a corner of the screen. To disable this fail-safe, set pyautogui.FAILSAFE to False. DISABLING FAIL-SAFE IS NOT RECOMMENDED.
+2026-01-19 08:26:16,801 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_082615_675.png | Cursor: (0, 0)
+2026-01-19 08:26:22,332 - INFO - [CONTROL] - Received cancel request
+2026-01-19 08:26:23,941 - INFO - [CONTROL] - LLM response received: {"type": "task", "recovery_strategy": "The previous attempt to click the Spotify icon in the taskbar failed. This could be due to an incorrect coordinate or a transient UI state. A more robust approach is to use the Start Menu search to launch Spotify, which is generally reliable for opening applications on Windows.", "actions": [{"step": 1, "description": "Open the Start Menu.", "action": "key_press", "parameters": {"key": "win"}, "verification": {"expected_outcome": "The Start Menu should appear, likely with a search bar active.", "verification_method": "visual", "success_indicators": ["Start Menu", "Search bar"]}}, {"step": 2, "description": "Type 'Spotify' into the Start Menu search bar.", "action": "type", "parameters": {"text": "Spotify"}, "verification": {"expected_outcome": "Spotify should appear as the top search result.", "verification_method": "visual", "success_indicators": ["Spotify search result"]}}, {"step": 3, "description": "Press Enter to launch Spotify from the searc
+2026-01-19 08:32:06,829 - WARNING - [CONTROL] - Could not get screen size: 'NoneType' object has no attribute 'mss', using default 1920x1080
+2026-01-19 08:32:06,841 - ERROR - [CONTROL] - google.generativeai not available. Please install: pip install google-generativeai
+2026-01-19 08:32:06,841 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:42:07,136 - INFO - [CONTROL] - API configured
+2026-01-19 08:42:07,152 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:47:55,428 - INFO - [CONTROL] - API configured
+2026-01-19 08:47:55,546 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:57:43,546 - INFO - [CONTROL] - API configured
+2026-01-19 08:57:43,714 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 08:58:27,243 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_085824_901.png | Cursor: (1600, 852)
+2026-01-19 08:58:30,658 - INFO - [CONTROL] - Received cancel request
+2026-01-19 08:58:33,455 - INFO - [CONTROL] - LLM response received: {"type": "not_a_task", "message": "The request 'two tons of food that you...' does not appear to be a clear task or command for me to execute. As Control, I am designed to perform actions and automate GUI tasks. If you intended to ask a question or provide an instruction, please rephrase it as a direct command (e.g., 'Open Calculator', 'Type X into Y') or switch to 'Ask' mode for general queries."}
+2026-01-19 08:58:33,460 - INFO - [CONTROL] - Auto-cleaning 26 screenshot(s)
+2026-01-19 08:58:33,494 - INFO - [CONTROL] - Removed 26 screenshot(s)
+2026-01-19 09:05:14,384 - INFO - [CONTROL] - API configured
+2026-01-19 09:05:14,397 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 09:27:22,603 - INFO - [CONTROL] - API configured
+2026-01-19 09:27:22,606 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 09:35:20,912 - INFO - [CONTROL] - API configured
+2026-01-19 09:35:20,924 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 09:51:59,620 - INFO - [CONTROL] - API configured
+2026-01-19 09:51:59,638 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:00:00,086 - INFO - [CONTROL] - API configured
+2026-01-19 10:00:00,122 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:06:56,670 - INFO - [CONTROL] - API configured
+2026-01-19 10:06:56,675 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:17:55,609 - INFO - [CONTROL] - API configured
+2026-01-19 10:17:55,625 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:18:28,985 - INFO - [CONTROL] - API configured
+2026-01-19 10:18:29,025 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:23:56,117 - INFO - [CONTROL] - API configured
+2026-01-19 10:23:56,130 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:28:28,991 - INFO - [CONTROL] - API configured
+2026-01-19 10:28:29,019 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:30:38,371 - INFO - [CONTROL] - API configured
+2026-01-19 10:30:38,387 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:31:36,938 - INFO - [CONTROL] - API configured
+2026-01-19 10:31:36,947 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:31:52,171 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_103151_455.png | Cursor: (1489, 845)
+2026-01-19 10:31:52,175 - INFO - [CONTROL] - Added text attachment to LLM: RCF Confession.txt
+2026-01-19 10:32:07,114 - INFO - [CONTROL] - Received cancel request
+2026-01-19 10:33:05,139 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The attached file 'RCF Confession.txt' is currently open and active in the Visual Studio Code window, but its content is partially visible. The goal is to ensure the entire file content is displayed to the user on their screen by scrolling down the editor pane.", "plan": "1. Analyze the current UI to confirm the active window and the presence of the 'RCF Confession.txt' tab and its content. 2. Scroll down the main editor pane to reveal the full content of the file. 3. Re-analyze the UI to verify that the concluding line 'Amennnnnn' is now visible, confirming the full content is displayed.", "actions": [{"step": 1, "description": "Analyze the UI to confirm that the 'RCF Confession.txt' file is open and its tab is active in the Visual Studio Code window.", "action": "analyze_ui", "parameters": {"query": "the tab labeled '1768814675829-RCF_Confession.txt U'"}, "verification": {"expected_outcome": "The 'RCF Confession.txt' tab is identified, confirming the fil
+2026-01-19 10:36:10,023 - INFO - [CONTROL] - API configured
+2026-01-19 10:36:10,051 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:44:10,064 - INFO - [CONTROL] - API configured
+2026-01-19 10:44:10,079 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:47:07,052 - INFO - [CONTROL] - API configured
+2026-01-19 10:47:07,100 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:52:52,066 - INFO - [CONTROL] - API configured
+2026-01-19 10:52:52,069 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 10:53:09,812 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_105308_813.png | Cursor: (1832, 836)
+2026-01-19 10:53:09,817 - INFO - [CONTROL] - Added text attachment to LLM: RCF Confession.txt
+2026-01-19 10:53:11,420 - INFO - [CONTROL] - Received cancel request
+2026-01-19 10:53:34,971 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user is asking for the content of the attached file 'RCF Confession.txt'. The screenshot shows a file named '1768815414897-RCF_Confession.txt' open in VS Code, displaying its content. I need to extract this visible text.", "plan": "Identify the text content of the currently open file '1768815414897-RCF_Confession.txt' in the editor and present it to the user.", "actions": [{"step": 1, "description": "Extract the visible text content from the editor pane where '1768815414897-RCF_Confession.txt' is displayed.", "action": "analyze_ui", "parameters": {"query": "text content within the main editor area of the '1768815414897-RCF_Confession.txt' file"}, "verification": {"expected_outcome": "The text content of the file should be successfully extracted.", "verification_method": "visual", "success_indicators": ["'We are members of the same body,'", "'Amennnnnn'"]}}]}
+2026-01-19 11:04:53,620 - INFO - [CONTROL] - API configured
+2026-01-19 11:04:53,625 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-19 11:11:48,168 - INFO - [CONTROL] - API configured
+2026-01-19 11:11:48,183 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

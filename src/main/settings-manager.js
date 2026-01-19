@@ -5,6 +5,7 @@ const os = require('os');
 /**
  * SettingsManager handles persistent application settings
  * Stores settings in a JSON file in the user's app data directory
+ * Supports per-user settings with user-specific settings files
  */
 class SettingsManager {
     constructor() {
@@ -13,30 +14,55 @@ class SettingsManager {
             path.join(os.homedir(), 'AppData', 'Roaming');
 
         this.settingsDir = path.join(appDataDir, 'ComputerUseAgent');
-        this.settingsFile = path.join(this.settingsDir, 'settings.json');
+        this.globalSettingsFile = path.join(this.settingsDir, 'settings.json');
+        this.currentUserId = null;
 
         // Ensure settings directory exists
         fs.ensureDirSync(this.settingsDir);
 
-        // Load settings from file or initialize defaults
+        // Load global settings first (includes auth state)
         this.settings = this._loadSettings();
+
+        // If there's a cached user, load their specific settings
+        if (this.settings.userDetails && this.settings.userDetails.id) {
+            this.switchUser(this.settings.userDetails.id);
+        }
+    }
+
+    /**
+     * Get the settings file path for a specific user
+     * @private
+     */
+    _getUserSettingsFile(userId) {
+        return path.join(this.settingsDir, `settings_${userId}.json`);
     }
 
     /**
      * Load settings from JSON file or create defaults
      * @private
      */
-    _loadSettings() {
+    _loadSettings(userId = null) {
+        const settingsFile = userId ? this._getUserSettingsFile(userId) : this.globalSettingsFile;
+
         try {
-            if (fs.existsSync(this.settingsFile)) {
-                const data = fs.readFileSync(this.settingsFile, 'utf8');
-                return JSON.parse(data);
+            if (fs.existsSync(settingsFile)) {
+                const data = fs.readFileSync(settingsFile, 'utf8');
+                const loaded = JSON.parse(data);
+                console.log(`Settings loaded from: ${settingsFile}`);
+                return { ...this._getDefaults(), ...loaded };
             }
         } catch (err) {
             console.warn('Failed to load settings file, using defaults:', err.message);
         }
 
-        // Return default settings
+        return this._getDefaults();
+    }
+
+    /**
+     * Get default settings
+     * @private
+     */
+    _getDefaults() {
         return {
             pinEnabled: false,
             voiceActivation: true,
@@ -45,7 +71,11 @@ class SettingsManager {
             greetingTTS: false,
             autoSendAfterWakeWord: false,
             lastMode: 'act',
-            windowVisibility: true,
+            windowVisibility: false,  // Default: hide window during actions
+            openAtLogin: false,
+            wakeWordToggleChat: false,
+            floatingButtonVisible: true,
+            edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
             userAuthenticated: false,
             userDetails: null
         };
@@ -58,13 +88,59 @@ class SettingsManager {
     _saveToFile() {
         try {
             fs.ensureDirSync(this.settingsDir);
-            fs.writeFileSync(this.settingsFile, JSON.stringify(this.settings, null, 2), 'utf8');
-            console.log('Settings saved to:', this.settingsFile);
+
+            // Always save global settings (contains auth state)
+            fs.writeFileSync(this.globalSettingsFile, JSON.stringify(this.settings, null, 2), 'utf8');
+            console.log('Global settings saved to:', this.globalSettingsFile);
+
+            // Also save user-specific settings if a user is logged in
+            if (this.currentUserId) {
+                const userSettingsFile = this._getUserSettingsFile(this.currentUserId);
+                // Save user preferences (excluding global auth state)
+                const userSettings = { ...this.settings };
+                delete userSettings.userAuthenticated; // Auth state stays global
+                delete userSettings.userDetails; // User details stay global
+                fs.writeFileSync(userSettingsFile, JSON.stringify(userSettings, null, 2), 'utf8');
+                console.log('User settings saved to:', userSettingsFile);
+            }
+
             return true;
         } catch (err) {
             console.error('Failed to save settings file:', err.message);
             return false;
         }
+    }
+
+    /**
+     * Switch to a different user's settings
+     */
+    switchUser(userId) {
+        if (!userId) {
+            console.log('No user ID provided, using global settings');
+            this.currentUserId = null;
+            return;
+        }
+
+        console.log(`Switching to user settings for: ${userId}`);
+        this.currentUserId = userId;
+
+        // Load user-specific settings and merge with current
+        const userSettings = this._loadSettings(userId);
+
+        // Preserve auth state from current settings
+        const authState = {
+            userAuthenticated: this.settings.userAuthenticated,
+            userDetails: this.settings.userDetails
+        };
+
+        // Merge user settings with auth state
+        this.settings = {
+            ...this._getDefaults(),
+            ...userSettings,
+            ...authState
+        };
+
+        console.log('User settings loaded and merged');
     }
 
     /**
@@ -86,6 +162,13 @@ class SettingsManager {
      */
     updateSettings(updates) {
         try {
+            // Check if we're updating user details (login)
+            if (updates.userDetails && updates.userDetails.id &&
+                updates.userDetails.id !== this.currentUserId) {
+                // New user logged in, switch to their settings first
+                this.switchUser(updates.userDetails.id);
+            }
+
             // Merge updates with existing settings
             this.settings = {
                 ...this.settings,
@@ -105,15 +188,8 @@ class SettingsManager {
      * Reset settings to defaults
      */
     resetSettings() {
-        this.settings = {
-            pinEnabled: false,
-            voiceActivation: false,
-            voiceResponse: false,
-            muteNotifications: false,
-            greetingTTS: false,
-            userAuthenticated: false,
-            userDetails: null
-        };
+        this.currentUserId = null;
+        this.settings = this._getDefaults();
         return this._saveToFile();
     }
 
@@ -121,7 +197,9 @@ class SettingsManager {
      * Get settings file path (for debugging)
      */
     getSettingsPath() {
-        return this.settingsFile;
+        return this.currentUserId
+            ? this._getUserSettingsFile(this.currentUserId)
+            : this.globalSettingsFile;
     }
 }
 

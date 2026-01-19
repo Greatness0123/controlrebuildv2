@@ -279,6 +279,155 @@ module.exports = {
         return null;
     },
 
+    async checkRateLimit(userId, mode) {
+        try {
+            // Get cached user data first
+            const cachedUser = this.checkCachedUser();
+            let currentCount = 0;
+            let plan = 'free';
+
+            // Try to get from Firebase if online
+            if (db) {
+                try {
+                    const snapshot = await db.collection('users').where('id', '==', userId).get();
+                    if (!snapshot.empty) {
+                        const userData = snapshot.docs[0].data();
+                        plan = userData.plan || 'free';
+                        currentCount = userData[`${mode}Count`] || 0;
+
+                        // Update local cache with Firebase data
+                        if (cachedUser && cachedUser.id === userId) {
+                            cachedUser[`${mode}Count`] = currentCount;
+                            cachedUser.plan = plan;
+                            this.cacheUser(cachedUser);
+                        }
+                    } else {
+                        return { allowed: false, error: 'User profile not found' };
+                    }
+                } catch (firebaseError) {
+                    console.log('Firebase offline, using cached data');
+                    // Use cached data if Firebase fails
+                    if (cachedUser && cachedUser.id === userId) {
+                        currentCount = cachedUser[`${mode}Count`] || 0;
+                        plan = cachedUser.plan || 'free';
+                    }
+                }
+            } else if (cachedUser && cachedUser.id === userId) {
+                // Offline mode - use cached data
+                currentCount = cachedUser[`${mode}Count`] || 0;
+                plan = cachedUser.plan || 'free';
+            }
+
+            // Define limits
+            const limits = {
+                free: { act: 10, ask: 20 },
+                pro: { act: 200, ask: 300 },
+                master: { act: Infinity, ask: Infinity }
+            };
+
+            const userLimit = limits[plan] || limits.free;
+            const limit = userLimit[mode];
+
+            if (currentCount >= limit) {
+                return {
+                    allowed: false,
+                    error: `Rate limit exceeded for ${mode} tasks. Upgrade your plan.`
+                };
+            }
+
+            return { allowed: true, plan, remaining: limit - currentCount, currentCount };
+        } catch (error) {
+            console.error('Rate limit check error:', error);
+            return { allowed: true };
+        }
+    },
+
+    async incrementTaskCount(userId, mode) {
+        try {
+            const field = `${mode}Count`;
+
+            // Update local cache first
+            const cachedUser = this.checkCachedUser();
+            if (cachedUser && cachedUser.id === userId) {
+                cachedUser[field] = (cachedUser[field] || 0) + 1;
+                cachedUser.lastTaskDate = new Date().toISOString();
+                this.cacheUser(cachedUser);
+                console.log(`Local ${mode}Count updated to:`, cachedUser[field]);
+            }
+
+            // Update Firebase if online
+            if (db) {
+                try {
+                    const snapshot = await db.collection('users').where('id', '==', userId).get();
+                    if (!snapshot.empty) {
+                        const docRef = snapshot.docs[0].ref;
+                        await docRef.update({
+                            [field]: admin.firestore.FieldValue.increment(1),
+                            lastTaskDate: new Date().toISOString()
+                        });
+                        console.log(`Firebase ${mode}Count incremented`);
+                    }
+                } catch (firebaseError) {
+                    console.error('Firebase update failed, count saved locally:', firebaseError.message);
+                }
+            }
+        } catch (error) {
+            console.error('Increment task count error:', error);
+        }
+    },
+
+    async syncRateCounts(userId) {
+        // Sync local counts with Firebase on app start
+        try {
+            if (!db) return;
+
+            const cachedUser = this.checkCachedUser();
+            if (!cachedUser || cachedUser.id !== userId) return;
+
+            const snapshot = await db.collection('users').where('id', '==', userId).get();
+            if (snapshot.empty) return;
+
+            const userData = snapshot.docs[0].data();
+
+            // Take the higher count (in case of offline increments)
+            const syncedActCount = Math.max(cachedUser.actCount || 0, userData.actCount || 0);
+            const syncedAskCount = Math.max(cachedUser.askCount || 0, userData.askCount || 0);
+
+            // Update both local and remote with synced values
+            cachedUser.actCount = syncedActCount;
+            cachedUser.askCount = syncedAskCount;
+            cachedUser.plan = userData.plan || cachedUser.plan;
+            this.cacheUser(cachedUser);
+
+            await snapshot.docs[0].ref.update({
+                actCount: syncedActCount,
+                askCount: syncedAskCount
+            });
+
+            console.log('Rate counts synced:', { actCount: syncedActCount, askCount: syncedAskCount });
+        } catch (error) {
+            console.error('Sync rate counts error:', error);
+        }
+    },
+
+    async getGeminiKey(plan) {
+        try {
+            if (!db) return null;
+            // Assuming keys are stored in a 'config' collection or 'secrets' document
+            const configDoc = await db.collection('config').doc('api_keys').get();
+            if (configDoc.exists) {
+                const keys = configDoc.data();
+                if (plan === 'free') return keys.gemini_free;
+                // Pro/Master might use a different key or the same
+                return keys.gemini_pro || keys.gemini_free;
+            }
+            return null;
+        } catch (error) {
+            console.error('Get API key error:', error);
+            return null;
+        }
+    },
+
     clearCachedUser() {
         try {
             if (fs.existsSync(CACHE_FILE)) {
