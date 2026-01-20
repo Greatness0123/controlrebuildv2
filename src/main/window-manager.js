@@ -159,7 +159,7 @@ class WindowManager {
     async createSettingsWindow() {
         console.log('[WindowManager] Creating settings window...');
         const settingsWindow = new BrowserWindow({
-            width: 350,
+            width: 450,
             height: 500,
             frame: false,
             transparent: true,

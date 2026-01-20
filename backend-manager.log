@@ -302,3 +302,129 @@ E0000 00:00:1768816412.665484   11880 alts_credentials.cc:93] ALTS creds ignored
 [2026-01-19T10:11:48.185Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
 [2026-01-19T10:11:48.197Z] [ACT]: [CONTROL] 1 monitor(s) detected
 [2026-01-19T10:11:48.221Z] [ACT]: 2026-01-19 11:11:48,183 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T10:17:55.887Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T10:17:55.888Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T10:18:00.926Z] Both Act and Ask backends started successfully
+[2026-01-19T10:18:03.029Z] [ASK]: 2026-01-19 11:18:03,023 - INFO - [ASK] - Gemini API configured
+[2026-01-19T10:18:03.031Z] [ASK]: 2026-01-19 11:18:03,024 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T10:18:03.032Z] [ASK]: 2026-01-19 11:18:03,024 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T10:18:05.164Z] [ACT]: [API] Ready
+[2026-01-19T10:18:05.195Z] [ACT]: 2026-01-19 11:18:05,098 - INFO - [CONTROL] - API configured
+[2026-01-19T10:18:05.566Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T10:18:05.616Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T10:18:05.645Z] [ACT]: 2026-01-19 11:18:05,501 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T21:12:47.442Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T21:12:47.444Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T21:12:52.488Z] Both Act and Ask backends started successfully
+[2026-01-19T21:12:59.781Z] [ASK]: 2026-01-19 22:12:59,780 - INFO - [ASK] - Gemini API configured
+[2026-01-19T21:12:59.782Z] [ASK]: 2026-01-19 22:12:59,780 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T21:12:59.784Z] [ASK]: 2026-01-19 22:12:59,780 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T21:13:05.808Z] [ACT]: [API] Ready
+[2026-01-19T21:13:05.809Z] [ACT]: 2026-01-19 22:13:05,805 - INFO - [CONTROL] - API configured
+[2026-01-19T21:13:05.826Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T21:13:05.827Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T21:13:05.829Z] [ACT]: 2026-01-19 22:13:05,826 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T21:22:08.229Z] [BackendManager] Found 1 attachments in task
+[2026-01-19T21:22:08.294Z] [BackendManager] Saved binary attachment to C:\Users\USER\Downloads\rebuild\tmp\1768857728229-SYSTEM_PROMPT.txt (5817 bytes)
+[2026-01-19T21:22:08.312Z] [BackendManager] Sending 1 processed attachments to backend
+[2026-01-19T21:22:08.313Z] [BackendManager] Sent request to ASK backend (Payload size: 290)
+[2026-01-19T21:22:08.453Z] [ASK]: [DEBUG_DUMP] Full Request Keys: ['type', 'request', 'timestamp']
+[2026-01-19T21:22:08.462Z] [ASK]: [DEBUG_DUMP] Request Data Type: <class 'dict'>
+[2026-01-19T21:22:08.473Z] [ASK]: 2026-01-19 22:22:08,314 - INFO - [ASK] - Parsed request dict: text_len=36, attachments=1
+[2026-01-19T21:22:08.527Z] [ASK]: 2026-01-19 22:22:08,317 - INFO - [ASK] - First attachment: {'name': 'SYSTEM_PROMPT.txt', 'path': 'C:\\Users\\USER\\Downloads\\rebuild\\tmp\\1768857728229-SYSTEM_PROMPT.txt', 'type': 'text/plain'}
+[2026-01-19T21:22:08.557Z] [ASK]: 2026-01-19 22:22:08,322 - INFO - [ASK] - Added text attachment: SYSTEM_PROMPT.txt (5673 chars)
+[2026-01-19T21:22:08.640Z] [ASK] Stderr: WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768857728.473661    8068 alts_credentials.cc:93] ALTS creds ignored. Not running on GCP and untrusted ALTS is not enabled.
+
+[2026-01-19T21:36:48.587Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T21:36:48.590Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T21:36:53.772Z] Both Act and Ask backends started successfully
+[2026-01-19T21:37:47.666Z] [ASK]: 2026-01-19 22:37:47,660 - INFO - [ASK] - Gemini API configured
+[2026-01-19T21:37:47.905Z] [ASK]: 2026-01-19 22:37:47,662 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T21:37:47.929Z] [ASK]: 2026-01-19 22:37:47,903 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T21:38:04.974Z] [ACT]: [API] Ready
+[2026-01-19T21:38:04.975Z] [ACT]: 2026-01-19 22:38:04,956 - INFO - [CONTROL] - API configured
+[2026-01-19T21:38:05.249Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T21:38:05.252Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T21:38:05.260Z] [ACT]: 2026-01-19 22:38:05,245 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-19T21:44:27.932Z] [BackendManager] Found 0 attachments in task
+[2026-01-19T21:44:27.939Z] [BackendManager] Sending 0 processed attachments to backend
+[2026-01-19T21:44:27.941Z] [BackendManager] Sent request to ACT backend (Payload size: 135)
+[2026-01-19T21:44:28.406Z] [ACT]: ================================================================================
+[2026-01-19T21:44:28.407Z] [ACT]:  Control - Frontend Integration Mode
+[2026-01-19T21:44:28.409Z] [ACT]: ================================================================================
+[2026-01-19T21:44:28.411Z] [ACT]: Ready for frontend communication...
+[2026-01-19T21:44:28.412Z] [ACT]: Screen: 1920x1080
+[2026-01-19T21:44:28.413Z] [ACT]: Max retries per action: 3
+[2026-01-19T21:44:28.416Z] [ACT]: Waiting for requests from frontend...
+[2026-01-19T21:44:28.418Z] [ACT]: ================================================================================
+[2026-01-19T21:44:28.419Z] [ACT]:  REQUEST: open spotify
+[2026-01-19T21:44:28.420Z] [ACT]: ================================================================================
+[2026-01-19T21:44:30.979Z] [ACT]: 2026-01-19 22:44:30,976 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_224428_402.png | Cursor: (1519, 818)
+[2026-01-19T21:44:32.845Z] [ACT] Stderr: WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1768859072.837344    2080 alts_credentials.cc:93] ALTS creds ignored. Not running on GCP and untrusted ALTS is not enabled.
+
+[2026-01-19T21:44:42.760Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1519, 818)
+[2026-01-19T21:44:42.761Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1519, 818)
+[2026-01-19T21:44:42.762Z] [ACT]: 2026-01-19 22:44:42,760 - INFO - [CONTROL] - Received cancel request
+[2026-01-19T21:44:45.225Z] [ACT]: 2026-01-19 22:44:45,220 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user wants to open Spotify. I can see the Spotify icon pinned to the taskbar. I will directly click on the Spotify icon to launch the application.", "plan": "Click the Spotify icon in the taskbar to open the application.", "actions": [{"step": 1, "description": "Click the Spotify icon in the taskbar.", "action": "click", "parameters": {"x": 907, "y": 1051}, "verification": {"expected_outcome": "Spotify application window should appear on the screen and become the focused window.", "verification_method": "window_check", "success_indicators": ["Spotify"]}}]}
+[2026-01-19T21:44:45.228Z] [ACT]: [TYPE] Task detected
+[2026-01-19T21:44:45.229Z] [ACT]: [ANALYSIS] The user wants to open Spotify. I can see the Spotify icon pinned to the taskbar. I will directly click on the Spotify icon to launch the application.
+[2026-01-19T21:44:45.231Z] [ACT]: [PLAN] Click the Spotify icon in the taskbar to open the application.
+[2026-01-19T21:44:45.234Z] [ACT]: [EXECUTING] 1 steps with verification
+[2026-01-19T21:44:45.245Z] [ACT]: ================================================================================
+[2026-01-19T21:44:45.246Z] [ACT]:  [CANCELLED] Task stopped by user
+[2026-01-19T21:44:45.247Z] [ACT]: ================================================================================
+[2026-01-19T21:46:09.257Z] [BackendManager] Found 0 attachments in task
+[2026-01-19T21:46:09.262Z] [BackendManager] Sending 0 processed attachments to backend
+[2026-01-19T21:46:09.263Z] [BackendManager] Sent request to ACT backend (Payload size: 135)
+[2026-01-19T21:46:09.351Z] [ACT]: ================================================================================
+[2026-01-19T21:46:09.381Z] [ACT]:  REQUEST: open spotify
+[2026-01-19T21:46:09.385Z] [ACT]: ================================================================================
+[2026-01-19T21:46:10.348Z] [ACT]: 2026-01-19 22:46:10,327 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260119_224609_336.png | Cursor: (1686, 859)
+[2026-01-19T21:46:14.981Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1686, 859)
+[2026-01-19T21:46:14.988Z] [ACT]: [SCREEN] 1920x1080 | Cursor: (1686, 859)
+[2026-01-19T21:46:15.029Z] [ACT]: 2026-01-19 22:46:14,966 - INFO - [CONTROL] - Received cancel request
+[2026-01-19T21:51:39.953Z] [BackendManager] Found 0 attachments in task
+[2026-01-19T21:51:39.970Z] [BackendManager] Sending 0 processed attachments to backend
+[2026-01-19T21:51:39.971Z] [BackendManager] Sent request to ACT backend (Payload size: 152)
+[2026-01-19T21:52:23.542Z] [BackendManager] Found 0 attachments in task
+[2026-01-19T21:52:23.599Z] [BackendManager] Sending 0 processed attachments to backend
+[2026-01-19T21:52:23.600Z] [BackendManager] Sent request to ACT backend (Payload size: 140)
+[2026-01-19T21:54:48.639Z] [ACT]: 2026-01-19 22:54:48,621 - ERROR - [CONTROL] - LLM error: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. 
+[2026-01-19T21:54:48.658Z] [ACT]: * Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 20, model: gemini-2.5-flash
+[2026-01-19T21:54:48.660Z] [ACT]: Please retry in 12.323339722s. [links {
+[2026-01-19T21:54:48.661Z] [ACT]:   description: "Learn more about Gemini API quotas"
+[2026-01-19T21:54:48.665Z] [ACT]:   url: "https://ai.google.dev/gemini-api/docs/rate-limits"
+[2026-01-19T21:54:48.668Z] [ACT]: }
+[2026-01-19T21:54:48.674Z] [ACT]: , violations {
+[2026-01-19T21:54:48.675Z] [ACT]:   quota_metric: "generativelanguage.googleapis.com/generate_content_free_tier_requests"
+[2026-01-19T21:54:48.680Z] [ACT]:   quota_id: "GenerateRequestsPerDayPerProjectPerModel-FreeTier"
+[2026-01-19T21:54:48.681Z] [ACT]:   quota_dimensions {
+[2026-01-19T21:54:48.686Z] [ACT]:     key: "model"
+[2026-01-19T21:54:48.688Z] [ACT]:     value: "gemini-2.5-flash"
+[2026-01-19T21:54:48.690Z] [ACT]:   }
+[2026-01-19T21:54:48.691Z] [ACT]:   quota_dimensions {
+[2026-01-19T21:54:48.692Z] [ACT]:     key: "location"
+[2026-01-19T21:54:48.694Z] [ACT]:     value: "global"
+[2026-01-19T21:54:48.697Z] [ACT]:   }
+[2026-01-19T21:54:48.699Z] [ACT]:   quota_value: 20
+[2026-01-19T21:54:48.701Z] [ACT]: }
+[2026-01-19T21:54:48.706Z] [ACT]: , retry_delay {
+[2026-01-19T21:54:48.707Z] [ACT]:   seconds: 12
+[2026-01-19T21:54:48.708Z] [ACT]: }
+[2026-01-19T21:54:48.711Z] [ACT]: ]
+[2026-01-19T21:54:48.716Z] [ACT]: [ERROR] Failed to process request
+[2026-01-19T21:54:48.728Z] [ACT]: 2026-01-19 22:54:48,625 - INFO - [CONTROL] - Auto-cleaning 4 screenshot(s)
+[2026-01-19T21:54:48.740Z] [ACT]: 2026-01-19 22:54:48,633 - INFO - [CONTROL] - Removed 4 screenshot(s)
+[2026-01-19T22:33:59.255Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-19T22:33:59.256Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-19T22:34:04.346Z] Both Act and Ask backends started successfully
+[2026-01-19T22:34:07.080Z] [ASK]: 2026-01-19 23:34:07,076 - INFO - [ASK] - Gemini API configured
+[2026-01-19T22:34:07.082Z] [ASK]: 2026-01-19 23:34:07,077 - INFO - [ASK] - Ask Backend initialized
+[2026-01-19T22:34:07.083Z] [ASK]: 2026-01-19 23:34:07,078 - INFO - [ASK] - Ask Backend Ready
+[2026-01-19T22:34:07.850Z] [ACT]: [API] Ready
+[2026-01-19T22:34:07.853Z] [ACT]: 2026-01-19 23:34:07,848 - INFO - [CONTROL] - API configured
+[2026-01-19T22:34:07.863Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-19T22:34:07.865Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-19T22:34:07.866Z] [ACT]: 2026-01-19 23:34:07,858 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
