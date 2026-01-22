@@ -78,7 +78,7 @@ class SettingsManager {
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
             userAuthenticated: false,
             hotkeys: {
-                toggleChat: 'CommandOrControl+Space',
+                toggleChat: process.platform === 'darwin' ? 'Command+.' : 'CommandOrControl+Space',
                 stopAction: 'Alt+Z'
             },
             userDetails: null

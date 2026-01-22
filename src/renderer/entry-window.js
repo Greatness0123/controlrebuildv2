@@ -19,6 +19,19 @@ class EntryWindow {
         this.checkAuthentication();
         this.animateTips();
         this.setupDragging();
+        this.updatePlatformSpecifics();
+    }
+
+    updatePlatformSpecifics() {
+        if (window.entryAPI && window.entryAPI.getPlatform) {
+            const platform = window.entryAPI.getPlatform();
+            if (platform === 'darwin') {
+                const tipEl = document.getElementById('hotkeyTipText');
+                if (tipEl) {
+                    tipEl.textContent = 'Press Cmd+. to toggle chat. Alt+Z to stop current task.';
+                }
+            }
+        }
     }
 
     animateTips() {
