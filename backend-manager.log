@@ -590,3 +590,25 @@ E0000 00:00:1769067139.204531   18664 alts_credentials.cc:93] ALTS creds ignored
 [2026-01-22T14:39:33.114Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
 [2026-01-22T14:39:33.115Z] [ACT]: [CONTROL] 1 monitor(s) detected
 [2026-01-22T14:39:33.117Z] [ACT]: 2026-01-22 15:39:29,598 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-22T16:13:52.328Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-22T16:13:52.330Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-22T16:13:57.371Z] Both Act and Ask backends started successfully
+[2026-01-22T16:14:03.855Z] [ASK]: 2026-01-22 17:14:03,231 - INFO - [ASK] - Gemini API configured
+[2026-01-22T16:14:03.857Z] [ASK]: 2026-01-22 17:14:03,231 - INFO - [ASK] - Ask Backend initialized with system analysis capabilities
+[2026-01-22T16:14:03.859Z] [ASK]: 2026-01-22 17:14:03,231 - INFO - [ASK] - Ask Backend Ready
+[2026-01-22T16:14:03.864Z] [ACT]: [API] Ready
+[2026-01-22T16:14:03.868Z] [ACT]: 2026-01-22 17:14:03,813 - INFO - [CONTROL] - API configured
+[2026-01-22T16:14:03.870Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-22T16:14:03.872Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-22T16:14:03.884Z] [ACT]: 2026-01-22 17:14:03,816 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+[2026-01-22T17:10:41.303Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-22T17:10:41.306Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-22T17:10:46.365Z] Both Act and Ask backends started successfully
+[2026-01-22T17:10:48.331Z] [ASK]: 2026-01-22 18:10:48,329 - INFO - [ASK] - Gemini API configured
+[2026-01-22T17:10:48.334Z] [ASK]: 2026-01-22 18:10:48,329 - INFO - [ASK] - Ask Backend initialized with system analysis capabilities
+[2026-01-22T17:10:48.336Z] [ASK]: 2026-01-22 18:10:48,329 - INFO - [ASK] - Ask Backend Ready
+[2026-01-22T17:10:49.605Z] [ACT]: [API] Ready
+[2026-01-22T17:10:49.607Z] [ACT]: 2026-01-22 18:10:49,589 - INFO - [CONTROL] - API configured
+[2026-01-22T17:10:49.609Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-22T17:10:49.611Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-22T17:10:49.613Z] [ACT]: 2026-01-22 18:10:49,600 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

@@ -474,23 +474,11 @@ class ComputerUseAgent {
             try {
                 const settings = this.settingsManager.getSettings();
 
+                // 1. Check memory settings first
                 if (settings.userAuthenticated && settings.userDetails) {
-                    // Try to refresh from Firebase, but use cached data if it fails
-                    try {
-                        // Use verifyEntryID which works with 12-digit IDs
-                        const result = await firebaseService.verifyEntryID(settings.userDetails.id);
-                        if (result.success) {
-                            return {
-                                success: true,
-                                isAuthenticated: true,
-                                ...result.user
-                            };
-                        }
-                    } catch (refreshError) {
-                        console.log('[Main] Firebase refresh failed, using cached data');
-                    }
-
-                    // Return cached data if refresh failed
+                    console.log('[Main] Found user details in settings memory');
+                    // Check if we need to sync with Firebase (optional, but good for rate limits)
+                    // We return the memory version for speed, background sync can happen elsewhere
                     return {
                         success: true,
                         isAuthenticated: true,
@@ -498,6 +486,26 @@ class ComputerUseAgent {
                     };
                 }
 
+                // 2. Check disk cache fallback (IMPORTANT for Entry Page reliability)
+                const cachedUser = firebaseService.checkCachedUser();
+                if (cachedUser) {
+                    console.log('[Main] Found user details in disk cache (fallback)');
+                    // Restore to settings memory
+                    this.settingsManager.updateSettings({
+                        userAuthenticated: true,
+                        userDetails: cachedUser
+                    });
+                    this.isAuthenticated = true;
+                    this.currentUser = cachedUser;
+
+                    return {
+                        success: true,
+                        isAuthenticated: true,
+                        ...cachedUser
+                    };
+                }
+
+                console.log('[Main] No user info found in memory or cache');
                 return {
                     success: false,
                     isAuthenticated: false
