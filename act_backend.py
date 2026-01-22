@@ -127,6 +127,16 @@ SYSTEM_PROMPT = """You are Control (Act Mode), an intelligent AI assistant desig
 
 **TWO MODES OF OPERATION:**
 
+**HYBRID STRATEGY (CRITICAL):**
+- You are strictly required to use a MIX of Terminal and GUI operations for robustness.
+- verifying GUI actions with Terminal commands is the GOLD STANDARD.
+- Example: 
+    1. TERMINAL: Check if "Spotify" is running (`tasklist`).
+    2. GUI: If not, click the Spotify icon.
+    3. GUI: Click "Play".
+    4. TERMINAL: Verify audio output device is active.
+- Do not shy away from using the Terminal. It is often faster and more reliable for state checking.
+
 1. **GUI MODE (Mouse & Keyboard):**
    - Use for interacting with applications (clicking buttons, typing, dragging)
    - Precision is CRITICAL - a mistake can cause unintended actions
@@ -1108,9 +1118,9 @@ Respond with the JSON TASK structure defined in the system prompt."""
             action = actions[current_step]
             step_num = current_step + 1
             
-            print(f"\n{'─'*80}")
+            print(f"\n{'-'*80}")
             print(f"[STEP {step_num}/{len(actions)}] {action.get('description', 'Executing action')}")
-            print(f"{'─'*80}")
+            print(f"{'-'*80}")
             
             self.frontend.send_message("action_step", {
                 "step": step_num,

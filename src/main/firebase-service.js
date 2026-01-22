@@ -123,29 +123,59 @@ module.exports = {
      */
     async getUserById(userId) {
         try {
-            if (!db) {
-                return { success: false, message: 'Database not initialized' };
+            // Priority 1: Try Firebase if available
+            if (db) {
+                try {
+                    const userDoc = await db.collection('users').doc(userId).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+
+                        // Update cache with fresh data
+                        const freshUser = { id: userDoc.id, ...userData };
+                        this.cacheUser(freshUser);
+
+                        return {
+                            success: true,
+                            user: freshUser,
+                            source: 'firebase'
+                        };
+                    }
+                } catch (dbError) {
+                    console.warn('Firebase getUserById failed, trying cache:', dbError.message);
+                }
             }
 
-            const userDoc = await db.collection('users').doc(userId).get();
-
-            if (!userDoc.exists) {
+            // Priority 2: Fallback to local cache
+            const cachedUser = this.checkCachedUser();
+            if (cachedUser && cachedUser.id === userId) {
+                console.log('Returning cached user data for:', userId);
                 return {
-                    success: false,
-                    message: 'User not found'
+                    success: true,
+                    user: cachedUser,
+                    source: 'cache'
                 };
             }
 
-            const userData = userDoc.data();
+            if (!db) {
+                return { success: false, message: 'Database not initialized and no cache found' };
+            }
+
             return {
-                success: true,
-                user: {
-                    id: userDoc.id,
-                    ...userData
-                }
+                success: false,
+                message: 'User not found'
             };
         } catch (error) {
             console.error('Get user error:', error.message);
+            // Emergency fallback
+            const cachedUser = this.checkCachedUser();
+            if (cachedUser && cachedUser.id === userId) {
+                return {
+                    success: true,
+                    user: cachedUser,
+                    source: 'cache'
+                };
+            }
+
             return {
                 success: false,
                 message: error.message
