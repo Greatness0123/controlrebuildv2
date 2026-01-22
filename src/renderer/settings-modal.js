@@ -11,7 +11,12 @@ class SettingsModal {
             floatingButtonVisible: true,
             greetingTTS: false,
             windowVisibility: false,
-            wakeWordToggleChat: false
+            windowVisibility: false,
+            wakeWordToggleChat: false,
+            hotkeys: {
+                toggleChat: 'CommandOrControl+Space',
+                stopAction: 'Alt+Z'
+            }
         };
 
         this.init();
@@ -141,6 +146,29 @@ class SettingsModal {
                 this.showToast('Failed to set PIN', 'error');
             }
         });
+
+        // Hotkey management
+        document.getElementById('editToggleChatBtn')?.addEventListener('click', () => {
+            this.showHotkeyEditor('toggleChat');
+        });
+
+        document.getElementById('editStopActionBtn')?.addEventListener('click', () => {
+            this.showHotkeyEditor('stopAction');
+        });
+
+        document.getElementById('resetHotkeysBtn')?.addEventListener('click', () => {
+            this.resetHotkeys();
+        });
+
+        document.getElementById('hotkeyCancelBtn')?.addEventListener('click', () => {
+            this.closeHotkeyEditor();
+        });
+
+        document.getElementById('hotkeySaveBtn')?.addEventListener('click', () => {
+            if (this.currentRecordedHotkey) {
+                this.saveHotkey(this.currentEditingHotkeyId, this.currentRecordedHotkey);
+            }
+        });
     }
 
     setupIPCListeners() {
@@ -214,6 +242,9 @@ class SettingsModal {
     updateUI() {
         // Update user info
         this.updateUserInfo();
+
+        // Update hotkey text
+        this.updateHotkeyDisplay();
 
         // Update toggle states
         this.updateToggleStates();
@@ -756,6 +787,157 @@ class SettingsModal {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    }
+
+    // Hotkey Management Methods
+
+    updateHotkeyDisplay() {
+        const toggleEl = document.getElementById('toggleChatHotkeyDisplay');
+        const stopEl = document.getElementById('stopActionHotkeyDisplay');
+
+        if (toggleEl && this.settings.hotkeys?.toggleChat) {
+            toggleEl.textContent = this.formatHotkeyParams(this.settings.hotkeys.toggleChat);
+        }
+
+        if (stopEl && this.settings.hotkeys?.stopAction) {
+            stopEl.textContent = this.formatHotkeyParams(this.settings.hotkeys.stopAction);
+        }
+    }
+
+    formatHotkeyParams(accelerator) {
+        // Make it look nicer (CommandOrControl -> Ctrl)
+        return accelerator
+            .replace('CommandOrControl', 'Ctrl')
+            .replace('Control', 'Ctrl')
+            .replace('Command', 'Cmd');
+    }
+
+    async resetHotkeys() {
+        if (!confirm('Are you sure you want to restore default hotkeys?')) return;
+
+        const defaults = {
+            toggleChat: 'CommandOrControl+Space',
+            stopAction: 'Alt+Z'
+        };
+
+        await this.saveHotkeys(defaults);
+        this.showToast('Hotkeys restored to default', 'success');
+    }
+
+    showHotkeyEditor(id) {
+        this.currentEditingHotkeyId = id;
+        this.currentRecordedHotkey = null;
+
+        const modal = document.getElementById('hotkeyModal');
+        const title = document.getElementById('hotkeyTitle');
+        const display = document.getElementById('hotkeyDisplay');
+        const saveBtn = document.getElementById('hotkeySaveBtn');
+
+        if (title) title.textContent = id === 'toggleChat' ? 'Set "Toggle Chat" Hotkey' : 'Set "Stop Task" Hotkey';
+        if (display) display.textContent = 'Press new key combo...';
+        if (saveBtn) saveBtn.disabled = true;
+
+        if (modal) {
+            modal.classList.add('show');
+            this.startRecordingKeys();
+        }
+    }
+
+    closeHotkeyEditor() {
+        const modal = document.getElementById('hotkeyModal');
+        if (modal) modal.classList.remove('show');
+        this.stopRecordingKeys();
+        this.currentEditingHotkeyId = null;
+        this.currentRecordedHotkey = null;
+    }
+
+    startRecordingKeys() {
+        this.recordedKeys = new Set();
+
+        this.keyHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // On key down
+            if (e.type === 'keydown') {
+                // Ignore just modifiers being pressed alone unless combined logic
+                // But for Electron Accelerators, we need modifiers + key usually.
+
+                let key = e.key;
+                let code = e.code;
+
+                // Map logical keys
+                if (key === ' ') key = 'Space';
+                if (key.length === 1) key = key.toUpperCase();
+
+                // Build accelerator string
+                const modifiers = [];
+                if (e.ctrlKey) modifiers.push('Ctrl');
+                // CommandOrControl is usually Ctrl on Windows/Linux, Cmd on Mac. 
+                // We'll stick to 'Ctrl' or 'Alt' or 'Shift' as detected.
+
+                if (e.metaKey) modifiers.push('Super'); // CMD/Win
+                if (e.altKey) modifiers.push('Alt');
+                if (e.shiftKey) modifiers.push('Shift');
+
+                // If the key itself is a modifier, don't double add it to the end
+                const isModifierKey = ['Control', 'Shift', 'Alt', 'Meta'].includes(e.key);
+
+                if (!isModifierKey) {
+                    const combo = [...modifiers, key].join('+');
+
+                    // Update display
+                    const display = document.getElementById('hotkeyDisplay');
+                    if (display) display.textContent = combo;
+
+                    // Validate: Need at least one modifier? Or just accept provided.
+                    // Electron accepts single keys too like 'F11'.
+                    // But 'A' is probably bad.
+
+                    this.currentRecordedHotkey = combo.replace('Ctrl', 'CommandOrControl').replace('Super', 'Command');
+
+                    const saveBtn = document.getElementById('hotkeySaveBtn');
+                    if (saveBtn) saveBtn.disabled = false;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', this.keyHandler);
+    }
+
+    stopRecordingKeys() {
+        if (this.keyHandler) {
+            window.removeEventListener('keydown', this.keyHandler);
+            this.keyHandler = null;
+        }
+    }
+
+    async saveHotkey(id, accelerator) {
+        if (!id || !accelerator) return;
+
+        // Clone current hotkeys or init defaults logic if undefined
+        const newHotkeys = { ...this.settings.hotkeys } || {};
+        newHotkeys[id] = accelerator;
+
+        await this.saveHotkeys(newHotkeys);
+        this.closeHotkeyEditor();
+        this.showToast('Hotkey saved successfully', 'success');
+    }
+
+    async saveHotkeys(newHotkeys) {
+        try {
+            this.settings.hotkeys = newHotkeys;
+
+            if (window.settingsAPI && window.settingsAPI.updateHotkeys) {
+                await window.settingsAPI.updateHotkeys(newHotkeys);
+            }
+            // else: fallback handled in load/saveSettings via session storage logic if needed
+
+            this.updateHotkeyDisplay();
+        } catch (e) {
+            console.error('Failed to save hotkeys:', e);
+            this.showToast('Failed to save hotkeys', 'error');
+        }
     }
 }
 

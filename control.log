@@ -398,3 +398,5 @@ Please retry in 39.928168589s. [links {
 ]
 2026-01-22 20:21:18,372 - INFO - [CONTROL] - Auto-cleaning 20 screenshot(s)
 2026-01-22 20:21:18,389 - INFO - [CONTROL] - Removed 20 screenshot(s)
+2026-01-22 21:15:20,315 - INFO - [CONTROL] - API configured
+2026-01-22 21:15:20,320 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

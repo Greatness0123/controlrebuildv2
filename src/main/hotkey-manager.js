@@ -6,20 +6,38 @@ class HotkeyManager {
         this.isEnabled = true;
     }
 
-    setupHotkeys() {
-        // Toggle chat window (Ctrl+Space)
-        this.registerShortcut('CommandOrControl+Space', 'toggle-chat', () => {
-            console.log('Toggle chat hotkey triggered');
-            this.emitToMain('toggle-chat');
-        });
+    setupHotkeys(customHotkeys = null) {
+        // Use provided hotkeys or defaults
+        const hotkeys = customHotkeys || {
+            toggleChat: 'CommandOrControl+Space',
+            stopAction: 'Alt+Z'
+        };
 
-        // Stop AI action execution (Alt+Z) - NOT the backend
-        this.registerShortcut('Alt+Z', 'stop-action', () => {
-            console.log('Stop AI action hotkey triggered');
-            this.emitToMain('stop-action');
-        });
+        console.log('Setting up hotkeys:', hotkeys);
+
+        // Toggle chat window
+        if (hotkeys.toggleChat) {
+            this.registerShortcut(hotkeys.toggleChat, 'toggle-chat', () => {
+                console.log('Toggle chat hotkey triggered');
+                this.emitToMain('toggle-chat');
+            });
+        }
+
+        // Stop AI action execution
+        if (hotkeys.stopAction) {
+            this.registerShortcut(hotkeys.stopAction, 'stop-action', () => {
+                console.log('Stop AI action hotkey triggered');
+                this.emitToMain('stop-action');
+            });
+        }
 
         console.log('Global hotkeys registered successfully');
+    }
+
+    updateHotkeys(newHotkeys) {
+        console.log('Updating hotkeys to:', newHotkeys);
+        this.unregisterAll();
+        this.setupHotkeys(newHotkeys);
     }
 
     registerShortcut(accelerator, id, handler) {

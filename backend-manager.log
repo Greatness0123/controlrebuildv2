@@ -998,3 +998,14 @@ E0000 00:00:1769109472.784643    3056 alts_credentials.cc:93] ALTS creds ignored
 [2026-01-22T19:21:18.932Z] [ACT]: ================================================================================
 [2026-01-22T19:21:19.029Z] [ACT]: 2026-01-22 20:21:18,372 - INFO - [CONTROL] - Auto-cleaning 20 screenshot(s)
 [2026-01-22T19:21:19.035Z] [ACT]: 2026-01-22 20:21:18,389 - INFO - [CONTROL] - Removed 20 screenshot(s)
+[2026-01-22T20:15:13.494Z] Starting Act Backend: python C:\Users\USER\Downloads\rebuild\act_backend.py
+[2026-01-22T20:15:13.496Z] Starting Ask Backend: python C:\Users\USER\Downloads\rebuild\ask_backend.py
+[2026-01-22T20:15:18.530Z] Both Act and Ask backends started successfully
+[2026-01-22T20:15:19.706Z] [ASK]: 2026-01-22 21:15:19,702 - INFO - [ASK] - Gemini API configured
+[2026-01-22T20:15:19.742Z] [ASK]: 2026-01-22 21:15:19,703 - INFO - [ASK] - Ask Backend initialized with system analysis capabilities
+[2026-01-22T20:15:19.743Z] [ASK]: 2026-01-22 21:15:19,705 - INFO - [ASK] - Ask Backend Ready
+[2026-01-22T20:15:20.320Z] [ACT]: [API] Ready
+[2026-01-22T20:15:20.330Z] [ACT]: 2026-01-22 21:15:20,315 - INFO - [CONTROL] - API configured
+[2026-01-22T20:15:20.351Z] [ACT]: [CONTROL] GUI libraries ready - Screen: 1920x1080
+[2026-01-22T20:15:20.358Z] [ACT]: [CONTROL] 1 monitor(s) detected
+[2026-01-22T20:15:20.363Z] [ACT]: 2026-01-22 21:15:20,320 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

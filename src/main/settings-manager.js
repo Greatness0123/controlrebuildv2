@@ -77,6 +77,10 @@ class SettingsManager {
             floatingButtonVisible: true,
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
             userAuthenticated: false,
+            hotkeys: {
+                toggleChat: 'CommandOrControl+Space',
+                stopAction: 'Alt+Z'
+            },
             userDetails: null
         };
     }

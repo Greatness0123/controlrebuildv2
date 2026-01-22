@@ -185,7 +185,8 @@ class ComputerUseAgent {
             this.windowManager.showWindow('main');
 
             // Set up global hotkeys
-            this.hotkeyManager.setupHotkeys();
+            // Set up global hotkeys with saved settings
+            this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
 
             // Start backend process
             await this.backendManager.startBackend();
@@ -797,12 +798,55 @@ class ComputerUseAgent {
 
         // Settings
         ipcMain.handle('get-settings', () => {
-            return this.getSettings();
+            return this.settingsManager.getSettings();
         });
 
         ipcMain.handle('save-settings', (event, settings) => {
-            return this.saveSettings(settings);
+            // Check if hotkeys changed
+            const oldSettings = this.settingsManager.getSettings();
+            const success = this.settingsManager.updateSettings(settings);
+
+            if (success) {
+                // If hotkeys are present and different, update them
+                if (settings.hotkeys) {
+                    // Simple check - could be more robust
+                    const oldHotkeys = JSON.stringify(oldSettings.hotkeys);
+                    const newHotkeys = JSON.stringify(settings.hotkeys);
+
+                    if (oldHotkeys !== newHotkeys) {
+                        console.log('[Main] Hotkeys changed, updating manager...');
+                        this.hotkeyManager.updateHotkeys(settings.hotkeys);
+                    }
+                }
+
+                // Broadcast update
+                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+            }
+            return { success };
         });
+
+        ipcMain.handle('update-hotkeys', (event, newHotkeys) => {
+            console.log('[Main] [IPC] update-hotkeys:', newHotkeys);
+
+            // Validate basic structure
+            if (!newHotkeys || !newHotkeys.toggleChat || !newHotkeys.stopAction) {
+                return { success: false, message: 'Invalid hotkey configuration' };
+            }
+
+            // Update settings
+            const success = this.settingsManager.updateSettings({ hotkeys: newHotkeys });
+
+            if (success) {
+                // Update live hotkeys
+                this.hotkeyManager.updateHotkeys(newHotkeys);
+                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                return { success: true };
+            }
+
+            return { success: false, message: 'Failed to save hotkey settings' };
+        });
+
+
 
         ipcMain.handle('update-floating-button', (event, visible) => {
             // Update settings

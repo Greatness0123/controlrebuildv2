@@ -682,6 +682,55 @@
                 </div>
             </div>
 
+            <!-- Shortcuts Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="keyboard" style="width: 16px; height: 16px;"></i>
+                    Shortcuts
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="message-square" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Toggle Chat</div>
+                            <div class="setting-description">Show/hide chat window</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="editToggleChatBtn">
+                        <span id="toggleChatHotkeyDisplay">Ctrl+Space</span>
+                        <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="octagon" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Stop Task</div>
+                            <div class="setting-description">Emergency stop AI action</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="editStopActionBtn">
+                        <span id="stopActionHotkeyDisplay">Alt+Z</span>
+                        <i data-lucide="edit-2" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="rotate-ccw" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Reset Hotkeys</div>
+                            <div class="setting-description">Restore default shortcuts</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="resetHotkeysBtn">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
             <!-- System Section -->
             <div class="settings-section">
                 <div class="section-title">
@@ -770,6 +819,24 @@
             <div class="pin-buttons">
                 <button class="button button-secondary" id="pinCancelButton">Cancel</button>
                 <button class="button button-primary" id="pinConfirmButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hotkey Input Modal -->
+    <div class="pin-modal" id="hotkeyModal">
+        <div class="pin-content" style="width: 400px;">
+            <div class="pin-title" id="hotkeyTitle">Edit Hotkey</div>
+            <div class="pin-description">Press the new key combination...</div>
+
+            <div class="pin-input" id="hotkeyDisplay"
+                style="font-family: monospace; font-size: 24px; padding: 30px; margin-bottom: 20px; background: #f3f4f6;">
+                Listening...
+            </div>
+
+            <div class="pin-buttons">
+                <button class="button button-secondary" id="hotkeyCancelBtn">Cancel</button>
+                <button class="button button-primary" id="hotkeySaveBtn" disabled>Save</button>
             </div>
         </div>
     </div>

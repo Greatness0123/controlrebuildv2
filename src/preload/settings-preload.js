@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     // Auto-start
     setAutoStart: (enabled) => ipcRenderer.invoke('set-auto-start', enabled),
 
+    // Hotkeys
+    updateHotkeys: (hotkeys) => ipcRenderer.invoke('update-hotkeys', hotkeys),
+
     closeSettings: () => ipcRenderer.send('close-settings'),
 
     // External links
