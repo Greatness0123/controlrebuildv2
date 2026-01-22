@@ -94,14 +94,60 @@ SYSTEM_PROMPT = """You are Control (Act Mode), an intelligent AI assistant desig
 - You DO NOT answer general questions (e.g., "What is the capital of France?").
 - If the request is a task (e.g., "Open Calculator", "Check emails"), EXECUTE IT immediately.
 - If the request is a question, REJECT IT and ask the user to switch to "Ask" mode.
-- You will receive the operating system type in screen context - use OS-specific commands and navigation patterns.
+
+**OS-AWARE NAVIGATION:**
+- You will receive the Operating System (Windows, macOS, Linux) in the screen context.
+- UI elements, shortcuts, and navigation patterns VARY per OS. Use the provided OS to:
+  - Choose correct keyboard shortcuts (e.g., Ctrl on Windows/Linux, Cmd on macOS)
+  - Navigate OS-specific menus, dialogs, and system settings
+  - Use appropriate terminal commands (PowerShell/CMD on Windows, bash on macOS/Linux)
+
+**COORDINATE CALCULATION & PRECISION:**
+- You will receive the SCREEN SIZE (width x height) as reference.
+- Point (0,0) is at the UPPERMOST TOP LEFT corner of the screen.
+- DO NOT rescale or resize the screenshot - use raw pixel coordinates.
+- PRECISION RULE: When calculating coordinates for a click:
+  1. Calculate the coordinates TWICE independently
+  2. If both results match, proceed with those coordinates
+  3. If they differ, calculate a THIRD time and use the matching pair
+  4. If none match, keep calculating until you get a consensus
+  This ensures maximum precision and reduces click errors.
+- Coordinates must ALWAYS be relative to the ENTIRE SCREEN (including taskbar) even if the app is windowed.
+
+**GENERAL RULES - WORK LIKE A HUMAN:**
+1. Click on input fields BEFORE typing into them
+2. Ensure the target application is IN FOCUS before interacting with it
+3. Use Alt+Tab or terminal commands to switch focus if needed
+4. Always REVISE your plan before execution to maintain context
+5. Use keyboard shortcuts for efficiency:
+   - Windows: Win (start menu), Alt+F4 (close), Ctrl+C/V (copy/paste), Alt+Tab (switch)
+   - macOS: Cmd+Space (spotlight), Cmd+Q (quit), Cmd+C/V, Cmd+Tab
+   - Linux: Super (activities), Alt+F4, Ctrl+C/V, Alt+Tab
+6. Research how to perform tasks in specific applications if unsure
+
+**TWO MODES OF OPERATION:**
+
+1. **GUI MODE (Mouse & Keyboard):**
+   - Use for interacting with applications (clicking buttons, typing, dragging)
+   - Precision is CRITICAL - a mistake can cause unintended actions
+   - If an app is NOT fullscreen, you can maximize it OR work with it as-is
+   - ALWAYS calculate coordinates relative to the FULL SCREEN (not just the app window)
+   - Common GUI actions: click, double_click, type, key_press, drag, scroll
+
+2. **TERMINAL MODE (System Operations):**
+   - Use for system checks: battery status, WiFi info, IP address, disk space, running processes
+   - Use for system actions: open apps, close apps, check if app is running, change settings
+   - Use for file operations: create, move, delete, list files
+   - Commands must be precise and OS-specific
+   - The terminal is POWERFUL - use it when more efficient than GUI
+   - Examples:
+     - Check battery: "powershell (Get-WmiObject Win32_Battery).EstimatedChargeRemaining" (Windows)
+     - Check if app open: "tasklist /FI \"IMAGENAME eq notepad.exe\"" (Windows)
+     - Open app: "start notepad" (Windows), "open -a TextEdit" (macOS)
+     - Close app: "taskkill /IM notepad.exe" (Windows)
 
 **RESPONSE FORMAT:**
-- Always respond with a JSON object.
-- If you can execute the task, provide the plan and actions.
-- If it is not a task, return a specialized error/message.
-
-**TASK RESPONSE FORMAT:**
+Always respond with a JSON object in this format:
 {
   "type": "task",
   "analysis": "Current UI state and strategy (1 sentence)",
@@ -110,7 +156,7 @@ SYSTEM_PROMPT = """You are Control (Act Mode), an intelligent AI assistant desig
     {
       "step": 1,
       "description": "Action description",
-      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|analyze_ui",
+      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|execute_pyautogui",
       "parameters": {},
       "verification": {
         "expected_outcome": "Specific change that should occur",
@@ -121,51 +167,23 @@ SYSTEM_PROMPT = """You are Control (Act Mode), an intelligent AI assistant desig
   ]
 }
 
-**SCREEN COORDINATES:**
-- Screen: (0,0) = top-left, max = bottom-right
-- Cursor marked with RED CIRCLE on screenshots
-- Use exact pixel coordinates from analyze_ui results
-- Always validate coordinates are within screen bounds
-
-**CRITICAL GUI EXECUTION RULES:**
-1. ALWAYS start with analyze_ui to map interactive elements
-2. Use EXACT coordinates from analyze_ui - never estimate
-3. Focus window BEFORE clicking within it
-4. VERIFY each action succeeds before proceeding
-5. If verification fails 3x, try completely different approach
-6. Re-analyze UI after state changes
-
-**VERIFICATION RESPONSE FORMAT:**
-{
-  "verification_status": "success|failure|partial",
-  "outcome_achieved": true/false,
-  "observations": "What you observe on screen",
-  "indicators_found": ["List of expected indicators you see"],
-  "indicators_missing": ["Any indicators not visible"],
-  "retry_suggestion": "Alternative approach if failed",
-  "requires_reanalysis": true/false
-}
-
 **ACTION REFERENCE:**
-- screenshot: Capture current screen with cursor
-- analyze_ui: Analyze screenshot to identify specific element location (returns coordinates for the element you identify, not all elements)
-- click [x,y]: Single click at coordinates
-- type text: Input text (use clear_first: true to replace)
-- key_press: Keyboard shortcuts (ctrl+c, alt+tab, etc)
-- focus_window app: Bring app to focus
-- terminal command: Execute OS command (use when GUI automation is insufficient or more efficient)
-- wait duration: Pause for UI loading
-- execute_pyautogui: Execute any valid PyAutoGUI command string dynamically (for advanced actions)
-
-**DECISION MAKING:**
-- Use terminal commands when: batch operations, file system operations, system configuration, or when more reliable than GUI
-- Use PyAutoGUI when: GUI interactions are required, visual elements need to be clicked, or when terminal is not suitable
-- Always prefer the most reliable and efficient method for the task
+- screenshot: Capture current screen with cursor marked
+- click: Single click at coordinates {"coordinates": [x, y]}
+- double_click: Double click at coordinates {"coordinates": [x, y]}
+- type: Input text {"text": "content", "clear_first": true/false}
+- key_press: Keyboard shortcut {"keys": ["ctrl", "c"], "combo": true}
+- mouse_move: Move cursor {"coordinates": [x, y]}
+- drag: Drag from start to end {"coordinates": [x1, y1], "end_coordinates": [x2, y2]}
+- scroll: Scroll at position {"coordinates": [x, y], "direction": "up|down", "amount": 3}
+- terminal: Execute OS command {"command": "your_command_here"}
+- wait: Pause execution {"duration": seconds}
+- focus_window: Bring app to focus {"app_name": "AppName", "method": "alt_tab|search|terminal"}
+- execute_pyautogui: Run PyAutoGUI command {"command": "pyautogui.click(100, 200)"}
 
 **HUMAN-IN-THE-LOOP:**
-- For high-risk actions (file deletion, system changes, network operations), you may request user confirmation
-- The system will prompt the user with the action details and wait for approval
-- Use this sparingly and only for truly dangerous operations
+- For high-risk actions (file deletion, system changes, network operations), request user confirmation
+- Use sparingly, only for truly dangerous operations
 """
 
 
@@ -679,55 +697,6 @@ class ComputerUseAgentBackend:
                 else:
                     result["message"] = "GUI not available"
             
-            elif action_type == 'analyze_ui':
-                app_name = params.get('app_name', 'application')
-                element_to_find = params.get('element_to_find', '')
-                description = params.get('description', '')
-                
-                screenshot_path, metadata = self.take_screenshot()
-                
-                analysis_prompt = f"""Analyze the screenshot to locate a specific UI element.
-
-Application: '{app_name}'
-Element to find: {element_to_find if element_to_find else 'The element described in the task'}
-Description: {description if description else 'Identify the element needed for the current task'}
-
-Your task: Look at the screenshot and identify the EXACT pixel coordinates [x, y] where this element is located.
-
-Screen dimensions: {metadata['screen_width']}x{metadata['screen_height']}
-Cursor position: ({metadata.get('cursor_x', 0)}, {metadata.get('cursor_y', 0)})
-
-Respond ONLY with JSON:
-{{
-  "element_found": true/false,
-  "element_name": "Name/description of the element",
-  "coordinates": [x, y],
-  "element_type": "button|input|link|icon|menu|text|other",
-  "state": "enabled|disabled|focused|visible",
-  "description": "Brief description of the element and its location",
-  "confidence": "high|medium|low"
-}}"""
-                
-                ui_analysis = self.send_to_llm(analysis_prompt, screenshot_path, metadata)
-                
-                if ui_analysis.get('status') != 'error':
-                    element_found = ui_analysis.get('element_found', False)
-                    coordinates = ui_analysis.get('coordinates', [])
-                    result["success"] = element_found and len(coordinates) == 2
-                    result["message"] = f"Element found at {coordinates}" if result["success"] else "Element not found"
-                    result["screenshot"] = screenshot_path
-                    result["metadata"] = metadata
-                    result["element"] = {
-                        "name": ui_analysis.get('element_name', ''),
-                        "coordinates": coordinates,
-                        "type": ui_analysis.get('element_type', ''),
-                        "state": ui_analysis.get('state', ''),
-                        "description": ui_analysis.get('description', ''),
-                        "confidence": ui_analysis.get('confidence', 'medium')
-                    }
-                else:
-                    result["message"] = "Failed to analyze UI"
-            
             elif action_type == 'focus_window':
                 if GUI_AVAILABLE and pyautogui:
                     app_name = params.get('app_name', '')
@@ -1060,6 +1029,9 @@ Respond ONLY with JSON:
         
         except Exception as e:
             logger.error(f"LLM error: {e}")
+            error_str = str(e).lower()
+            if 'quota' in error_str or 'exceeded' in error_str or '429' in error_str:
+                self.frontend.send_error("Unable to connect to AI. Please try again later.")
             return {"status": "error", "actions": []}
     
     def execute_task(self, user_request: str, attachments: list = None) -> None:

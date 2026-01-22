@@ -413,9 +413,9 @@ class ChatWindow {
 
             window.chatAPI.onBackendError((event, data) => {
                 console.log('[ChatWindow] Backend error:', data);
-                // Stop the spinner on error
-                this.updateActionStatus(null, false, data.message);
-                this.addMessage(`Error: ${data.message}`, 'ai', false);
+                const userMessage = this.parseErrorMessage(data.message);
+                this.updateActionStatus(null, false, userMessage);
+                this.addMessage(userMessage, 'ai', false);
                 this.updateStatus('Error', 'error');
             });
 
@@ -564,10 +564,10 @@ class ChatWindow {
             }
         } catch (error) {
             console.error('Failed to execute task:', error);
-            this.addMessage(`Failed to execute task: ${error.message}`, 'ai', false);
+            const userMessage = this.parseErrorMessage(error.message);
+            this.addMessage(userMessage, 'ai', false);
             this.updateStatus('Error', 'error');
-            // Clear thinking indicator if error
-            this.updateActionStatus('Thinking...', false, 'Failed to start.');
+            this.updateActionStatus('Thinking...', false, userMessage);
         }
     }
 
@@ -1445,20 +1445,21 @@ class ChatWindow {
         if (!rateLimitContainer) return;
 
         const user = (this.settings && this.settings.userDetails) ? this.settings.userDetails : {};
-        const plan = user.plan || 'free';
+        // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", "Master Plan" etc.)
+        const planRaw = user.plan || 'free';
+        const plan = String(planRaw).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
         const mode = this.currentMode || 'act';
 
-        // Limits
+        // Limits matching subscription tiers
         const limits = {
             free: { act: 10, ask: 20 },
             pro: { act: 200, ask: 300 },
             master: { act: Infinity, ask: Infinity }
         };
 
-        const limitObj = limits[plan && limits[plan] ? plan : 'free'];
-        const limit = limitObj ? limitObj[mode] : 10;
+        const limitObj = limits[plan] || limits.free;
+        const limit = limitObj[mode];
         const currentCount = user[`${mode}Count`] || 0;
-        const remaining = Math.max(0, limit - currentCount);
 
         const progressBar = document.getElementById('rateLimitProgress');
         const textLabel = document.getElementById('rateLimitText');
@@ -1469,8 +1470,6 @@ class ChatWindow {
         } else {
             const percentage = Math.min(100, (currentCount / limit) * 100);
             if (progressBar) progressBar.style.width = `${percentage}%`;
-            // Show Count / Limit (e.g. 5/10) or Remaining? Prompt says "show the current counter".
-            // Let's show "5/10" format.
             if (textLabel) textLabel.textContent = `${currentCount}/${limit}`;
 
             // Color indication
@@ -1480,6 +1479,39 @@ class ChatWindow {
                 if (progressBar) progressBar.style.background = 'var(--accent-color)';
             }
         }
+    }
+
+    parseErrorMessage(rawError) {
+        const errorString = String(rawError || '');
+
+        // Map of technical error patterns to user-friendly messages
+        const errorMappings = [
+            { pattern: /User profile not loaded/i, message: 'Please sign in to continue.' },
+            { pattern: /Authentication required/i, message: 'Please sign in to continue.' },
+            { pattern: /Rate limit exceeded/i, message: 'You\'ve reached your usage limit. Please upgrade your plan or wait.' },
+            { pattern: /quota.*exceeded|exceeded.*quota/i, message: 'Unable to connect to AI. Please try again later.' },
+            { pattern: /429|too many requests/i, message: 'Service temporarily busy. Please try again in a moment.' },
+            { pattern: /Network error|ECONNREFUSED|ENOTFOUND/i, message: 'Connection failed. Please check your internet.' },
+            { pattern: /timeout/i, message: 'Request timed out. Please try again.' },
+            { pattern: /API.*key.*invalid|invalid.*API.*key/i, message: 'Configuration error. Please contact support.' },
+            { pattern: /User not found/i, message: 'Account not found. Please check your credentials.' },
+            { pattern: /Database not initialized/i, message: 'Service temporarily unavailable. Please try again.' },
+        ];
+
+        // Remove "Error invoking remote method 'xxx':" prefix
+        let cleanedError = errorString.replace(/Error invoking remote method '[^']+':?\s*/gi, '');
+        cleanedError = cleanedError.replace(/^Error:\s*/i, '');
+
+        // Check for pattern matches
+        for (const mapping of errorMappings) {
+            if (mapping.pattern.test(cleanedError)) {
+                return mapping.message;
+            }
+        }
+
+        // If no pattern matches, return first sentence for brevity
+        const firstSentence = cleanedError.split(/[.!?]/)[0].trim();
+        return firstSentence || 'An error occurred. Please try again.';
     }
 
 

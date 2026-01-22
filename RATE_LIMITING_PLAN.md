@@ -6,11 +6,13 @@ Implement rate limiting based on user subscription plans (Free, Pro, Master) to 
 ## Plan Structure
 
 ### Subscription Tiers & Limits
-| Plan   | Act Tasks (per week) | Ask Tasks (per week) |
-| :---   | :---                 | :---                 |
-| **Free**   | 10                   | 20                   |
-| **Pro**    | 200                  | 300                  |
-| **Master** | Unlimited (∞)        | Unlimited (∞)        |
+| Plan   | Act Tasks | Ask Tasks | Duration |
+| :---   | :---      | :---      | :---     |
+| **Free**   | 10/week       | 20/week       | Weekly reset |
+| **Pro**    | 200/week      | 300/week      | Weekly reset |
+| **Master** | Unlimited (∞) | Unlimited (∞) | Monthly subscription |
+
+> **Note:** Master plan provides unlimited access for the duration of the monthly subscription. The UI displays an infinity symbol (∞) for both Act and Ask modes.
 
 ### Implementation Details
 

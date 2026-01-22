@@ -222,3 +222,27 @@ Please retry in 12.323339722s. [links {
 2026-01-19 22:54:48,633 - INFO - [CONTROL] - Removed 4 screenshot(s)
 2026-01-19 23:34:07,848 - INFO - [CONTROL] - API configured
 2026-01-19 23:34:07,858 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 02:53:58,240 - INFO - [CONTROL] - API configured
+2026-01-22 02:53:58,244 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 02:54:06,584 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025406_296.png | Cursor: (1383, 768)
+2026-01-22 02:54:11,355 - INFO - [CONTROL] - LLM response received: {"type": "task", "analysis": "The user wants to open Spotify. The most efficient way to do this on Windows is by using the `start` command in the terminal.", "plan": "Use the terminal to execute the command 'start spotify' to open the Spotify application.", "actions": [{"step": 1, "description": "Open Spotify using the terminal command.", "action": "terminal", "parameters": {"command": "start spotify"}, "verification": {"expected_outcome": "Spotify application should launch and become the active window.", "verification_method": "window_check", "success_indicators": ["Spotify"]}}]}
+2026-01-22 02:54:12,488 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025412_171.png | Cursor: (1267, 427)
+2026-01-22 02:54:13,380 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025412_999.png | Cursor: (1267, 427)
+2026-01-22 02:54:19,462 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025419_050.png | Cursor: (1287, 560)
+2026-01-22 02:54:20,290 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025419_977.png | Cursor: (1353, 390)
+2026-01-22 02:54:26,991 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025426_210.png | Cursor: (1353, 390)
+2026-01-22 02:54:28,610 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025427_909.png | Cursor: (1353, 390)
+2026-01-22 02:54:33,807 - INFO - [CONTROL] - Screenshot: C:\Users\USER\Downloads\rebuild\screenshots\screenshot_20260122_025433_178.png | Cursor: (1486, 1049)
+2026-01-22 02:54:37,513 - INFO - [CONTROL] - LLM response received: {"type": "question", "response": "The Spotify application is currently open and displayed on the screen, showing the user's library. This confirms that the task to open Spotify has been successfully completed.", "completed": true, "completion_percentage": 100, "state": "Spotify application is open and in focus, displaying the 'Your Library' section.", "status": "success", "remaining_work": "None"}
+2026-01-22 02:54:37,548 - INFO - [CONTROL] - Auto-cleaning 8 screenshot(s)
+2026-01-22 02:54:37,554 - INFO - [CONTROL] - Removed 8 screenshot(s)
+2026-01-22 08:31:28,213 - INFO - [CONTROL] - API configured
+2026-01-22 08:31:28,218 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 14:33:49,052 - INFO - [CONTROL] - API configured
+2026-01-22 14:33:49,055 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 15:19:23,841 - INFO - [CONTROL] - API configured
+2026-01-22 15:19:23,845 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 15:25:25,312 - INFO - [CONTROL] - API configured
+2026-01-22 15:25:25,316 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080
+2026-01-22 15:39:29,592 - INFO - [CONTROL] - API configured
+2026-01-22 15:39:29,598 - INFO - [CONTROL] - Control Backend initialized - Screen: 1920x1080

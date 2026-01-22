@@ -325,7 +325,9 @@ module.exports = {
                 master: { act: Infinity, ask: Infinity }
             };
 
-            const userLimit = limits[plan] || limits.free;
+            // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", etc.)
+            const normalizedPlan = String(plan).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
+            const userLimit = limits[normalizedPlan] || limits.free;
             const limit = userLimit[mode];
 
             if (currentCount >= limit) {
