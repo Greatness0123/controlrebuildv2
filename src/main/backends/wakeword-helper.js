@@ -1,5 +1,5 @@
 const { Porcupine } = require("@picovoice/porcupine-node");
-const mic = require("mic");
+const { PvRecorder } = require("@picovoice/pvrecorder-node");
 const path = require("path");
 const fs = require("fs");
 
@@ -8,7 +8,7 @@ class WakewordHelper {
     this.accessKey = options.accessKey || process.env.PORCUPINE_ACCESS_KEY;
     this.modelPath = options.modelPath || path.join(__dirname, "../../../assets/wakeword/hey-control_en_windows_v4_0_0.ppn");
     this.porcupine = null;
-    this.micInstance = null;
+    this.recorder = null;
     this.isListening = false;
     this.lastDetection = 0;
   }
@@ -27,56 +27,38 @@ class WakewordHelper {
 
       this.porcupine = new Porcupine(this.accessKey, [this.modelPath], [0.5]);
 
-      this.micInstance = mic({
-        rate: this.porcupine.sampleRate,
-        channels: '1',
-        debug: false,
-        exitOnSilence: 0,
-        endian: 'little',
-        bitwidth: '16',
-        encoding: 'signed-integer'
-      });
+      const frameLength = this.porcupine.frameLength;
+      this.recorder = new PvRecorder(frameLength);
+      this.recorder.start();
 
-      const micInputStream = this.micInstance.getAudioStream();
+      this.isListening = true;
+      console.log(`[WAKEWORD JS] Started listening with PvRecorder for wake word: ${path.basename(this.modelPath)}`);
 
-      let frameAccumulator = new Int16Array(this.porcupine.frameLength);
-      let accumulatorIndex = 0;
+      const processFrame = async () => {
+        if (!this.isListening) return;
 
-      micInputStream.on('data', (data) => {
-        // data is a Buffer (Uint8Array)
-        const frameLength = this.porcupine.frameLength;
+        try {
+          const frame = await this.recorder.read();
+          const result = this.porcupine.process(frame);
 
-        for (let i = 0; i < data.length; i += 2) {
-          if (i + 1 < data.length) {
-            // Read 16-bit signed integer (little-endian)
-            const sample = data.readInt16LE(i);
-            frameAccumulator[accumulatorIndex++] = sample;
-
-            if (accumulatorIndex === frameLength) {
-              const result = this.porcupine.process(frameAccumulator);
-              if (result >= 0) {
-                const now = Date.now();
-                if (now - this.lastDetection > 1500) { // 1.5s cooldown
-                  this.lastDetection = now;
-                  console.log("[WAKEWORD JS] DETECTED");
-                  onDetected();
-                }
-              }
-              // Reset accumulator but we don't need to re-allocate
-              accumulatorIndex = 0;
+          if (result >= 0) {
+            const now = Date.now();
+            if (now - this.lastDetection > 1500) { // 1.5s cooldown
+              this.lastDetection = now;
+              console.log("[WAKEWORD JS] DETECTED");
+              onDetected();
             }
           }
+
+          // Continue processing
+          setImmediate(processFrame);
+        } catch (err) {
+          console.error("[WAKEWORD JS] Recording error:", err);
+          if (onError) onError(err);
         }
-      });
+      };
 
-      micInputStream.on('error', (err) => {
-        console.error("[WAKEWORD JS] Mic error:", err);
-        if (onError) onError(err);
-      });
-
-      this.micInstance.start();
-      this.isListening = true;
-      console.log("[WAKEWORD JS] Started listening for wake word: " + path.basename(this.modelPath));
+      processFrame();
 
     } catch (err) {
       console.error("[WAKEWORD JS] Failed to start:", err);
@@ -85,13 +67,16 @@ class WakewordHelper {
   }
 
   stop() {
-    if (this.micInstance) {
-      this.micInstance.stop();
+    this.isListening = false;
+    if (this.recorder) {
+      this.recorder.stop();
+      this.recorder.release();
+      this.recorder = null;
     }
     if (this.porcupine) {
       this.porcupine.release();
+      this.porcupine = null;
     }
-    this.isListening = false;
     console.log("[WAKEWORD JS] Stopped listening");
   }
 }
