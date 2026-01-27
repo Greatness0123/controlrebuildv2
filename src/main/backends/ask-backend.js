@@ -10,6 +10,7 @@ class AskBackend {
     this.maxLoopIterations = 5;
     this.model = null;
     this.currentApiKey = null;
+    this.stopRequested = false;
     this.setupGeminiAPI();
   }
 
@@ -119,6 +120,7 @@ You can request information by including these tags in your response:
   }
 
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey) {
+    this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
 
     if (!this.model) {
@@ -174,6 +176,7 @@ You can request information by including these tags in your response:
 
       let iteration = 0;
       while (iteration < this.maxLoopIterations) {
+        if (this.stopRequested) break;
         iteration++;
         console.log(`[ASK JS] AI loop iteration ${iteration}/${this.maxLoopIterations}`);
 
@@ -217,10 +220,12 @@ You can request information by including these tags in your response:
         }
       }
 
-      onResponse({
-        text: "I apologize, but I couldn't complete the analysis within the allowed iterations. Please try a more specific question.",
-        is_action: false,
-      });
+      if (!this.stopRequested) {
+        onResponse({
+          text: "I apologize, but I couldn't complete the analysis within the allowed iterations. Please try a more specific question.",
+          is_action: false,
+        });
+      }
     } catch (err) {
       console.error("[ASK JS] Error processing request:", err);
       let userMessage = "I encountered an error. Please try again.";
@@ -230,6 +235,10 @@ You can request information by including these tags in your response:
       }
       onError({ message: userMessage });
     }
+  }
+
+  stopTask() {
+    this.stopRequested = true;
   }
 }
 
