@@ -616,6 +616,38 @@
             padding: 0;
         }
 
+        .message-content p {
+            margin-bottom: 8px;
+        }
+
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-content ul, .message-content ol {
+            margin-bottom: 8px;
+            padding-left: 20px;
+        }
+
+        .message-content li {
+            margin-bottom: 4px;
+        }
+
+        .message-content a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+
+        .message-content a:hover {
+            text-decoration: underline;
+        }
+
+        .message-content h1, .message-content h2, .message-content h3 {
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
         /* Welcome Screen */
         .welcome-screen {
             position: absolute;
@@ -851,6 +883,7 @@
     <!-- Toast Container -->
     <div id="toastContainer"></div>
 
+    <script src="../../node_modules/marked/marked.min.js"></script>
     <script src="chat-window.js"></script>
 </body>
 
