@@ -1,6 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const screenshot = require("screenshot-desktop");
-const { mouse, keyboard, Button, Point, Key } = require("@computer-use/nut-js");
+const { mouse, keyboard, Button, Point, Key, straightTo } = require("@computer-use/nut-js");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -139,15 +139,20 @@ class ActBackend {
     this.maxActionRetries = 3;
     this.verificationWait = 500;
     this.model = null;
+    this.currentApiKey = null;
     this.setupGeminiAPI();
 
     this.stopRequested = false;
     this.screenSize = { width: 1920, height: 1080 };
   }
 
-  setupGeminiAPI() {
-    const apiKey = process.env.GEMINI_FREE_KEY || "test_api_key";
-    const genAI = new GoogleGenerativeAI(apiKey);
+  setupGeminiAPI(apiKey) {
+    const key = apiKey || process.env.GEMINI_FREE_KEY || "test_api_key";
+
+    if (key === this.currentApiKey && this.model) return;
+
+    this.currentApiKey = key;
+    const genAI = new GoogleGenerativeAI(key);
     this.model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash",
       systemInstruction: SYSTEM_PROMPT,
@@ -173,7 +178,6 @@ class ActBackend {
       } catch (e) {}
 
       if (markCursor && cursorX > 0 && cursorY > 0) {
-        // Draw crosshair/circle
         const color = 0xFF0000FF; // Red
         const radius = 15;
 
@@ -305,6 +309,48 @@ class ActBackend {
           }
           break;
 
+        case "drag":
+          if (params.coordinates && params.end_coordinates) {
+            await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+            await mouse.drag(straightTo(new Point(params.end_coordinates[0], params.end_coordinates[1])));
+            result.success = true;
+            result.message = `Dragged from (${params.coordinates[0]}, ${params.coordinates[1]}) to (${params.end_coordinates[0]}, ${params.end_coordinates[1]})`;
+          }
+          break;
+
+        case "scroll":
+          if (params.direction) {
+            if (params.coordinates) {
+              await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+            }
+            const amount = params.amount || 3;
+            if (params.direction === "up") {
+              await mouse.scrollUp(amount * 100);
+            } else {
+              await mouse.scrollDown(amount * 100);
+            }
+            result.success = true;
+            result.message = `Scrolled ${params.direction} by ${amount}`;
+          }
+          break;
+
+        case "focus_window":
+          if (params.app_name) {
+            // Primitive focus logic using OS commands
+            let command = "";
+            if (process.platform === "win32") {
+              command = `powershell -Command "(New-Object -ComObject WScript.Shell).AppActivate('${params.app_name}')"`;
+            } else if (process.platform === "darwin") {
+              command = `osascript -e 'tell application "${params.app_name}" to activate'`;
+            } else {
+              command = `wmctrl -a "${params.app_name}"`;
+            }
+            await new Promise(resolve => exec(command, resolve));
+            result.success = true;
+            result.message = `Requested focus for ${params.app_name}`;
+          }
+          break;
+
         default:
           result.message = `Unknown action: ${actionType}`;
       }
@@ -362,8 +408,10 @@ Respond ONLY with JSON:
     }
   }
 
-  async processRequest(userRequest, attachments = [], onEvent, onError) {
+  async processRequest(userRequest, attachments = [], onEvent, onError, apiKey) {
     this.stopRequested = false;
+    this.setupGeminiAPI(apiKey);
+
     onEvent("task_start", { task: userRequest, show_effects: true });
 
     try {

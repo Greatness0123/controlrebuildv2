@@ -9,15 +9,21 @@ class AskBackend {
   constructor() {
     this.maxLoopIterations = 5;
     this.model = null;
+    this.currentApiKey = null;
     this.setupGeminiAPI();
   }
 
-  setupGeminiAPI() {
-    const apiKey = process.env.GEMINI_FREE_KEY || "test_api_key";
-    if (apiKey === "test_api_key") {
+  setupGeminiAPI(apiKey) {
+    const key = apiKey || process.env.GEMINI_FREE_KEY || "test_api_key";
+    if (key === "test_api_key") {
       console.warn("[ASK JS] No API key found in GEMINI_FREE_KEY");
     }
-    const genAI = new GoogleGenerativeAI(apiKey);
+
+    // Only re-initialize if key changed or model is missing
+    if (key === this.currentApiKey && this.model) return;
+
+    this.currentApiKey = key;
+    const genAI = new GoogleGenerativeAI(key);
     const systemPrompt = `You are Control (Ask Mode), an intelligent AI assistant.
 
 **YOUR ROLE:**
@@ -68,7 +74,7 @@ You can request information by including these tags in your response:
   async takeScreenshot() {
     try {
       const img = await screenshot({ format: "png" });
-      return img; // Buffer
+      return img;
     } catch (err) {
       console.error("[ASK JS] Screenshot failed:", err);
       return null;
@@ -112,7 +118,9 @@ You can request information by including these tags in your response:
     return { requestType, requestData, cleanText };
   }
 
-  async processRequest(userRequest, attachments = [], onResponse, onError) {
+  async processRequest(userRequest, attachments = [], onResponse, onError, apiKey) {
+    this.setupGeminiAPI(apiKey);
+
     if (!this.model) {
       onResponse({ text: "Error: AI model not configured.", is_action: false });
       return;
