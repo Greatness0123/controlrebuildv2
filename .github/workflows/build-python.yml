@@ -1,13 +1,10 @@
-name: Build Python Components
+name: Build Vosk Server
 
 on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'act_backend.py'
-      - 'ask_backend.py'
       - 'vosk_server_v2.py'
-      - 'assets/wakeword/wakeword_helper.py'
       - 'requirements.txt'
   pull_request:
     branches: [ main ]
@@ -30,32 +27,15 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build act_backend
-      run: |
-        pyinstaller --onefile --windowed --name act_backend act_backend.py
-    
-    - name: Build ask_backend
-      run: |
-        pyinstaller --onefile --windowed --name ask_backend ask_backend.py
-
     - name: Build vosk_server_v2
       run: |
         pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
     
-    - name: Build wakeword_helper
-      run: |
-        cd assets/wakeword
-        pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-    
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: python-windows
-        path: |
-          dist/act_backend.exe
-          dist/ask_backend.exe
-          dist/vosk_server_v2.exe
-          assets/wakeword/dist/wakeword_helper.exe
+        name: vosk-server-windows
+        path: dist/vosk_server_v2.exe
 
   build-macos:
     runs-on: macos-latest
@@ -79,34 +59,15 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build act_backend
-      run: |
-
-        pyinstaller --onefile --windowed --name act_backend --icon=assets/icons/icon-removebg-preview.png act_backend.py
-
-    
-    - name: Build ask_backend
-      run: |
-        pyinstaller --onefile --windowed --name ask_backend --icon=assets/icons/icon-removebg-preview.png ask_backend.py
-    
     - name: Build vosk_server_v2
       run: |
         pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
     
-    - name: Build wakeword_helper
-      run: |
-        cd assets/wakeword
-        pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-    
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: python-macos
-        path: |
-          dist/act_backend.app
-          dist/ask_backend.app
-          dist/vosk_server_v2
-          assets/wakeword/dist/wakeword_helper
+        name: vosk-server-macos
+        path: dist/vosk_server_v2
 
   build-linux:
     runs-on: ubuntu-latest
@@ -129,29 +90,12 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build act_backend
-      run: |
-        pyinstaller --onefile --windowed --name act_backend act_backend.py
-    
-    - name: Build ask_backend
-      run: |
-        pyinstaller --onefile --windowed --name ask_backend ask_backend.py
-
     - name: Build vosk_server_v2
       run: |
         pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
     
-    - name: Build wakeword_helper
-      run: |
-        cd assets/wakeword
-        pyinstaller --onefile --console --name wakeword_helper wakeword_helper.py
-    
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: python-linux
-        path: |
-          dist/act_backend
-          dist/ask_backend
-          dist/vosk_server_v2
-          assets/wakeword/dist/wakeword_helper
+        name: vosk-server-linux
+        path: dist/vosk_server_v2

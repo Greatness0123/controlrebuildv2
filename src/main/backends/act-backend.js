@@ -154,7 +154,7 @@ class ActBackend {
     this.currentApiKey = key;
     const genAI = new GoogleGenerativeAI(key);
     this.model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: SYSTEM_PROMPT,
     });
   }
