@@ -120,11 +120,13 @@ You can request information by including these tags in your response:
   }
 
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey) {
+    console.log(`[ASK JS] Processing request: ${userRequest}`);
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
 
     if (!this.model) {
-      onResponse({ text: "Error: AI model not configured.", is_action: false });
+      console.error("[ASK JS] AI model not configured.");
+      onResponse({ text: "Error: AI model not configured. Please check your API key.", is_action: false });
       return;
     }
 

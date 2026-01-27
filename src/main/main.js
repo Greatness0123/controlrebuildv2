@@ -1,10 +1,26 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '../../.env') });
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
-const { spawn } = require('child_process');
 const fs = require('fs');
-const isDev = require('electron-is-dev');
 
+// Environment variable loading strategy for bundled apps
+const isDev = require('electron-is-dev');
+const dotenv = require('dotenv');
+
+const possibleEnvPaths = [
+    path.join(__dirname, '../../.env'), // Development
+    path.join(path.dirname(app.getPath('exe')), '.env'), // Production (next to exe)
+    path.join(app.getPath('userData'), '.env'), // Persistent user data folder
+];
+
+for (const envPath of possibleEnvPaths) {
+    if (fs.existsSync(envPath)) {
+        console.log(`[Main] Loading environment from: ${envPath}`);
+        dotenv.config({ path: envPath });
+        break;
+    }
+}
+
+const { spawn } = require('child_process');
 app.disableHardwareAcceleration();
 
 // Global error handlers
@@ -314,8 +330,9 @@ class ComputerUseAgent {
             ipcMain.handle('stop-audio', () => {
                 console.log('[Main] [IPC] stop-audio requested');
                 this.edgeTTS.stop();
-                if (this.chatWindow && !this.chatWindow.isDestroyed()) {
-                    this.chatWindow.webContents.send('audio-stopped', {});
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('audio-stopped', {});
                 }
                 return { success: true };
             });
@@ -731,7 +748,7 @@ class ComputerUseAgent {
             let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
             if (!apiKey) {
                 console.log('Using default env API key');
-                apiKey = process.env.GEMINI_API_KEY;
+                apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
             }
             task.api_key = apiKey;
 

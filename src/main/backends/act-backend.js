@@ -409,13 +409,20 @@ Respond ONLY with JSON:
   }
 
   async processRequest(userRequest, attachments = [], onEvent, onError, apiKey) {
+    console.log(`[ACT JS] Processing request: ${userRequest}`);
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
 
     onEvent("task_start", { task: userRequest, show_effects: true });
 
     try {
+      console.log("[ACT JS] Taking initial screenshot...");
       const shot = await this.takeScreenshot();
+      if (!shot) {
+          throw new Error("Failed to capture screenshot. Please ensure the app has screen recording permissions.");
+      }
+
+      console.log("[ACT JS] Sending request to Gemini...");
       const prompt = `User Request: ${userRequest}\nAnalyze the screen and provide a step-by-step PLAN to execute this task. Respond with JSON TASK structure.
 Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${process.platform}`;
 

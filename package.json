@@ -55,7 +55,8 @@
         "filter": [
           "**/*"
         ]
-      }
+      },
+      "vosk_server_v2.py"
     ],
     "mac": {
       "category": "public.app-category.productivity",
@@ -72,6 +73,12 @@
       "hardenedRuntime": true,
       "entitlements": "assets/entitlements.mac.plist"
     },
+    "asarUnpack": [
+      "**/node_modules/@picovoice/porcupine-node/**/*",
+      "**/node_modules/@picovoice/pvrecorder-node/**/*",
+      "**/node_modules/screenshot-desktop/**/*",
+      "src/main/backends/**/*"
+    ],
     "win": {
       "target": [
         {
