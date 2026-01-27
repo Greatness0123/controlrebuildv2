@@ -19,7 +19,10 @@ class VoskServerManager {
         this.host = '127.0.0.1';
         this.isRunning = false;
         this.pythonExePath = null;
-        this.serverScriptPath = path.join(__dirname, '../../vosk_server_v2.py');
+        const isProd = !require('electron-is-dev');
+        this.serverScriptPath = isProd
+            ? path.join(process.resourcesPath, 'vosk_server_v2.py')
+            : path.join(__dirname, '../../vosk_server_v2.py');
         this.logFile = path.join(os.tmpdir(), 'vosk-server.log');
         this.errorFile = path.join(os.tmpdir(), 'vosk-server-error.log');
     }
@@ -78,7 +81,12 @@ class VoskServerManager {
                 return true;
             }
 
-            const modelPath = path.join(__dirname, '../../assets/vosk-model');
+            const isProd = !require('electron-is-dev');
+            const baseDir = isProd
+                ? path.join(process.resourcesPath, 'assets')
+                : path.join(__dirname, '../../assets');
+
+            const modelPath = path.join(baseDir, 'vosk-model');
             if (!fs.existsSync(modelPath)) {
                 console.error('[Vosk] ERROR: Vosk model not found at:', modelPath);
                 console.error('[Vosk] Please download a model from https://alphacephei.com/vosk/models and extract it to assets/vosk-model');
@@ -101,7 +109,7 @@ class VoskServerManager {
                 this.serverScriptPath,
                 '--host', this.host,
                 '--port', this.port.toString(),
-                '--model', path.join(__dirname, '../../assets/vosk-model')
+                '--model', modelPath
             ], {
                 detached: false,
                 stdio: ['ignore', 'pipe', 'pipe'],

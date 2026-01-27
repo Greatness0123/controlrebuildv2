@@ -6,7 +6,14 @@ const fs = require("fs");
 class WakewordHelper {
   constructor(options = {}) {
     this.accessKey = options.accessKey || process.env.PORCUPINE_ACCESS_KEY;
-    this.modelPath = options.modelPath || path.join(__dirname, "../../../assets/wakeword/hey-control_en_windows_v4_0_0.ppn");
+
+    // ASAR-aware path resolution
+    const isProd = !require("electron-is-dev");
+    const baseDir = isProd
+      ? path.join(process.resourcesPath, "assets")
+      : path.join(__dirname, "../../../assets");
+
+    this.modelPath = options.modelPath || path.join(baseDir, "wakeword/hey-control_en_windows_v4_0_0.ppn");
     this.porcupine = null;
     this.recorder = null;
     this.isListening = false;
@@ -17,10 +24,12 @@ class WakewordHelper {
     if (this.isListening) return;
 
     try {
+      console.log("[WAKEWORD JS] Initializing Porcupine...");
       if (!this.accessKey) {
         throw new Error("Porcupine Access Key missing. Please set PORCUPINE_ACCESS_KEY environment variable.");
       }
 
+      console.log(`[WAKEWORD JS] Loading model from: ${this.modelPath}`);
       if (!fs.existsSync(this.modelPath)) {
         throw new Error(`Model file not found: ${this.modelPath}`);
       }

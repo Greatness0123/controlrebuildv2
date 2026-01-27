@@ -43,6 +43,15 @@ The bundled app will attempt to find `python` or `python3` on the user's system 
 pip install vosk websockets edge-tts
 ```
 
+## Important: Environment Variables (.env)
+
+The application requires API keys (like `GEMINI_API_KEY` and `PORCUPINE_ACCESS_KEY`) to function correctly. When bundled as an executable, the app searches for a `.env` file in the following locations:
+
+1.  **Next to the executable**: Place your `.env` file in the same folder as `Control.exe` (Windows) or the app bundle (macOS/Linux).
+2.  **App Data folder**: `%APPDATA%/Control/.env` (Windows) or `~/.config/Control/.env` (Linux).
+
+If the backends (Act/Ask) are "thinking" forever, it usually means the `.env` file is missing or the API key is invalid.
+
 ### Strategy B: Bundling Python (Advanced)
 If you wish to bundle a portable Python environment with the app:
 1.  Download a portable Python distribution.
