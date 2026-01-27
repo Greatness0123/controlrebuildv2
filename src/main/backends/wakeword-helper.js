@@ -25,6 +25,12 @@ class WakewordHelper {
 
     try {
       console.log("[WAKEWORD JS] Initializing Porcupine...");
+
+      // Refresh access key from environment if missing
+      if (!this.accessKey) {
+        this.accessKey = process.env.PORCUPINE_ACCESS_KEY;
+      }
+
       if (!this.accessKey) {
         throw new Error("Porcupine Access Key missing. Please set PORCUPINE_ACCESS_KEY environment variable.");
       }

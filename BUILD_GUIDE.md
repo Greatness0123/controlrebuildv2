@@ -52,6 +52,15 @@ The application requires API keys (like `GEMINI_API_KEY` and `PORCUPINE_ACCESS_K
 
 If the backends (Act/Ask) are "thinking" forever, it usually means the `.env` file is missing or the API key is invalid.
 
+### Automated Key Management (Firebase)
+
+The application now supports fetching API keys directly from Firebase. If keys are found in the Firebase `config/api_keys` document, they will be fetched on startup and cached locally in `api_keys.json` in the user data folder.
+
+To upload your keys to Firebase once, you can use the provided script:
+```bash
+node scripts/upload-keys.js YOUR_GEMINI_KEY YOUR_PORCUPINE_KEY
+```
+
 ### Strategy B: Bundling Python (Advanced)
 If you wish to bundle a portable Python environment with the app:
 1.  Download a portable Python distribution.

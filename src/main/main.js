@@ -192,6 +192,17 @@ class ComputerUseAgent {
         try {
             console.log('[Main] Control starting...');
 
+            // Fetch and cache API keys from Firebase
+            const apiKeys = await firebaseService.fetchAndCacheKeys();
+            if (apiKeys) {
+                if (apiKeys.porcupine) {
+                    process.env.PORCUPINE_ACCESS_KEY = apiKeys.porcupine;
+                }
+                if (apiKeys.gemini) {
+                    process.env.GEMINI_API_KEY = apiKeys.gemini;
+                }
+            }
+
             // Set up security and permissions
             await this.setupPermissions();
 
@@ -747,8 +758,14 @@ class ComputerUseAgent {
             // 3. Get API Key based on Plan
             let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
             if (!apiKey) {
-                console.log('Using default env API key');
-                apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
+                // Try from local keys cache
+                const cachedKeys = firebaseService.getKeys();
+                if (cachedKeys && cachedKeys.gemini) {
+                    apiKey = cachedKeys.gemini;
+                } else {
+                    console.log('Using default env API key');
+                    apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY;
+                }
             }
             task.api_key = apiKey;
 
