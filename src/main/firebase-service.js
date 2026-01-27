@@ -4,6 +4,7 @@ const fs = require('fs');
 const { app } = require('electron');
 
 const CACHE_FILE = path.join(app.getPath('userData'), 'cached_user.json');
+const KEYS_CACHE_FILE = path.join(app.getPath('userData'), 'api_keys.json');
 
 let db = null;
 
@@ -469,5 +470,68 @@ module.exports = {
         } catch (error) {
             console.error('Error clearing cached user:', error);
         }
+    },
+
+    /**
+     * Fetch API keys from Firebase and cache them locally.
+     * Checks local cache first.
+     */
+    async fetchAndCacheKeys() {
+        try {
+            // 1. Check local cache
+            if (fs.existsSync(KEYS_CACHE_FILE)) {
+                const data = fs.readFileSync(KEYS_CACHE_FILE, 'utf8');
+                const keys = JSON.parse(data);
+                if (keys && keys.gemini && keys.porcupine) {
+                    console.log('✓ API keys loaded from local cache');
+                    return keys;
+                }
+            }
+
+            // 2. Fetch from Firebase
+            if (!db) {
+                console.warn('! Firebase not initialized, cannot fetch remote keys');
+                return null;
+            }
+
+            console.log('Fetching API keys from Firebase...');
+            const configDoc = await db.collection('config').doc('api_keys').get();
+
+            if (configDoc.exists) {
+                const remoteKeys = configDoc.data();
+                const keysToCache = {
+                    gemini: remoteKeys.gemini_free || remoteKeys.gemini,
+                    porcupine: remoteKeys.porcupine_access_key || remoteKeys.porcupine
+                };
+
+                if (keysToCache.gemini && keysToCache.porcupine) {
+                    // 3. Store locally
+                    fs.writeFileSync(KEYS_CACHE_FILE, JSON.stringify(keysToCache));
+                    console.log('✓ API keys fetched and cached locally');
+                    return keysToCache;
+                }
+            }
+
+            console.warn('! No keys found in Firebase config/api_keys');
+            return null;
+        } catch (error) {
+            console.error('✗ Error fetching/caching keys:', error.message);
+            return null;
+        }
+    },
+
+    /**
+     * Get API keys from local cache.
+     */
+    getKeys() {
+        try {
+            if (fs.existsSync(KEYS_CACHE_FILE)) {
+                const data = fs.readFileSync(KEYS_CACHE_FILE, 'utf8');
+                return JSON.parse(data);
+            }
+        } catch (e) {
+            console.error('Error reading keys cache:', e);
+        }
+        return null;
     }
 };
