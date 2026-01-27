@@ -60,7 +60,7 @@ You can request information by including these tags in your response:
 - When you have enough information, provide your answer directly (no special tags)
 `;
     this.model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash", // Using 2.0-flash as it's the current recommended
+      model: "gemini-2.0-flash",
       systemInstruction: systemPrompt,
     });
   }
