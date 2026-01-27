@@ -6,7 +6,20 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const Jimp = require("jimp");
-const clipboardy = require("clipboardy");
+
+// Use Electron's clipboard if available
+let clipboard;
+try {
+  clipboard = require("electron").clipboard;
+} catch (e) {
+  // Fallback for testing outside Electron
+  clipboard = {
+    readText: () => "",
+    writeText: () => {},
+    readSync: () => "",
+    writeSync: () => {}
+  };
+}
 
 const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGENT AGENT AI assistant designed for GUI automation and task execution.
 
