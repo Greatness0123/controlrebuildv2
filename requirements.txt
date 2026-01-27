@@ -15,6 +15,9 @@ google-generativeai>=0.3.0
 # Porcupine Wake Word Detection
 pvporcupine>=2.2.0
 
+# Text to Speech
+edge-tts>=6.1.0
+
 # Optional: Clipboard support (Windows/Mac/Linux)
 pyperclip>=1.8.2
 

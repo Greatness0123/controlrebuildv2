@@ -197,18 +197,34 @@ class BackendManager {
     }
 
     stopTask() {
-        if (this.currentTask && this.actBackend) {
-            try { this.actBackend.stopTask(); } catch (e) { }
-            const task = this.currentTask;
-            this.currentTask = null;
-            this.broadcastToWindows('task-stopped', { task });
-            this.hideVisualEffects();
-            if (global.windowManager) {
-                setTimeout(() => { global.windowManager.showWindow('chat'); }, 300);
-            }
-            return { success: true, task };
+        console.log('[BackendManager] stopTask() called. currentTask:', this.currentTask);
+        let taskStopped = false;
+
+        if (this.actBackend) {
+            try {
+                this.actBackend.stopTask();
+                taskStopped = true;
+            } catch (e) { console.error('[BackendManager] Error stopping actBackend:', e); }
         }
-        return { success: false, message: 'No task running' };
+
+        if (this.askBackend) {
+            // Ask backend might not have stopTask but let's be safe
+            try { if (this.askBackend.stopTask) this.askBackend.stopTask(); } catch (e) { }
+        }
+
+        const task = this.currentTask || 'Current Task';
+        this.currentTask = null;
+
+        this.broadcastToWindows('task-stopped', { task });
+        this.hideVisualEffects();
+
+        if (global.windowManager) {
+            setTimeout(() => {
+                if (global.windowManager) global.windowManager.showWindow('chat');
+            }, 300);
+        }
+
+        return { success: true, task };
     }
 
     stopBackend() {
