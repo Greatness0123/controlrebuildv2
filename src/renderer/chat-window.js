@@ -399,10 +399,17 @@ class ChatWindow {
                 console.log('[ChatWindow] Task stopped:', data);
                 this.currentTask = null;
 
+                // Clear all thinking states
+                this.forceStopThinking();
+
                 // CRITICAL: Stop ALL spinners and show an 'x' for all active actions
                 this.actionStatuses.forEach((actionData, actionId) => {
                     this.updateActionStatus(actionData.text, false, "Task stopped by user");
                 });
+
+                // Ensure no more spinners remain
+                const allSpinners = this.messagesContainer.querySelectorAll('.action-spinner');
+                allSpinners.forEach(s => s.remove());
 
                 this.addMessage(`Task stopped: ${data.task || ''}`, 'ai', false);
                 this.updateStatus('Ready', 'ready');
