@@ -629,9 +629,19 @@ class ComputerUseAgent {
                 userDetails: null
             });
 
-            // Reset UI
-            this.windowManager.closeWindow('chat');
-            this.windowManager.closeWindow('settings');
+            // Stop any running tasks
+            await this.backendManager.stopTask();
+
+            // Reset UI - Hide windows instead of destroying them to preserve hotkeys
+            this.windowManager.hideWindow('chat');
+
+            // Reload chat to clear previous session state
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.reload();
+            }
+
+            this.windowManager.hideWindow('settings');
             this.windowManager.showWindow('entry');
 
             return { success: true };

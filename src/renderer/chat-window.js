@@ -685,10 +685,9 @@ class ChatWindow {
                 window.chatAPI.setWakewordEnabled(false);
             }
 
-            // 2. CRITICAL: 2-second Hardware Handshake Delay
-            // Massive buffer to ensure the background process has fully released the mic.
-            console.log('[Voice] Waiting for hardware release (2000ms)...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // 2. Reduced Hardware Handshake Delay for faster recording
+            console.log('[Voice] Waiting for hardware release (500ms)...');
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             // 3. Request microphone access
             console.log('[Voice] Requesting microphone access...');
@@ -1181,13 +1180,12 @@ class ChatWindow {
             <div class="action-details" id="actionDetails-${actionId}"></div>
         `;
 
-        // Wire up toggle button
         const toggleBtn = contentDiv.querySelector('.action-toggle');
         const detailsDiv = contentDiv.querySelector('.action-details');
         if (toggleBtn && detailsDiv) {
             toggleBtn.addEventListener('click', () => {
-                detailsDiv.classList.toggle('collapsed');
-                toggleBtn.classList.toggle('collapsed');
+                detailsDiv.classList.toggle('expanded');
+                toggleBtn.classList.toggle('expanded');
             });
         }
 
@@ -1632,9 +1630,10 @@ class ChatWindow {
         messageElements.forEach(element => {
             const content = element.querySelector('.message-content');
             if (content) {
-                const text = content.textContent || "";
+                const htmlContent = content.innerHTML || "";
+                const textContent = content.innerText || "";
                 const sender = element.classList.contains('user') ? 'user' : 'ai';
-                messages.push({ sender, text, timestamp: new Date().toISOString() });
+                messages.push({ sender, text: textContent, html: htmlContent, timestamp: new Date().toISOString() });
             }
         });
 
@@ -1667,10 +1666,20 @@ class ChatWindow {
         this.collapsedGroups.clear();
         if (session.messages && session.messages.length > 0) {
             session.messages.forEach(msg => {
-                this.addMessage(msg.text, msg.sender);
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.sender}`;
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                if (msg.html) {
+                    contentDiv.innerHTML = msg.html;
+                } else {
+                    contentDiv.innerHTML = this.parseMarkdown(msg.text || '');
+                }
+                messageDiv.appendChild(contentDiv);
+                this.messagesContainer.appendChild(messageDiv);
             });
+            this.scrollToBottom();
         } else {
-            // Show welcome screen if no messages
             this.showWelcomeScreen();
         }
     }
@@ -1680,7 +1689,8 @@ class ChatWindow {
         if (!modal) {
             const modalHTML = `
                 <div id="sessionsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; align-items: center; justify-content: center;">
-                    <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                    <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); scrollbar-width: none; -ms-overflow-style: none;" class="sessions-modal-content">
+                        <style>.sessions-modal-content::-webkit-scrollbar { display: none; }</style>
                         <h2 style="margin: 0 0 16px 0; color: #333; font-size: 20px;">Past Conversations</h2>
                         <div id="sessionsList" style="margin-bottom: 16px;"></div>
                         <button onclick="document.getElementById('sessionsModal').style.display = 'none';" style="padding: 8px 16px; background: #333; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%;">Close</button>
@@ -1700,7 +1710,9 @@ class ChatWindow {
                         ${session.messages.length} messages • ${new Date(session.created).toLocaleDateString()}
                     </div>
                 </div>
-                <button onclick="window.chatWindowInstance.deleteSession('${session.id}'); window.chatWindowInstance.showSessionsModal();" style="padding: 6px 12px; background: #ff6b6b; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 8px;">Delete</button>
+                <button onclick="window.chatWindowInstance.deleteSession('${session.id}'); window.chatWindowInstance.showSessionsModal();" style="padding: 6px 10px; background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b; border-radius: 4px; cursor: pointer; margin-left: 8px;" title="Delete conversation">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         `).join('') || '<p style="color: #999;">No past conversations yet.</p>';
 
