@@ -242,13 +242,11 @@ class ComputerUseAgent {
                     userDetails: cachedUser
                 });
 
-                // Sync rate counts with Firebase
-                await firebaseService.syncRateCounts(cachedUser.id);
-
-                // Refresh user data after sync
-                const syncedUser = firebaseService.checkCachedUser();
+                // Sync user data with Firebase (pushes local progress to DB)
+                const syncedUser = await firebaseService.syncUserData(cachedUser.id);
                 if (syncedUser) {
                     this.currentUser = syncedUser;
+                    this.settingsManager.updateSettings({ userDetails: syncedUser });
                 }
 
                 // Broadcast to all windows

@@ -409,37 +409,60 @@ module.exports = {
         }
     },
 
-    async syncRateCounts(userId) {
-        // Sync local counts with Firebase on app start
+    /**
+     * Sync user data from local storage to Firebase on startup.
+     * Ensures all local progress (counts, stats) is pushed to the database.
+     */
+    async syncUserData(userId) {
         try {
-            if (!db) return;
+            if (!db) return null;
 
             const cachedUser = this.checkCachedUser();
-            if (!cachedUser || cachedUser.id !== userId) return;
+            if (!cachedUser || cachedUser.id !== userId) return null;
 
+            console.log('Syncing user data to Firebase for:', userId);
+
+            // Get current remote data
             const snapshot = await db.collection('users').where('id', '==', userId).get();
-            if (snapshot.empty) return;
+            if (snapshot.empty) return null;
 
-            const userData = snapshot.docs[0].data();
+            const userDoc = snapshot.docs[0];
+            const remoteData = userDoc.data();
 
-            // Take the higher count (in case of offline increments)
-            const syncedActCount = Math.max(cachedUser.actCount || 0, userData.actCount || 0);
-            const syncedAskCount = Math.max(cachedUser.askCount || 0, userData.askCount || 0);
+            // 1. Sync counts (take higher value to account for offline activity)
+            const syncedActCount = Math.max(cachedUser.actCount || 0, remoteData.actCount || 0);
+            const syncedAskCount = Math.max(cachedUser.askCount || 0, remoteData.askCount || 0);
+            const syncedTasksCompleted = Math.max(cachedUser.tasksCompleted || 0, remoteData.tasksCompleted || 0);
 
-            // Update both local and remote with synced values
-            cachedUser.actCount = syncedActCount;
-            cachedUser.askCount = syncedAskCount;
-            cachedUser.plan = userData.plan || cachedUser.plan;
-            this.cacheUser(cachedUser);
-
-            await snapshot.docs[0].ref.update({
+            // 2. Prepare data to update Firebase
+            const firebaseUpdates = {
                 actCount: syncedActCount,
-                askCount: syncedAskCount
-            });
+                askCount: syncedAskCount,
+                tasksCompleted: syncedTasksCompleted,
+                lastLogin: new Date().toISOString(),
+                lastLoginTimestamp: Date.now(),
+                // Pushing other local info if newer (e.g. metadata)
+                lastTaskDate: cachedUser.lastTaskDate || remoteData.lastTaskDate || null
+            };
 
-            console.log('Rate counts synced:', { actCount: syncedActCount, askCount: syncedAskCount });
+            // Update remote Firebase database
+            await userDoc.ref.update(firebaseUpdates);
+
+            // 3. Update local cache with synced values and latest remote fields (like plan)
+            const finalSyncedUser = {
+                ...cachedUser,
+                ...firebaseUpdates,
+                plan: remoteData.plan || cachedUser.plan, // Plan upgrades happen on server
+                isActive: remoteData.isActive !== false
+            };
+
+            this.cacheUser(finalSyncedUser);
+
+            console.log('✓ User data successfully synced to Firebase');
+            return finalSyncedUser;
         } catch (error) {
-            console.error('Sync rate counts error:', error);
+            console.error('✗ Sync user data error:', error.message);
+            return null;
         }
     },
 
