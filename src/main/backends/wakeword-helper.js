@@ -10,6 +10,7 @@ class WakewordHelper {
     this.porcupine = null;
     this.micInstance = null;
     this.isListening = false;
+    this.lastDetection = 0;
   }
 
   async start(onDetected, onError) {
@@ -30,26 +31,40 @@ class WakewordHelper {
         rate: this.porcupine.sampleRate,
         channels: '1',
         debug: false,
-        exitOnSilence: 0
+        exitOnSilence: 0,
+        endian: 'little',
+        bitwidth: '16',
+        encoding: 'signed-integer'
       });
 
       const micInputStream = this.micInstance.getAudioStream();
 
-      let frameAccumulator = [];
+      let frameAccumulator = new Int16Array(this.porcupine.frameLength);
+      let accumulatorIndex = 0;
 
       micInputStream.on('data', (data) => {
-        const int16Data = new Int16Array(data.buffer, data.byteOffset, data.length / 2);
+        // data is a Buffer (Uint8Array)
+        const frameLength = this.porcupine.frameLength;
 
-        for (let i = 0; i < int16Data.length; i++) {
-          frameAccumulator.push(int16Data[i]);
+        for (let i = 0; i < data.length; i += 2) {
+          if (i + 1 < data.length) {
+            // Read 16-bit signed integer (little-endian)
+            const sample = data.readInt16LE(i);
+            frameAccumulator[accumulatorIndex++] = sample;
 
-          if (frameAccumulator.length === this.porcupine.frameLength) {
-            const result = this.porcupine.process(new Int16Array(frameAccumulator));
-            if (result >= 0) {
-              console.log("[WAKEWORD JS] DETECTED");
-              onDetected();
+            if (accumulatorIndex === frameLength) {
+              const result = this.porcupine.process(frameAccumulator);
+              if (result >= 0) {
+                const now = Date.now();
+                if (now - this.lastDetection > 1500) { // 1.5s cooldown
+                  this.lastDetection = now;
+                  console.log("[WAKEWORD JS] DETECTED");
+                  onDetected();
+                }
+              }
+              // Reset accumulator but we don't need to re-allocate
+              accumulatorIndex = 0;
             }
-            frameAccumulator = [];
           }
         }
       });
@@ -61,7 +76,7 @@ class WakewordHelper {
 
       this.micInstance.start();
       this.isListening = true;
-      console.log("[WAKEWORD JS] Started listening for wake word");
+      console.log("[WAKEWORD JS] Started listening for wake word: " + path.basename(this.modelPath));
 
     } catch (err) {
       console.error("[WAKEWORD JS] Failed to start:", err);

@@ -679,13 +679,7 @@ class ChatWindow {
         this.isRecording = true;
 
         try {
-            // 1. Disable wakeword to release microphone hardware
-            if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
-                console.log('[Voice] Disabling wakeword...');
-                window.chatAPI.setWakewordEnabled(false);
-            }
-
-            // 2. Reduced Hardware Handshake Delay for faster recording
+            // 1. Reduced Hardware Handshake Delay for faster recording
             console.log('[Voice] Waiting for hardware release (500ms)...');
             await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -954,10 +948,6 @@ class ChatWindow {
             this.speechTimeout = null;
         }
 
-        // Re-enable wakeword
-        if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
-            window.chatAPI.setWakewordEnabled(true);
-        }
     }
 
     async stopAudio() {

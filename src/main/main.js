@@ -1,5 +1,6 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
 const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const isDev = require('electron-is-dev');

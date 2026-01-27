@@ -187,7 +187,7 @@ class BackendManager {
                 } else {
                     onResponse(typeOrData);
                 }
-            }, onError);
+            }, onError, task.api_key);
 
             return { success: true, task };
         } catch (err) {

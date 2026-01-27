@@ -13,6 +13,7 @@ This report details the "surgery" performed to convert the core Python backends 
     - Preserved the system prompt and dual-mode capability (Chat and System Analysis).
     - Reimplemented the screenshot and command request logic using native Node.js asynchronous patterns.
     - Preserved the 5-iteration loop for deep analysis.
+    - Added dynamic API key support via `dotenv` and request-time overrides.
 
 ### `act_backend.py` → `src/main/backends/act-backend.js`
 - **Library Replacements**:
@@ -44,7 +45,7 @@ This report details the "surgery" performed to convert the core Python backends 
     - Lower memory overhead (no need for separate Python interpreters).
     - Faster communication (direct method calls instead of string serialization/deserialization over pipes).
     - Unified error handling within the Node.js event loop.
-    - Shared environment variables and configuration.
+    - Shared environment variables and configuration (integrated `dotenv`).
 
 ### `WakewordManager` Refactor
 - **Old Approach**: Monitored a Python helper process.
