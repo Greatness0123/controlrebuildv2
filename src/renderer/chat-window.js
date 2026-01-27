@@ -636,6 +636,11 @@ class ChatWindow {
         }
         this.currentSessionId = this.generateSessionId();
 
+        // Ensure welcome screen is attached to messages container
+        if (this.welcomeScreen && !this.messagesContainer.contains(this.welcomeScreen)) {
+            this.messagesContainer.prepend(this.welcomeScreen);
+        }
+
         // Clear all messages except the welcome screen
         const messages = Array.from(this.messagesContainer.children);
         messages.forEach(msg => {
@@ -1618,7 +1623,20 @@ class ChatWindow {
         const session = this.sessions.find(s => s.id === sessionId);
         if (!session) return;
         this.currentSessionId = sessionId;
-        this.messagesContainer.innerHTML = '';
+
+        // Ensure welcome screen is attached to messages container
+        if (this.welcomeScreen && !this.messagesContainer.contains(this.welcomeScreen)) {
+            this.messagesContainer.prepend(this.welcomeScreen);
+        }
+
+        // Clear all messages except the welcome screen
+        const messages = Array.from(this.messagesContainer.children);
+        messages.forEach(msg => {
+            if (msg.id !== 'welcomeScreen') {
+                msg.remove();
+            }
+        });
+
         this.messageGroups.clear();
         this.collapsedGroups.clear();
         if (session.messages && session.messages.length > 0) {
@@ -1636,6 +1654,7 @@ class ChatWindow {
                 this.messagesContainer.appendChild(messageDiv);
             });
             this.scrollToBottom();
+            this.hideWelcomeScreen();
         } else {
             this.showWelcomeScreen();
         }
