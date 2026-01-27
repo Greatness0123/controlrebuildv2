@@ -55,5 +55,10 @@ This report details the "surgery" performed to convert the core Python backends 
     - More reliable microphone access.
     - Faster detection-to-UI response time.
 
+### `edge-tts.js` Refactor
+- **Old Approach**: Generated and spawned temporary Python scripts to use the `edge-tts` Python library.
+- **New Approach**: Uses `edge-tts-node` native library for generation and system-native players (PowerShell, afplay, paplay) for playback.
+- **Benefits**: Completely independent of Python, faster generation, and reduced disk I/O.
+
 ## 3. Workflow Preservation
 Every functional prompt, action type, and verification method from the original Python code has been accurately represented in the JavaScript version. The transition is transparent to the user, as the IPC events sent to the frontend remain identical.

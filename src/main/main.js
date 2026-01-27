@@ -954,6 +954,9 @@ class ComputerUseAgent {
             }
             if (settings.lastMode !== undefined) {
                 this.appSettings.lastMode = settings.lastMode;
+                if (this.appSettings.userDetails) {
+                    this.appSettings.userDetails.lastMode = settings.lastMode;
+                }
             }
             if (settings.windowVisibility !== undefined) {
                 this.appSettings.windowVisibility = !!settings.windowVisibility;

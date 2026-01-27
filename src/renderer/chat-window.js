@@ -78,9 +78,14 @@ class ChatWindow {
         this.updateSendButton();
         await this.loadSettings();
 
-        // Restore last mode from settings
-        if (this.settings && this.settings.lastMode) {
-            this.setMode(this.settings.lastMode);
+        // Restore last mode from settings or user details
+        let lastMode = this.settings?.lastMode;
+        if (this.settings?.userDetails?.lastMode) {
+            lastMode = this.settings.userDetails.lastMode;
+        }
+
+        if (lastMode) {
+            this.setMode(lastMode);
         }
 
         this.loadSessions();
@@ -1337,48 +1342,16 @@ class ChatWindow {
     parseMarkdown(text) {
         if (!text) return '';
 
-        // Escape HTML
-        let safeText = text.replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;");
+        try {
+            if (typeof marked !== 'undefined') {
+                return marked.parse(text);
+            }
+        } catch (e) {
+            console.error('Error parsing markdown with marked:', e);
+        }
 
-        // 1. Code Blocks - temporarily replace to avoid parsing inside
-        const codeBlocks = [];
-        safeText = safeText.replace(/```([\s\S]*?)```/g, (match, code) => {
-            codeBlocks.push(code);
-            return `###CODE_BLOCK_${codeBlocks.length - 1}###`;
-        });
-
-        // 2. Inline Code
-        const inlineCodes = [];
-        safeText = safeText.replace(/`([^`]+)`/g, (match, code) => {
-            inlineCodes.push(code);
-            return `###INLINE_CODE_${inlineCodes.length - 1}###`;
-        });
-
-        // 3. Lists (Bullet points) - Multi-line supported
-        safeText = safeText.replace(/^\s*[\-\*]\s+(.*)$/gm, '&bull; $1');
-
-        // 4. Bold - lazy match to handle multiple instances per line
-        safeText = safeText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-        // 5. Italic - matches *text*
-        safeText = safeText.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>');
-
-        // 6. Restore Inline Code
-        safeText = safeText.replace(/###INLINE_CODE_(\d+)###/g, (match, index) => {
-            return `<code style="background: rgba(102, 126, 234, 0.1); padding: 2px 6px; border-radius: 4px; font-size: 13px; color: #667eea;">${inlineCodes[index]}</code>`;
-        });
-
-        // 7. Newlines to <br>
-        safeText = safeText.replace(/\n/g, '<br>');
-
-        // 8. Restore Code Blocks
-        safeText = safeText.replace(/###CODE_BLOCK_(\d+)###/g, (match, index) => {
-            return `<pre style="background: rgba(0, 0, 0, 0.05); padding: 12px; border-radius: 6px; overflow-x: auto; margin: 8px 0;"><code>${codeBlocks[index]}</code></pre>`;
-        });
-
-        return safeText;
+        // Fallback simple parser
+        return text.replace(/\n/g, '<br>');
     }
 
     scrollToBottom() {
@@ -1564,9 +1537,6 @@ class ChatWindow {
                     this.userName = settings.userDetails.name;
                 }
 
-                if (settings.lastMode && (settings.lastMode === 'act' || settings.lastMode === 'ask')) {
-                    this.setMode(settings.lastMode);
-                }
             }
         } catch (error) {
             console.error('Failed to load settings:', error);
