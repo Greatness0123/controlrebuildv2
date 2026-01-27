@@ -812,28 +812,8 @@ class ComputerUseAgent {
             return this.settingsManager.getSettings();
         });
 
-        ipcMain.handle('save-settings', (event, settings) => {
-            // Check if hotkeys changed
-            const oldSettings = this.settingsManager.getSettings();
-            const success = this.settingsManager.updateSettings(settings);
-
-            if (success) {
-                // If hotkeys are present and different, update them
-                if (settings.hotkeys) {
-                    // Simple check - could be more robust
-                    const oldHotkeys = JSON.stringify(oldSettings.hotkeys);
-                    const newHotkeys = JSON.stringify(settings.hotkeys);
-
-                    if (oldHotkeys !== newHotkeys) {
-                        console.log('[Main] Hotkeys changed, updating manager...');
-                        this.hotkeyManager.updateHotkeys(settings.hotkeys);
-                    }
-                }
-
-                // Broadcast update
-                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
-            }
-            return { success };
+        ipcMain.handle('save-settings', async (event, settings) => {
+            return await this.saveSettings(settings);
         });
 
         ipcMain.handle('update-hotkeys', (event, newHotkeys) => {
@@ -905,6 +885,7 @@ class ComputerUseAgent {
         settings.lastMode = this.appSettings.lastMode || 'act';
         settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
         settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
+        settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
         return settings;
     }
 
@@ -928,6 +909,8 @@ class ComputerUseAgent {
 
     async saveSettings(settings) {
         try {
+            const oldSettings = this.settingsManager.getSettings();
+
             if (settings.securityPin !== undefined) {
                 await this.securityManager.setPin(settings.securityPin);
             }
@@ -965,27 +948,40 @@ class ComputerUseAgent {
             if (settings.wakeWordToggleChat !== undefined) {
                 this.appSettings.wakeWordToggleChat = !!settings.wakeWordToggleChat;
             }
+            if (settings.edgeGlowEnabled !== undefined) {
+                this.appSettings.edgeGlowEnabled = !!settings.edgeGlowEnabled;
+            }
+
+            // Handle hotkeys if present
+            if (settings.hotkeys) {
+                const oldHotkeys = JSON.stringify(oldSettings.hotkeys);
+                const newHotkeys = JSON.stringify(settings.hotkeys);
+
+                if (oldHotkeys !== newHotkeys) {
+                    console.log('[Main] Hotkeys changed, updating manager...');
+                    this.hotkeyManager.updateHotkeys(settings.hotkeys);
+                }
+            }
 
             // Save all settings to persistent storage
             this.settingsManager.updateSettings({
-                pinEnabled: settings.pinEnabled !== undefined ? settings.pinEnabled : this.appSettings.pinEnabled,
-                voiceActivation: settings.voiceActivation !== undefined ? settings.voiceActivation : this.appSettings.voiceActivation,
-                voiceResponse: settings.voiceResponse !== undefined ? settings.voiceResponse : this.appSettings.voiceResponse,
-                muteNotifications: settings.muteNotifications !== undefined ? settings.muteNotifications : this.appSettings.muteNotifications,
-                greetingTTS: settings.greetingTTS !== undefined ? settings.greetingTTS : this.appSettings.greetingTTS,
-                autoSendAfterWakeWord: settings.autoSendAfterWakeWord !== undefined ? settings.autoSendAfterWakeWord : this.appSettings.autoSendAfterWakeWord,
-                lastMode: settings.lastMode !== undefined ? settings.lastMode : this.appSettings.lastMode,
-                windowVisibility: settings.windowVisibility !== undefined ? settings.windowVisibility : this.appSettings.windowVisibility,
-                wakeWordToggleChat: settings.wakeWordToggleChat !== undefined ? settings.wakeWordToggleChat : this.appSettings.wakeWordToggleChat,
-                userAuthenticated: settings.userAuthenticated !== undefined ? settings.userAuthenticated : this.appSettings.userAuthenticated,
-                userDetails: settings.userDetails !== undefined ? settings.userDetails : this.appSettings.userDetails
+                ...settings,
+                // Ensure critical ones use appSettings state if not provided in updates
+                voiceActivation: this.appSettings.voiceActivation,
+                voiceResponse: this.appSettings.voiceResponse,
+                greetingTTS: this.appSettings.greetingTTS,
+                autoSendAfterWakeWord: this.appSettings.autoSendAfterWakeWord,
+                lastMode: this.appSettings.lastMode,
+                windowVisibility: this.appSettings.windowVisibility,
+                wakeWordToggleChat: this.appSettings.wakeWordToggleChat,
+                edgeGlowEnabled: this.appSettings.edgeGlowEnabled
             });
 
-            // Broadcast update to chat window for immediate effect
-            const chatWin = this.windowManager.getWindow('chat');
-            if (chatWin && !chatWin.isDestroyed()) {
-                chatWin.webContents.send('settings-updated', this.getSettings());
-            }
+            // Update local clone to match full state
+            this.appSettings = this.settingsManager.getSettings();
+
+            // Broadcast update to all windows
+            this.windowManager.broadcast('settings-updated', this.getSettings());
 
             return { success: true };
         } catch (error) {

@@ -399,19 +399,13 @@ class ChatWindow {
             window.chatAPI.onTaskStopped((event, data) => {
                 console.log('[ChatWindow] Task stopped:', data);
                 this.currentTask = null;
+
                 // CRITICAL: Stop ALL spinners and show an 'x' for all active actions
-                this.actionStatuses.forEach((data, actionId) => {
-                    const entry = data.element;
-                    const actionIcon = entry.querySelector('.action-icon');
-                    if (actionIcon) {
-                        const spinner = actionIcon.querySelector('.action-spinner');
-                        if (spinner) {
-                            spinner.remove();
-                            actionIcon.innerHTML = '<i class="fas fa-times action-error"></i>';
-                        }
-                    }
+                this.actionStatuses.forEach((actionData, actionId) => {
+                    this.updateActionStatus(actionData.text, false, "Task stopped by user");
                 });
-                this.addMessage(`Task stopped: ${data.task}`, 'ai', false);
+
+                this.addMessage(`Task stopped: ${data.task || ''}`, 'ai', false);
                 this.updateStatus('Ready', 'ready');
                 this.updateSendButton();
             });
@@ -642,12 +636,15 @@ class ChatWindow {
             this.saveCurrentSession();
         }
         this.currentSessionId = this.generateSessionId();
-        // Clear messages but preserve welcome screen
-        const welcomeScreen = this.messagesContainer.querySelector('#welcomeScreen');
-        this.messagesContainer.innerHTML = '';
-        if (welcomeScreen) {
-            this.messagesContainer.appendChild(welcomeScreen);
-        }
+
+        // Clear all messages except the welcome screen
+        const messages = Array.from(this.messagesContainer.children);
+        messages.forEach(msg => {
+            if (msg.id !== 'welcomeScreen') {
+                msg.remove();
+            }
+        });
+
         this.messageGroups.clear();
         this.collapsedGroups.clear();
         this.attachments = [];
@@ -659,10 +656,14 @@ class ChatWindow {
         this.updateSendButton();
         this.actionStatuses.clear();
         this.lastActionId = null;
-        // Show welcome screen only if requested (default true)
+
+        // Show welcome screen and ensure it's visible
         if (showWelcome !== false) {
             this.showWelcomeScreen();
+        } else {
+            this.hideWelcomeScreen();
         }
+
         this.updateStatus('Ready', 'ready');
 
         if (!keepMode) {
@@ -684,9 +685,9 @@ class ChatWindow {
         this.isRecording = true;
 
         try {
-            // 1. Reduced Hardware Handshake Delay for faster recording
-            console.log('[Voice] Waiting for hardware release (500ms)...');
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // 1. Minimized Hardware Handshake Delay for faster recording
+            console.log('[Voice] Waiting for hardware release (100ms)...');
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // 3. Request microphone access
             console.log('[Voice] Requesting microphone access...');
@@ -1014,15 +1015,15 @@ class ChatWindow {
         console.log('[ChatWindow] Settings loaded. autoSendEnabled:', this.autoSendEnabled, 'isRecording:', this.isRecording);
 
         if (this.autoSendEnabled && !this.isRecording) {
-            console.log('[ChatWindow] Auto-send enabled, starting voice recording after small delay...');
-            // Small delay to ensure chat window is fully visible and focused
+            console.log('[ChatWindow] Auto-send enabled, starting voice recording immediately...');
+            // Minimized delay to ensure chat window is ready but without perceived lag
             setTimeout(() => {
                 if (!this.isRecording) {
                     console.log('[ChatWindow] Starting voice recording now...');
                     this.startVoiceRecording();
                     this.startSpeechTimeout();
                 }
-            }, 300);
+            }, 50);
         } else {
             console.log('[ChatWindow] Auto-send NOT enabled or already recording. autoSendEnabled:', this.autoSendEnabled);
         }
@@ -1194,62 +1195,59 @@ class ChatWindow {
     }
 
     updateActionStatus(actionText, success, details) {
-        let entry = null;
+        let entries = [];
 
-        // Find the action element
+        // Find the action element(s)
         if (actionText) {
             for (const [id, data] of this.actionStatuses.entries()) {
                 if (data.text === actionText) {
-                    entry = data.element;
-                    break;
+                    entries.push(data.element);
                 }
             }
         }
 
-        if (!entry && this.lastActionId) {
-            entry = this.actionStatuses.get(this.lastActionId)?.element;
+        if (entries.length === 0 && this.lastActionId) {
+            const lastEntry = this.actionStatuses.get(this.lastActionId);
+            if (lastEntry) entries.push(lastEntry.element);
         }
 
-        if (entry) {
+        // If success is null/undefined but we're calling this, we probably want to stop the spinner
+        const isFinalizing = success !== undefined;
+
+        entries.forEach(entry => {
             const actionIcon = entry.querySelector('.action-icon');
             const actionDetailsEl = entry.querySelector('.action-details');
 
-            // Finalize status (success/failure/done) - always stop spinner
-            if (success !== null && success !== undefined) {
-                if (actionIcon) {
-                    // Remove any existing spinner
-                    const spinner = actionIcon.querySelector('.action-spinner');
-                    if (spinner) {
-                        spinner.remove();
-                    }
-
-                    if (success === true) {
-                        actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
-                    } else if (success === false) {
-                        actionIcon.innerHTML = '<i class="fas fa-times action-error"></i>';
-                    }
+            if (actionIcon) {
+                // Always try to remove spinner if finalizing
+                const spinner = actionIcon.querySelector('.action-spinner');
+                if (spinner) {
+                    spinner.remove();
                 }
-            } else {
-                // If success is undefined/null, still stop spinner if present
-                if (actionIcon) {
-                    const spinner = actionIcon.querySelector('.action-spinner');
-                    if (spinner) {
-                        spinner.remove();
-                        // Default to success icon if no status specified
-                        actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
-                    }
+
+                // Update icon based on success
+                if (success === true) {
+                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
+                } else if (success === false) {
+                    actionIcon.innerHTML = '<i class="fas fa-times action-error"></i>';
+                } else if (isFinalizing && !actionIcon.querySelector('i')) {
+                    // Default to check if finalizing but no icon set
+                    actionIcon.innerHTML = '<i class="fas fa-check action-success"></i>';
                 }
             }
 
             // Update details (description) - append if already has content
             if (details && actionDetailsEl) {
                 if (actionDetailsEl.textContent.trim()) {
-                    actionDetailsEl.textContent += '\n' + details;
+                    // Don't append if it's the same message
+                    if (!actionDetailsEl.textContent.includes(details)) {
+                        actionDetailsEl.textContent += '\n' + details;
+                    }
                 } else {
                     actionDetailsEl.textContent = details;
                 }
             }
-        }
+        });
     }
 
     /**
