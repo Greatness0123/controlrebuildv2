@@ -31,10 +31,11 @@ This report details the "surgery" performed to convert the core Python backends 
 ### `wakeword_helper.py` → `src/main/backends/wakeword-helper.js`
 - **Library Replacements**:
     - `pvporcupine` → `@picovoice/porcupine-node`
-    - `pyaudio` → `mic` (native Node.js stream)
+    - `pyaudio` → `@picovoice/pvrecorder-node` (native high-performance audio capture)
 - **Functional Reintegration**:
     - Maintained compatibility with the existing `.ppn` model.
-    - Streamlined the detection loop using Node.js event-driven streams instead of a blocking Python while-loop.
+    - Streamlined the detection loop using `pvrecorder` for efficient, non-blocking audio capture without system-level dependencies like `sox`.
+    - Implemented a 1.5s detection cooldown to ensure stable "always-on" listening.
 
 ## 2. Reintegration into Electron
 
