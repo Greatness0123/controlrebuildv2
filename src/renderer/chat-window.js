@@ -21,7 +21,6 @@ class ChatWindow {
         this.isTyping = false;
         this.isRecording = false;
         this.currentTask = null;
-        this.currentTask = null;
         this.currentMode = 'act'; // Default, will override from settings
         this.actionStatuses = new Map();
         this.attachments = [];
@@ -457,7 +456,7 @@ class ChatWindow {
             this.sendButton.title = this.currentTask ? 'Stop task (Alt+Z)' : 'Stop audio';
             this.sendButton.disabled = false;
         } else {
-            this.sendButton.innerHTML = `<i class="fas fa-paper-plane"></i>`;
+            this.sendButton.innerHTML = `<i class="fas fa-arrow-up"></i>`;
             this.sendButton.classList.remove('stop-button');
             this.sendButton.title = 'Send message';
             this.sendButton.disabled = !(hasText || hasAttachments);
