@@ -34,20 +34,24 @@ class VoskServerManager {
         try {
             // Try common Python commands
             const commands = ['python', 'python3', 'py'];
+            let lastError = 'No commands tried';
 
             for (const cmd of commands) {
                 try {
+                    console.log(`[Vosk] Checking Python command: ${cmd}`);
                     const { stdout } = await exec(`${cmd} --version`, {
                         timeout: 5000
                     });
 
-                    // Verify it has vosk installed
+                    // Verify it has vosk and websockets installed
                     try {
-                        await exec(`${cmd} -c "import vosk"`, { timeout: 5000 });
-                        console.log(`Found Python: ${cmd}`);
+                        console.log(`[Vosk] Verifying dependencies for: ${cmd}`);
+                        await exec(`${cmd} -c "import vosk; import websockets"`, { timeout: 5000 });
+                        console.log(`[Vosk] Found suitable Python: ${cmd}`);
                         return cmd;
                     } catch (err) {
-                        // Vosk not installed for this Python
+                        console.warn(`[Vosk] Dependencies missing for ${cmd}: ${err.message}`);
+                        lastError = `Dependencies (vosk, websockets) missing for ${cmd}`;
                         continue;
                     }
                 } catch (err) {
@@ -56,7 +60,7 @@ class VoskServerManager {
                 }
             }
 
-            throw new Error('No suitable Python installation found with vosk');
+            throw new Error(`No suitable Python installation found. Last error: ${lastError}. Please run: pip install vosk websockets`);
         } catch (error) {
             throw new Error(`Failed to find Python executable: ${error.message}`);
         }
@@ -72,12 +76,38 @@ class VoskServerManager {
     }
 
     /**
+     * Check if port is in use (simple check)
+     */
+    async isPortInUse(port) {
+        return new Promise((resolve) => {
+            const net = require('net');
+            const server = net.createServer();
+            server.once('error', (err) => {
+                if (err.code === 'EADDRINUSE') resolve(true);
+                else resolve(false);
+            });
+            server.once('listening', () => {
+                server.close();
+                resolve(false);
+            });
+            server.listen(port, '127.0.0.1');
+        });
+    }
+
+    /**
      * Start the Vosk server
      */
     async start() {
         try {
             if (this.isRunning) {
                 console.log('Vosk server already running');
+                return true;
+            }
+
+            // Check if port 2700 is already in use
+            if (await this.isPortInUse(this.port)) {
+                console.log(`[Vosk] Port ${this.port} is already in use, assuming server is already running externally or lingering.`);
+                this.isRunning = true;
                 return true;
             }
 

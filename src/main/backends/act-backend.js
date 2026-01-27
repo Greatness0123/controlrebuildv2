@@ -472,15 +472,21 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
         }
 
         if (!success) {
-            onEvent("action_complete", { description: action.description, success: false, details: "Action failed after retries" });
+            if (!this.stopRequested) {
+                onEvent("action_complete", { description: action.description, success: false, details: "Action failed after retries" });
+            }
             break;
         } else {
-            onEvent("action_complete", { description: action.description, success: true });
+            if (!this.stopRequested) {
+                onEvent("action_complete", { description: action.description, success: true });
+            }
         }
       }
 
-      onEvent("task_complete", { task: userRequest, success: !this.stopRequested });
-      onEvent("ai_response", { text: "Task completed.", is_action: true });
+      if (!this.stopRequested) {
+          onEvent("task_complete", { task: userRequest, success: true });
+          onEvent("ai_response", { text: "Task completed.", is_action: true });
+      }
 
     } catch (err) {
       console.error("[ACT JS] Task error:", err);
