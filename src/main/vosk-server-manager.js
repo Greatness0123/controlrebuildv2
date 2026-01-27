@@ -78,6 +78,13 @@ class VoskServerManager {
                 return true;
             }
 
+            const modelPath = path.join(__dirname, '../../assets/vosk-model');
+            if (!fs.existsSync(modelPath)) {
+                console.error('[Vosk] ERROR: Vosk model not found at:', modelPath);
+                console.error('[Vosk] Please download a model from https://alphacephei.com/vosk/models and extract it to assets/vosk-model');
+                return false;
+            }
+
             console.log('Starting Vosk server V2...');
 
             // Find Python

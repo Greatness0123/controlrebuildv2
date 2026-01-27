@@ -4,23 +4,20 @@ const os = require('os');
 const say = require('say');
 const { EventEmitter } = require('events');
 const { spawn } = require('child_process');
-const { MsEdgeTTS, OUTPUT_FORMAT } = require('edge-tts-node');
-
 class EdgeTTSManager extends EventEmitter {
     constructor() {
         super();
         this.enabled = false;
         this.isSpeaking = false;
         this.queue = [];
-        this.useOfflineFallback = false; // Default to online since we're using a native JS library now
+        this.useOfflineFallback = false;
         this.voice = 'en-US-AriaNeural';
         this.offlineVoice = null;
-        this.rate = 1.1;
+        this.rate = 1.0;
         this.volume = 1.0;
         this.currentProcess = null;
-        this.tts = new MsEdgeTTS({ enableLogger: false });
 
-        console.log('[EdgeTTS] Initialized with native Node.js implementation');
+        console.log('[EdgeTTS] Initialized with robust Python-bridge implementation');
     }
 
     enable(enabled) {
@@ -127,24 +124,42 @@ class EdgeTTSManager extends EventEmitter {
                 }
 
                 const audioFile = path.join(tempDir, `tts-${Date.now()}.mp3`);
+                console.log('[EdgeTTS] Generating audio via edge-tts (python) for voice:', this.voice);
 
-                console.log('[EdgeTTS] Generating audio with voice:', this.voice);
-
-                await this.tts.setMetadata(this.voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-
-                // Convert rate to edge-tts format: +0%, -10%, etc.
+                // Build rate string (+0%, -10%, etc.)
                 const ratePercentage = Math.round((this.rate - 1.0) * 100);
                 const rateStr = (ratePercentage >= 0 ? '+' : '') + ratePercentage + '%';
 
-                await this.tts.toFile(audioFile, text, { rate: rateStr });
+                // We use the edge-tts CLI directly if available
+                const args = [
+                    '-m', 'edge_tts',
+                    '--voice', this.voice,
+                    '--rate', rateStr,
+                    '--text', text,
+                    '--write-media', audioFile
+                ];
 
-                console.log('[EdgeTTS] Audio generated, playing...');
-                this.emit('speaking', text);
+                const ttsProcess = spawn('python', args);
 
-                await this.playAudioFile(audioFile);
+                ttsProcess.on('close', async (code) => {
+                    if (code === 0) {
+                        console.log('[EdgeTTS] Audio generated successfully, playing...');
+                        this.emit('speaking', text);
+                        try {
+                            await this.playAudioFile(audioFile);
+                            this.cleanup(audioFile);
+                            resolve();
+                        } catch (e) {
+                            reject(e);
+                        }
+                    } else {
+                        reject(new Error(`edge-tts process exited with code ${code}`));
+                    }
+                });
 
-                this.cleanup(audioFile);
-                resolve();
+                ttsProcess.on('error', (err) => {
+                    reject(err);
+                });
             } catch (error) {
                 reject(error);
             }
