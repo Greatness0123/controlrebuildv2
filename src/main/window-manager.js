@@ -1,7 +1,6 @@
 const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
-const { initializeAppapp } = require('firebase-admin');
 
 app.disableHardwareAcceleration()
 
