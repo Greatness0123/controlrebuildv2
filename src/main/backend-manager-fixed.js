@@ -2,9 +2,11 @@ const path = require('path');
 const fs = require('fs');
 const ActBackend = require('./backends/act-backend');
 const AskBackend = require('./backends/ask-backend');
+const { EventEmitter } = require('events');
 
-class BackendManager {
+class BackendManager extends EventEmitter {
     constructor() {
+        super();
         this.actBackend = null;
         this.askBackend = null;
         this.isRunning = false;
@@ -31,7 +33,7 @@ class BackendManager {
     setupMessageHandlers() {
         this.messageHandlers.set('ai_response', (data) => {
             this.broadcastToWindows('ai-response', data);
-            this._emit('ai-response', data);
+            this.emit('ai-response', data);
         });
 
         this.messageHandlers.set('action_start', (data) => {
@@ -126,18 +128,14 @@ class BackendManager {
         }
     }
 
-    on(event, cb) {
-        if (!this._callbacks) this._callbacks = {};
-        if (!this._callbacks[event]) this._callbacks[event] = [];
-        this._callbacks[event].push(cb);
-    }
-
-    _emit(event, data) {
-        if (!this._callbacks || !this._callbacks[event]) return;
-        this._callbacks[event].forEach(cb => { try { cb(data); } catch (e) { } });
-    }
-
     async executeTask(task, mode = 'act') {
+        if (this.currentTask) {
+            console.log('[BackendManager] A task is already running, stopping it before starting new one');
+            this.stopTask();
+            // Small delay to allow cleanup
+            await new Promise(r => setTimeout(r, 200));
+        }
+
         if (!this.isRunning) {
             await this.startBackend();
             if (!this.isRunning) throw new Error('Backends not running');
@@ -180,11 +178,23 @@ class BackendManager {
                 }
             }
 
-            const onResponse = (data) => this.handleFrontendMessage({ type: 'ai_response', data }, targetLabel);
-            const onError = (data) => this.handleFrontendMessage({ type: 'error', data }, targetLabel);
-            const onEvent = (type, data) => this.handleFrontendMessage({ type, data }, targetLabel);
+            const onResponse = (data) => {
+                if (!this.currentTask) return; // Ignore if task stopped
+                this.handleFrontendMessage({ type: 'ai_response', data }, targetLabel);
+            };
+            const onError = (data) => {
+                if (!this.currentTask) return;
+                this.handleFrontendMessage({ type: 'error', data }, targetLabel);
+            };
+            const onEvent = (type, data) => {
+                if (!this.currentTask) return;
+                this.handleFrontendMessage({ type, data }, targetLabel);
+            };
 
-            backend.processRequest(task.text, processedAttachments, (typeOrData, data) => {
+            this.currentTask = task.text;
+
+            // Await the backend processing
+            await backend.processRequest(task.text, processedAttachments, (typeOrData, data) => {
                 if (typeof typeOrData === 'string') {
                     onEvent(typeOrData, data);
                 } else {
@@ -192,6 +202,7 @@ class BackendManager {
                 }
             }, onError, task.api_key);
 
+            this.currentTask = null;
             return { success: true, task };
         } catch (err) {
             console.error('executeTask error:', err);

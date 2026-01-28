@@ -326,6 +326,11 @@ class ChatWindow {
 
             // AI responses
             window.chatAPI.onAIResponse((event, data) => {
+                if (!this.currentTask && !data.is_greeting) {
+                    console.log('[ChatWindow] Ignoring AI response as no task is active');
+                    return;
+                }
+
                 // Force-clear ALL thinking indicators
                 this.forceStopThinking();
 
@@ -350,28 +355,25 @@ class ChatWindow {
 
             // Action updates
             window.chatAPI.onActionStart((event, data) => {
+                if (!this.currentTask) return;
                 console.log('[ChatWindow] Action start:', data);
-                // Only add if not already showing a task (to avoid duplicates)
-                if (!this.currentTask) {
+                // If we don't have an action ID yet, create one
+                if (!this.lastActionId || !this.actionStatuses.has(this.lastActionId)) {
                     this.addActionMessage(data.description || 'Executing action...', 'running');
                 }
-                // Don't hide chat - user can manually close if desired
             });
 
             window.chatAPI.onActionStep((event, data) => {
+                if (!this.currentTask) return;
                 console.log('[ChatWindow] Action step:', data);
                 const stepMessage = `Step ${data.step}/${data.total_steps}: ${data.description}`;
-                // Optional: Show step in chat? Or update the action log details?
-                // For now, let's just add a small log or update details
-                // Better: Update the details of the CURRENT action entry
                 this.updateActionStatus(null, null, stepMessage + "\n");
             });
 
             window.chatAPI.onActionComplete((event, data) => {
+                if (!this.currentTask) return;
                 console.log('[ChatWindow] Action complete:', data);
-                // Ensure spinner is removed and replaced with success/error icon
                 this.updateActionStatus((data && data.description), (data && data.success), (data && data.details));
-                // Chat window will be shown automatically by backend manager on task complete
             });
 
             // Task updates

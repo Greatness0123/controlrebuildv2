@@ -186,16 +186,20 @@ You can request information by including these tags in your response:
         console.log(`[ASK JS] AI loop iteration ${iteration}/${this.maxLoopIterations}`);
 
         const result = await this.model.generateContent(conversationParts);
+        if (this.stopRequested) break;
         const response = await result.response;
+        if (this.stopRequested) break;
         const responseText = response.text().trim();
 
         console.log(`[ASK JS] AI response: ${responseText.substring(0, 200)}...`);
 
         const { requestType, requestData, cleanText } = this.parseAIResponse(responseText);
+        if (this.stopRequested) break;
 
         if (requestType === "screenshot") {
           console.log("[ASK JS] AI requested screenshot");
           const screenshotData = await this.takeScreenshot();
+          if (this.stopRequested) break;
           if (screenshotData) {
             conversationParts.push(`Assistant: ${cleanText}`);
             conversationParts.push({
@@ -213,6 +217,7 @@ You can request information by including these tags in your response:
         } else if (requestType === "command") {
           console.log(`[ASK JS] AI requested command: ${requestData}`);
           const commandOutput = await this.runSystemCommand(requestData);
+          if (this.stopRequested) break;
           conversationParts.push(`Assistant: ${cleanText}`);
           conversationParts.push(`System: Command output:\n\`\`\`\n${commandOutput}\n\`\`\``);
           continue;
