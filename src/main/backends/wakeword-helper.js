@@ -40,11 +40,28 @@ class WakewordHelper {
         throw new Error(`Model file not found: ${this.modelPath}`);
       }
 
-      this.porcupine = new Porcupine(this.accessKey, [this.modelPath], [0.5]);
+      try {
+          this.porcupine = new Porcupine(this.accessKey, [this.modelPath], [0.5]);
+          console.log("[WAKEWORD JS] Porcupine engine initialized successfully");
+      } catch (e) {
+          console.error("[WAKEWORD JS] Porcupine initialization failed:", e);
+          throw e;
+      }
 
       const frameLength = this.porcupine.frameLength;
-      this.recorder = new PvRecorder(frameLength);
-      this.recorder.start();
+
+      console.log("[WAKEWORD JS] Initializing PvRecorder...");
+      try {
+          const devices = PvRecorder.getAvailableDevices();
+          console.log(`[WAKEWORD JS] Available audio devices: ${devices.join(', ')}`);
+
+          this.recorder = new PvRecorder(frameLength);
+          this.recorder.start();
+          console.log("[WAKEWORD JS] PvRecorder started successfully");
+      } catch (e) {
+          console.error("[WAKEWORD JS] PvRecorder initialization failed:", e);
+          throw e;
+      }
 
       this.isListening = true;
       console.log(`[WAKEWORD JS] Started listening with PvRecorder for wake word: ${path.basename(this.modelPath)}`);

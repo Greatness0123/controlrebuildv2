@@ -1,5 +1,6 @@
 const path = require('path');
 const fs = require('fs');
+const { app } = require('electron');
 const WakewordHelper = require('./backends/wakeword-helper');
 
 class WakewordManager {
@@ -7,34 +8,70 @@ class WakewordManager {
         this.isRunning = false;
         this.isEnabled = false;
         this.helper = new WakewordHelper();
+        this.logFile = path.join(app.getPath('userData'), 'wakeword-manager.log');
     }
 
-    start() {
+    logToFile(msg) {
+        try {
+            const timestamp = new Date().toISOString();
+            fs.appendFileSync(this.logFile, `[${timestamp}] ${msg}\n`);
+        } catch (e) {
+            console.error('Failed to write to wakeword log file', e);
+        }
+    }
+
+    async start() {
         if (this.isRunning) return;
 
-        this.helper.start(
-            () => {
-                // Detected
-                process.emit && process.emit('hotkey-triggered', { event: 'wakeword-detected' });
-            },
-            (err) => {
-                // Error
-                console.error('[WakewordManager] Helper error:', err);
-                this.isRunning = false;
-            }
-        );
-        this.isRunning = true;
+        console.log('[WakewordManager] Starting wake word detection...');
+        this.logToFile('Starting wake word detection...');
+
+        try {
+            await this.helper.start(
+                () => {
+                    // Detected
+                    console.log('[WakewordManager] Wake word DETECTED');
+                    this.logToFile('Wake word DETECTED');
+                    process.emit && process.emit('hotkey-triggered', { event: 'wakeword-detected' });
+                },
+                (err) => {
+                    // Error during loop
+                    console.error('[WakewordManager] Helper error during operation:', err);
+                    this.logToFile(`Helper error during operation: ${err}`);
+                }
+            );
+            this.isRunning = true;
+            console.log('[WakewordManager] Wake word detection started successfully');
+            this.logToFile('Wake word detection started successfully');
+        } catch (err) {
+            console.error('[WakewordManager] Failed to start wake word helper:', err);
+            this.logToFile(`Failed to start wake word helper: ${err}`);
+            this.isRunning = false;
+
+            // Auto-retry after failure
+            setTimeout(() => {
+                if (this.isEnabled && !this.isRunning) {
+                    console.log('[WakewordManager] Retrying wake word start...');
+                    this.start();
+                }
+            }, 5000);
+        }
     }
 
     stop() {
         if (!this.isRunning) return;
         this.helper.stop();
         this.isRunning = false;
+        console.log('[WakewordManager] Wake word detection stopped');
     }
 
-    enable(enabled) {
+    async enable(enabled) {
         this.isEnabled = !!enabled;
-        if (this.isEnabled) this.start(); else this.stop();
+        if (this.isEnabled) {
+            await this.start();
+        } else {
+            this.stop();
+        }
     }
 }
 

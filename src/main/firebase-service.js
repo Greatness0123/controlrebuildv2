@@ -500,46 +500,59 @@ module.exports = {
      * Checks local cache first.
      */
     async fetchAndCacheKeys() {
+        let cachedKeys = null;
         try {
-            // 1. Check local cache
+            // 1. Load from local cache first for immediate availability
             if (fs.existsSync(KEYS_CACHE_FILE)) {
                 const data = fs.readFileSync(KEYS_CACHE_FILE, 'utf8');
-                const keys = JSON.parse(data);
-                if (keys && keys.gemini && keys.porcupine) {
-                    console.log('✓ API keys loaded from local cache');
-                    return keys;
-                }
+                cachedKeys = JSON.parse(data);
+                console.log('✓ API keys loaded from local cache');
             }
 
-            // 2. Fetch from Firebase
+            // 2. Try to check with the database to see if they changed
             if (!db) {
-                console.warn('! Firebase not initialized, cannot fetch remote keys');
-                return null;
+                console.warn('! Firebase not initialized, returning cached keys if any');
+                return cachedKeys;
             }
 
-            console.log('Fetching API keys from Firebase...');
-            const configDoc = await db.collection('config').doc('api_keys').get();
+            console.log('Checking for updated API keys from Firebase...');
+            // Set a timeout for the Firebase request to avoid hanging on poor connection
+            const configDoc = await Promise.race([
+                db.collection('config').doc('api_keys').get(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 5000))
+            ]);
 
             if (configDoc.exists) {
                 const remoteKeys = configDoc.data();
                 const keysToCache = {
                     gemini: remoteKeys.gemini_free || remoteKeys.gemini,
-                    porcupine: remoteKeys.porcupine_access_key || remoteKeys.porcupine
+                    porcupine: remoteKeys.porcupine_access_key || remoteKeys.porcupine,
+                    gemini_model: remoteKeys.gemini_model || "gemini-2.0-flash"
                 };
 
                 if (keysToCache.gemini && keysToCache.porcupine) {
-                    // 3. Store locally
-                    fs.writeFileSync(KEYS_CACHE_FILE, JSON.stringify(keysToCache));
-                    console.log('✓ API keys fetched and cached locally');
+                    // Check if they are different from cached
+                    const keysChanged = !cachedKeys ||
+                        cachedKeys.gemini !== keysToCache.gemini ||
+                        cachedKeys.porcupine !== keysToCache.porcupine ||
+                        cachedKeys.gemini_model !== keysToCache.gemini_model;
+
+                    if (keysChanged) {
+                        // 3. Update local cache
+                        fs.writeFileSync(KEYS_CACHE_FILE, JSON.stringify(keysToCache));
+                        console.log('✓ API keys updated from Firebase and cached locally');
+                    } else {
+                        console.log('✓ Local keys are up to date with Firebase');
+                    }
                     return keysToCache;
                 }
             }
 
-            console.warn('! No keys found in Firebase config/api_keys');
-            return null;
+            console.log('! No newer keys found in Firebase, using cache');
+            return cachedKeys;
         } catch (error) {
-            console.error('✗ Error fetching/caching keys:', error.message);
-            return null;
+            console.error('✗ Error checking remote keys:', error.message, '- Using cache');
+            return cachedKeys;
         }
     },
 

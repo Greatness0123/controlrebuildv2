@@ -56,10 +56,16 @@ If the backends (Act/Ask) are "thinking" forever, it usually means the `.env` fi
 
 The application now supports fetching API keys directly from Firebase. If keys are found in the Firebase `config/api_keys` document, they will be fetched on startup and cached locally in `api_keys.json` in the user data folder.
 
-To upload your keys to Firebase once, you can use the provided script:
+To upload your keys and default model to Firebase once, you can use the provided script:
 ```bash
-node scripts/upload-keys.js YOUR_GEMINI_KEY YOUR_PORCUPINE_KEY
+node scripts/upload-keys.js YOUR_GEMINI_KEY YOUR_PORCUPINE_KEY [GEMINI_MODEL]
 ```
+
+To update only the Gemini model:
+```bash
+node scripts/set-gemini-model.js YOUR_MODEL_NAME
+```
+(e.g., `gemini-2.0-flash` or `gemini-1.5-pro`)
 
 ### Strategy B: Bundling Python (Advanced)
 If you wish to bundle a portable Python environment with the app:

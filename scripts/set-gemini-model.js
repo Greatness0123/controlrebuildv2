@@ -1,22 +1,21 @@
 /**
- * Utility script to upload API keys to Firebase config/api_keys
- * Usage: node upload-keys.js <gemini_key> <porcupine_key>
+ * Utility script to update the Gemini model in Firebase config/api_keys
+ * Usage: node set-gemini-model.js <model_name>
  */
 
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
-async function uploadKeys() {
+async function setModel() {
     const args = process.argv.slice(2);
-    if (args.length < 2) {
-        console.error('Usage: node upload-keys.js <gemini_key> <porcupine_key> [gemini_model]');
+    if (args.length < 1) {
+        console.error('Usage: node set-gemini-model.js <model_name>');
+        console.log('Example: node set-gemini-model.js gemini-2.0-flash');
         process.exit(1);
     }
 
-    const geminiKey = args[0];
-    const porcupineKey = args[1];
-    const geminiModel = args[2] || "gemini-2.0-flash";
+    const modelName = args[0];
 
     // Initialize Firebase
     try {
@@ -34,22 +33,18 @@ async function uploadKeys() {
         const db = admin.firestore();
         console.log('✓ Firebase initialized');
 
-        console.log('Uploading keys to config/api_keys...');
+        console.log(`Updating Gemini model to: ${modelName}...`);
         await db.collection('config').doc('api_keys').set({
-            gemini: geminiKey,
-            gemini_free: geminiKey,
-            porcupine: porcupineKey,
-            porcupine_access_key: porcupineKey,
-            gemini_model: geminiModel,
+            gemini_model: modelName,
             updatedAt: new Date().toISOString()
         }, { merge: true });
 
-        console.log('✓ API keys uploaded successfully!');
+        console.log('✓ Gemini model updated successfully!');
         process.exit(0);
     } catch (error) {
-        console.error('✗ Failed to upload keys:', error.message);
+        console.error('✗ Failed to update model:', error.message);
         process.exit(1);
     }
 }
 
-uploadKeys();
+setModel();

@@ -201,6 +201,9 @@ class ComputerUseAgent {
                 if (apiKeys.gemini) {
                     process.env.GEMINI_API_KEY = apiKeys.gemini;
                 }
+                if (apiKeys.gemini_model) {
+                    process.env.GEMINI_MODEL = apiKeys.gemini_model;
+                }
             }
 
             // Set up security and permissions
@@ -290,7 +293,7 @@ class ComputerUseAgent {
             // Start wakeword helper if voice activation is enabled in saved settings
             if (this.appSettings.voiceActivation) {
                 console.log('[Main] Voice activation enabled, starting wakeword manager');
-                this.wakewordManager.enable(true);
+                await this.wakewordManager.enable(true);
             } else {
                 console.log('[Main] Voice activation disabled');
             }
@@ -955,7 +958,7 @@ class ComputerUseAgent {
             }
             if (settings.voiceActivation !== undefined) {
                 this.appSettings.voiceActivation = !!settings.voiceActivation;
-                this.wakewordManager.enable(this.appSettings.voiceActivation);
+                await this.wakewordManager.enable(this.appSettings.voiceActivation);
             }
             if (settings.voiceResponse !== undefined) {
                 this.appSettings.voiceResponse = !!settings.voiceResponse;
