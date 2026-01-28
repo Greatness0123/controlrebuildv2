@@ -1,10 +1,10 @@
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
 const WakewordHelper = require('./backends/wakeword-helper');
 
 class WakewordManager {
     constructor() {
+        const { app } = require('electron');
         this.isRunning = false;
         this.isEnabled = false;
         this.helper = new WakewordHelper();

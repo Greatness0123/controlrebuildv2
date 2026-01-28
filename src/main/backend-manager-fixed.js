@@ -2,7 +2,6 @@ const path = require('path');
 const fs = require('fs');
 const ActBackend = require('./backends/act-backend');
 const AskBackend = require('./backends/ask-backend');
-const { app } = require('electron');
 
 class BackendManager {
     constructor() {
@@ -19,6 +18,7 @@ class BackendManager {
 
     logToFile(msg) {
         try {
+            const { app } = require('electron');
             const logDir = app.getPath('userData');
             const logPath = path.join(logDir, 'backend-manager.log');
             const timestamp = new Date().toISOString();
@@ -149,6 +149,7 @@ class BackendManager {
         if (!backend) throw new Error(`${targetLabel} backend is not initialized`);
 
         try {
+            const { app } = require('electron');
             const tmpDir = path.join(app.getPath('userData'), 'tmp');
             if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 

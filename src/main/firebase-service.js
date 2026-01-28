@@ -1,10 +1,16 @@
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
 
-const CACHE_FILE = path.join(app.getPath('userData'), 'cached_user.json');
-const KEYS_CACHE_FILE = path.join(app.getPath('userData'), 'api_keys.json');
+const getCacheFile = () => {
+    const { app } = require('electron');
+    return path.join(app.getPath('userData'), 'cached_user.json');
+};
+
+const getKeysCacheFile = () => {
+    const { app } = require('electron');
+    return path.join(app.getPath('userData'), 'api_keys.json');
+};
 
 let db = null;
 
@@ -287,8 +293,9 @@ module.exports = {
 
     cacheUser(userData) {
         try {
-            fs.writeFileSync(CACHE_FILE, JSON.stringify(userData));
-            console.log('User data cached successfully to', CACHE_FILE);
+            const cacheFile = getCacheFile();
+            fs.writeFileSync(cacheFile, JSON.stringify(userData));
+            console.log('User data cached successfully to', cacheFile);
         } catch (error) {
             console.error('Failed to cache user data:', error);
         }
@@ -296,8 +303,9 @@ module.exports = {
 
     checkCachedUser() {
         try {
-            if (fs.existsSync(CACHE_FILE)) {
-                const data = fs.readFileSync(CACHE_FILE, 'utf8');
+            const cacheFile = getCacheFile();
+            if (fs.existsSync(cacheFile)) {
+                const data = fs.readFileSync(cacheFile, 'utf8');
                 const user = JSON.parse(data);
                 if (user && user.id) {
                     console.log('Found cached user:', user.id);
@@ -486,8 +494,9 @@ module.exports = {
 
     clearCachedUser() {
         try {
-            if (fs.existsSync(CACHE_FILE)) {
-                fs.unlinkSync(CACHE_FILE);
+            const cacheFile = getCacheFile();
+            if (fs.existsSync(cacheFile)) {
+                fs.unlinkSync(cacheFile);
                 console.log('Cached user cleared');
             }
         } catch (error) {
@@ -501,10 +510,11 @@ module.exports = {
      */
     async fetchAndCacheKeys() {
         let cachedKeys = null;
+        const keysCacheFile = getKeysCacheFile();
         try {
             // 1. Load from local cache first for immediate availability
-            if (fs.existsSync(KEYS_CACHE_FILE)) {
-                const data = fs.readFileSync(KEYS_CACHE_FILE, 'utf8');
+            if (fs.existsSync(keysCacheFile)) {
+                const data = fs.readFileSync(keysCacheFile, 'utf8');
                 cachedKeys = JSON.parse(data);
                 console.log('✓ API keys loaded from local cache');
             }
@@ -539,7 +549,7 @@ module.exports = {
 
                     if (keysChanged) {
                         // 3. Update local cache
-                        fs.writeFileSync(KEYS_CACHE_FILE, JSON.stringify(keysToCache));
+                        fs.writeFileSync(keysCacheFile, JSON.stringify(keysToCache));
                         console.log('✓ API keys updated from Firebase and cached locally');
                     } else {
                         console.log('✓ Local keys are up to date with Firebase');
@@ -561,8 +571,9 @@ module.exports = {
      */
     getKeys() {
         try {
-            if (fs.existsSync(KEYS_CACHE_FILE)) {
-                const data = fs.readFileSync(KEYS_CACHE_FILE, 'utf8');
+            const keysCacheFile = getKeysCacheFile();
+            if (fs.existsSync(keysCacheFile)) {
+                const data = fs.readFileSync(keysCacheFile, 'utf8');
                 return JSON.parse(data);
             }
         } catch (e) {

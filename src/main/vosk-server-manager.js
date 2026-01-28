@@ -9,11 +9,13 @@ const os = require('os');
 const fs = require('fs-extra');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
-const { app } = require('electron');
 // const VoskStreamingClient = require('./vosk-streaming-client'); // Removed
 
 class VoskServerManager {
     constructor() {
+        // Use require('electron') directly to ensure app is available in this scope
+        const { app } = require('electron');
+
         this.serverProcess = null;
         this.client = null;
         this.port = 2700;
