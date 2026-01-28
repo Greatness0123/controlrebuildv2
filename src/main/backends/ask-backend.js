@@ -15,9 +15,11 @@ class AskBackend {
   }
 
   setupGeminiAPI(apiKey) {
-    const key = apiKey || process.env.GEMINI_FREE_KEY || "test_api_key";
+    const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+
     if (key === "test_api_key") {
-      console.warn("[ASK JS] No API key found in GEMINI_FREE_KEY");
+      console.warn("[ASK JS] No API key found");
     }
 
     // Only re-initialize if key changed or model is missing
@@ -67,9 +69,10 @@ You can request information by including these tags in your response:
 - When you have enough information, provide your answer directly (no special tags)
 `;
     this.model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: modelName,
       systemInstruction: systemPrompt,
     });
+    console.log(`[ASK JS] Model initialized with: ${modelName}`);
   }
 
   async takeScreenshot() {

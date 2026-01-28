@@ -147,16 +147,18 @@ class ActBackend {
   }
 
   setupGeminiAPI(apiKey) {
-    const key = apiKey || process.env.GEMINI_FREE_KEY || "test_api_key";
+    const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 
     if (key === this.currentApiKey && this.model) return;
 
     this.currentApiKey = key;
     const genAI = new GoogleGenerativeAI(key);
     this.model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: modelName,
       systemInstruction: SYSTEM_PROMPT,
     });
+    console.log(`[ACT JS] Model initialized with: ${modelName}`);
   }
 
   async takeScreenshot(markCursor = true) {

@@ -23,8 +23,10 @@ class VoskServerManager {
         this.serverScriptPath = isProd
             ? path.join(process.resourcesPath, 'vosk_server_v2.py')
             : path.join(__dirname, '../../vosk_server_v2.py');
-        this.logFile = path.join(os.tmpdir(), 'vosk-server.log');
-        this.errorFile = path.join(os.tmpdir(), 'vosk-server-error.log');
+
+        const logDir = app.getPath('userData');
+        this.logFile = path.join(logDir, 'vosk-server.log');
+        this.errorFile = path.join(logDir, 'vosk-server-error.log');
     }
 
     /**
