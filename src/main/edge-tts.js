@@ -3,7 +3,10 @@ const fs = require('fs');
 const os = require('os');
 const say = require('say');
 const { EventEmitter } = require('events');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
+
 class EdgeTTSManager extends EventEmitter {
     constructor() {
         super();
@@ -16,6 +19,7 @@ class EdgeTTSManager extends EventEmitter {
         this.rate = 1.0;
         this.volume = 1.0;
         this.currentProcess = null;
+        this.pythonExe = null;
 
         console.log('[EdgeTTS] Initialized with robust Python-bridge implementation');
     }
@@ -115,9 +119,28 @@ class EdgeTTSManager extends EventEmitter {
         this.processQueue();
     }
 
+    async findPython() {
+        if (this.pythonExe) return this.pythonExe;
+        const cmds = ['python', 'python3', 'py'];
+        for (const cmd of cmds) {
+            try {
+                await execAsync(`${cmd} -c "import edge_tts"`);
+                this.pythonExe = cmd;
+                console.log('[EdgeTTS] Using python:', cmd);
+                return cmd;
+            } catch (e) {}
+        }
+        return null;
+    }
+
     async speakOnline(text) {
         return new Promise(async (resolve, reject) => {
             try {
+                const python = await this.findPython();
+                if (!python) {
+                    return reject(new Error('Python with edge-tts not found'));
+                }
+
                 const tempDir = path.join(os.tmpdir(), 'control-tts');
                 if (!fs.existsSync(tempDir)) {
                     fs.mkdirSync(tempDir, { recursive: true });
@@ -139,7 +162,7 @@ class EdgeTTSManager extends EventEmitter {
                     '--write-media', audioFile
                 ];
 
-                const ttsProcess = spawn('python', args);
+                const ttsProcess = spawn(python, args);
 
                 ttsProcess.on('close', async (code) => {
                     if (code === 0) {

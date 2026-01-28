@@ -250,17 +250,35 @@ class ActBackend {
           if (params.keys) {
             const keyMap = {
               "control": Key.LeftControl,
+              "ctrl": Key.LeftControl,
               "shift": Key.LeftShift,
               "alt": Key.LeftAlt,
               "win": Key.LeftWin,
               "command": Key.LeftCmd,
+              "cmd": Key.LeftCmd,
               "enter": Key.Enter,
+              "return": Key.Enter,
               "tab": Key.Tab,
               "escape": Key.Escape,
+              "esc": Key.Escape,
               "backspace": Key.Backspace,
-              "delete": Key.Delete
+              "delete": Key.Delete,
+              "space": Key.Space,
+              "up": Key.Up,
+              "down": Key.Down,
+              "left": Key.Left,
+              "right": Key.Right
             };
-            const keys = params.keys.map(k => keyMap[k.toLowerCase()] || k);
+            const keys = params.keys.map(k => {
+                const lowK = k.toLowerCase();
+                if (keyMap[lowK]) return keyMap[lowK];
+                // Map a-z to Key.A - Key.Z
+                if (/^[a-z]$/.test(lowK)) return Key[lowK.toUpperCase()];
+                // Map 0-9 to Key.Num0 - Key.Num9
+                if (/^[0-9]$/.test(lowK)) return Key[`Num${lowK}`];
+                return k;
+            });
+
             if (params.combo) {
               await keyboard.pressKey(...keys);
               await keyboard.releaseKey(...keys);
@@ -406,7 +424,9 @@ Respond ONLY with JSON:
 
     try {
       console.log("[ACT JS] Taking initial screenshot...");
+      if (this.stopRequested) return;
       const shot = await this.takeScreenshot();
+      if (this.stopRequested) return;
       if (!shot) {
           throw new Error("Failed to capture screenshot. Please ensure the app has screen recording permissions.");
       }
@@ -426,19 +446,25 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
       ];
 
       const result = await this.model.generateContent(content);
+      if (this.stopRequested) return;
       const response = await result.response;
+      if (this.stopRequested) return;
       const text = response.text();
       const jsonMatch = /\{.*\}/s.exec(text);
       if (!jsonMatch) throw new Error("No JSON in AI response");
 
       const plan = JSON.parse(jsonMatch[0]);
+      if (this.stopRequested) return;
+
       if (plan.type !== 'task') {
           onEvent("ai_response", { text: plan.response || "I cannot perform that task in Act mode.", is_action: false });
           return;
       }
 
       const actions = plan.actions || [];
-      onEvent("action_start", { description: `Executing ${actions.length} steps` });
+      if (actions.length > 0) {
+          onEvent("action_start", { description: `Executing ${actions.length} steps` });
+      }
 
       for (let i = 0; i < actions.length; i++) {
         if (this.stopRequested) break;
