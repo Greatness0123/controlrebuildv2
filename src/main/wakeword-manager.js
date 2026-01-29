@@ -38,6 +38,16 @@ class WakewordManager {
                     // Error during loop
                     console.error('[WakewordManager] Helper error during operation:', err);
                     this.logToFile(`Helper error during operation: ${err}`);
+
+                    // Critical failure in the loop - mark as not running to allow auto-retry
+                    this.isRunning = false;
+
+                    setTimeout(() => {
+                        if (this.isEnabled && !this.isRunning) {
+                            console.log('[WakewordManager] Restarting wake word after operational error...');
+                            this.start();
+                        }
+                    }, 5000);
                 }
             );
             this.isRunning = true;

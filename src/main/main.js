@@ -1115,5 +1115,34 @@ class ComputerUseAgent {
     }
 }
 
-// Create and start the application
-new ComputerUseAgent();
+// Single instance lock
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+    console.log('[Main] Another instance is already running, quitting...');
+    app.quit();
+} else {
+    // Create and start the application
+    const agent = new ComputerUseAgent();
+
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        console.log('[Main] Second instance detected, showing entry window');
+        // If someone tried to run a second instance, we should focus our window.
+        if (agent && agent.windowManager) {
+            // First check if user is already authenticated
+            if (agent.isAuthenticated) {
+                console.log('[Main] User already authenticated, but showing entry page as requested');
+            }
+
+            const entryWin = agent.windowManager.getWindow('entry');
+            if (entryWin && !entryWin.isDestroyed()) {
+                if (entryWin.isMinimized()) entryWin.restore();
+                entryWin.show();
+                entryWin.focus();
+            } else {
+                // If entry window doesn't exist or was closed, recreate/show it
+                agent.windowManager.showWindow('entry');
+            }
+        }
+    });
+}

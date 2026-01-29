@@ -697,6 +697,11 @@ class ChatWindow {
         if (this.isRecording) return;
         this.isRecording = true;
 
+        // Pause wake word detection during manual recording
+        if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
+            window.chatAPI.setWakewordEnabled(false);
+        }
+
         try {
             // 1. Minimized Hardware Handshake Delay for faster recording
             console.log('[Voice] Waiting for hardware release (100ms)...');
@@ -911,6 +916,12 @@ class ChatWindow {
         console.trace('stopVoiceRecording call trace');
 
         this.isRecording = false;
+
+        // Resume wake word detection after manual recording
+        if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
+            window.chatAPI.setWakewordEnabled(true);
+        }
+
         this.voiceButton.classList.remove('recording');
 
         // Clear any flush intervals
