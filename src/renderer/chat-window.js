@@ -675,6 +675,7 @@ class ChatWindow {
     async startVoiceRecording() {
         if (this.isRecording) return;
         this.isRecording = true;
+        this.lastSpeechTime = Date.now();
 
         // Pause wake word detection during manual recording
         if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
@@ -865,6 +866,9 @@ class ChatWindow {
                         const separator = this.baseText ? " " : "";
                         this.chatInput.value = this.baseText + separator + result.partial + "...";
                         this.autoResizeTextarea();
+
+                        // Activity detected: Reset silence timeout if auto-send is enabled
+                        if (this.autoSendEnabled) this.resetSpeechTimeout();
                     } else if (result.text && result.text.trim()) {
                         console.log('[Voice] Final result:', result.text);
                         if (window.chatAPI && window.chatAPI.logToTerminal) {
@@ -978,27 +982,32 @@ class ChatWindow {
     }
 
     startSpeechTimeout() {
-        this.lastSpeechTime = Date.now();
+        // Reset last speech time when starting/restarting the timeout
+        if (!this.lastSpeechTime) this.lastSpeechTime = Date.now();
+
+        if (this.speechTimeout) clearTimeout(this.speechTimeout);
+
         this.speechTimeout = setTimeout(() => {
             if (this.isRecording && this.autoSendEnabled) {
                 const elapsed = Date.now() - this.lastSpeechTime;
+                // Use a slightly more lenient timeout (7s) or stay with 5s but ensure it's accurate
                 if (elapsed >= 5000) {
+                    console.log(`[Voice] Silence timeout reached (${elapsed}ms). Stopping recording.`);
                     this.stopVoiceRecording('silence_timeout');
                     if (this.chatInput.value.trim()) {
                         this.sendMessage();
                     }
                 } else {
+                    // Not enough time has passed since last speech, check again in remaining time
                     this.startSpeechTimeout();
                 }
             }
-        }, 5000);
+        }, 1000); // Check more frequently (every 1s) for better responsiveness
     }
 
     resetSpeechTimeout() {
         this.lastSpeechTime = Date.now();
-        if (this.speechTimeout) {
-            clearTimeout(this.speechTimeout);
-        }
+        // startSpeechTimeout will handle clearing and restarting
         if (this.autoSendEnabled && this.isRecording) {
             this.startSpeechTimeout();
         }
