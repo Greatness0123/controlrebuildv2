@@ -6,65 +6,79 @@ const fs = require("fs");
 class WakewordHelper {
   constructor(options = {}) {
     this.accessKey = options.accessKey || process.env.PORCUPINE_ACCESS_KEY;
-
-    // ASAR-aware path resolution
-    const isProd = !require("electron-is-dev");
-    let baseDir;
-
-    if (isProd) {
-      // In production, assets are in extraResources (process.resourcesPath/assets)
-      baseDir = path.join(process.resourcesPath, "assets");
-      // Fallback: check if they are inside unpacked asar
-      if (!fs.existsSync(baseDir)) {
-        baseDir = path.join(process.resourcesPath, "app.asar.unpacked/assets");
-      }
-    } else {
-      baseDir = path.join(__dirname, "../../../assets");
-    }
-
-    this.wakewordDir = path.join(baseDir, "wakeword");
-    this.modelPath = options.modelPath || this.findModelPath();
+    this.modelPath = options.modelPath || this.resolveModelPath();
     this.porcupine = null;
     this.recorder = null;
     this.isListening = false;
     this.lastDetection = 0;
   }
 
-  findModelPath() {
+  resolveModelPath() {
+    const { app } = require('electron');
+    const isPackaged = app ? app.isPackaged : !require("electron-is-dev");
+
     const platform = process.platform;
     let platformSuffix = "windows";
     if (platform === "darwin") platformSuffix = "mac";
     else if (platform === "linux") platformSuffix = "linux";
 
     const possibleNames = [
-        `hey-control_en_${platformSuffix}_v4_0_0.ppn`,
-        "hey-control_en_windows_v4_0_0.ppn", // fallback to windows name if user only has that
-        "hey-control.ppn"
+      `hey-control_en_${platformSuffix}_v4_0_0.ppn`,
+      "hey-control_en_windows_v4_0_0.ppn",
+      "hey-control.ppn"
     ];
 
-    for (const name of possibleNames) {
-        const p = path.join(this.wakewordDir, name);
-        if (fs.existsSync(p)) {
-            console.log(`[WAKEWORD JS] Found model: ${name}`);
-            return p;
-        }
+    const searchDirs = [];
+    if (isPackaged) {
+      // 1. extraResources (standard for electron-builder)
+      searchDirs.push(path.join(process.resourcesPath, "assets/wakeword"));
+      searchDirs.push(path.join(process.resourcesPath, "wakeword"));
+      // 2. Unpacked ASAR (in case it was put there)
+      searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked/assets/wakeword"));
+    } else {
+      // Development
+      searchDirs.push(path.join(__dirname, "../../../assets/wakeword"));
     }
+    // 3. Current Working Directory (portable fallback)
+    searchDirs.push(path.join(process.cwd(), "assets/wakeword"));
+    searchDirs.push(path.join(process.cwd(), "wakeword"));
 
-    // Fallback: find any .ppn file in the directory
-    try {
-      if (fs.existsSync(this.wakewordDir)) {
-        const files = fs.readdirSync(this.wakewordDir);
-        const ppnFile = files.find(f => f.endsWith(".ppn"));
-        if (ppnFile) {
-          console.log(`[WAKEWORD JS] Found alternative model: ${ppnFile}`);
-          return path.join(this.wakewordDir, ppnFile);
+    console.log("[WAKEWORD JS] Searching for model file...");
+
+    for (const dir of searchDirs) {
+      if (!fs.existsSync(dir)) {
+        console.log(`[WAKEWORD JS] Directory does not exist: ${dir}`);
+        continue;
+      }
+
+      console.log(`[WAKEWORD JS] Checking directory: ${dir}`);
+
+      // Try exact names
+      for (const name of possibleNames) {
+        const p = path.join(dir, name);
+        if (fs.existsSync(p)) {
+          console.log(`[WAKEWORD JS] SUCCESS: Found model at ${p}`);
+          return p;
         }
       }
-    } catch (e) {
-      console.error("[WAKEWORD JS] Error searching for model:", e);
+
+      // Try finding ANY .ppn file in this dir
+      try {
+        const files = fs.readdirSync(dir);
+        const ppnFile = files.find(f => f.endsWith(".ppn"));
+        if (ppnFile) {
+          const p = path.join(dir, ppnFile);
+          console.log(`[WAKEWORD JS] SUCCESS: Found alternative model ${ppnFile} at ${p}`);
+          return p;
+        }
+      } catch (e) {
+        console.error(`[WAKEWORD JS] Error reading dir ${dir}:`, e.message);
+      }
     }
 
-    return path.join(this.wakewordDir, possibleNames[0]); // Return first choice if none found
+    const fallbackPath = path.join(searchDirs[0] || "", possibleNames[0]);
+    console.error(`[WAKEWORD JS] ERROR: No model file found. Fallback to: ${fallbackPath}`);
+    return fallbackPath;
   }
 
   async start(onDetected, onError) {

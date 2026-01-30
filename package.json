@@ -49,13 +49,7 @@
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
     ],
     "extraResources": [
-      {
-        "from": "assets/",
-        "to": "assets/",
-        "filter": [
-          "**/*"
-        ]
-      },
+      "assets/**/*",
       "vosk_server_v2.py"
     ],
     "mac": {
