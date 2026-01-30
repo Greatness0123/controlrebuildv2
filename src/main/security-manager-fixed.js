@@ -4,7 +4,11 @@ const path = require('path');
 
 class SecurityManager {
     constructor() {
-        this.configPath = path.join(__dirname, '../../config/security.json');
+        const { app } = require('electron');
+        // Use userData path for configuration to avoid permission issues in production
+        const userDataPath = app.getPath('userData');
+        this.configPath = path.join(userDataPath, 'security.json');
+
         this.isLocked = false;
         this.pinEnabled = false;
         this.pinHash = null;

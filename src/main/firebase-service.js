@@ -16,7 +16,23 @@ let db = null;
 
 // Initialize Firebase Admin SDK
 try {
-    const serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
+    const { app } = require('electron');
+    const isPackaged = app ? app.isPackaged : !require("electron-is-dev");
+
+    let serviceAccountPath;
+    if (isPackaged) {
+        // In production, look in extraResources or app data
+        const possiblePaths = [
+            path.join(process.resourcesPath, 'config/firebase-service-account.json'),
+            path.join(process.resourcesPath, 'firebase-service-account.json'),
+            path.join(app.getPath('userData'), 'firebase-service-account.json')
+        ];
+        serviceAccountPath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
+    } else {
+        serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
+    }
+
+    console.log('Loading Firebase service account from:', serviceAccountPath);
     const serviceAccount = require(serviceAccountPath);
 
     admin.initializeApp({

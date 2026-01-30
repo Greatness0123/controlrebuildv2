@@ -15,7 +15,7 @@ class WakewordHelper {
 
   resolveModelPath() {
     const { app } = require('electron');
-    const isPackaged = app ? app.isPackaged : !require("electron-is-dev");
+    const isPackaged = app.isPackaged;
 
     const platform = process.platform;
     let platformSuffix = "windows";
@@ -45,6 +45,7 @@ class WakewordHelper {
 
     console.log("[WAKEWORD JS] Searching for model file...");
 
+    let foundPath = null;
     for (const dir of searchDirs) {
       if (!fs.existsSync(dir)) {
         console.log(`[WAKEWORD JS] Directory does not exist: ${dir}`);
@@ -58,21 +59,51 @@ class WakewordHelper {
         const p = path.join(dir, name);
         if (fs.existsSync(p)) {
           console.log(`[WAKEWORD JS] SUCCESS: Found model at ${p}`);
-          return p;
+          foundPath = p;
+          break;
         }
       }
 
-      // Try finding ANY .ppn file in this dir
-      try {
-        const files = fs.readdirSync(dir);
-        const ppnFile = files.find(f => f.endsWith(".ppn"));
-        if (ppnFile) {
-          const p = path.join(dir, ppnFile);
-          console.log(`[WAKEWORD JS] SUCCESS: Found alternative model ${ppnFile} at ${p}`);
-          return p;
+      if (!foundPath) {
+        // Try finding ANY .ppn file in this dir
+        try {
+          const files = fs.readdirSync(dir);
+          const ppnFile = files.find(f => f.endsWith(".ppn"));
+          if (ppnFile) {
+            foundPath = path.join(dir, ppnFile);
+            console.log(`[WAKEWORD JS] SUCCESS: Found alternative model ${ppnFile} at ${foundPath}`);
+          }
+        } catch (e) {
+          console.error(`[WAKEWORD JS] Error reading dir ${dir}:`, e.message);
         }
-      } catch (e) {
-        console.error(`[WAKEWORD JS] Error reading dir ${dir}:`, e.message);
+      }
+
+      if (foundPath) break;
+    }
+
+    if (foundPath) {
+      // CRITICAL FIX: If the path is inside app.asar (not unpacked) or a read-only resource,
+      // some native libraries fail. Best practice is to copy it to userData.
+      try {
+        const userDataPath = app.getPath('userData');
+        const targetDir = path.join(userDataPath, 'models');
+        if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+
+        const targetPath = path.join(targetDir, path.basename(foundPath));
+
+        // Copy if not exists or if source is newer
+        const shouldCopy = !fs.existsSync(targetPath) ||
+                           fs.statSync(foundPath).mtime > fs.statSync(targetPath).mtime;
+
+        if (shouldCopy) {
+          console.log(`[WAKEWORD JS] Copying model to persistent storage: ${targetPath}`);
+          fs.copyFileSync(foundPath, targetPath);
+        }
+
+        return targetPath;
+      } catch (copyErr) {
+        console.warn(`[WAKEWORD JS] Failed to copy model to userData, using original path: ${copyErr.message}`);
+        return foundPath;
       }
     }
 
