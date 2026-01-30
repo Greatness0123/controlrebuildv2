@@ -50,6 +50,7 @@
     ],
     "extraResources": [
       "assets/**/*",
+      "config/**/*",
       "vosk_server_v2.py"
     ],
     "mac": {
@@ -71,7 +72,8 @@
       "**/node_modules/@picovoice/porcupine-node/**/*",
       "**/node_modules/@picovoice/pvrecorder-node/**/*",
       "**/node_modules/screenshot-desktop/**/*",
-      "src/main/backends/**/*"
+      "src/main/backends/**/*",
+      "assets/wakeword/**/*"
     ],
     "win": {
       "target": [

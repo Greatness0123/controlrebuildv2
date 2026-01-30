@@ -132,30 +132,9 @@ class ChatWindow {
             return false;
         }
 
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 1000);
-
-            const response = await fetch('https://www.google.com/favicon.ico', {
-                method: 'GET',
-                mode: 'cors',
-                signal: controller.signal,
-                cache: 'no-store'
-            });
-
-            clearTimeout(timeoutId);
-            if (response.ok) {
-                return true;
-            }
-            return false;
-        } catch (error) {
-            if (error.name === 'AbortError' || error.name === 'TypeError') {
-                this.showToast('No internet connection', 'error');
-                return false;
-            }
-            this.showToast('Could not verify internet connection', 'error');
-            return false;
-        }
+        // In a packaged app, external fetches might cause DNS errors if restricted.
+        // We'll trust navigator.onLine for now, or just return true if online.
+        return true;
     }
 
     showToast(message, type = 'info') {

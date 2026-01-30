@@ -9,11 +9,9 @@ const os = require('os');
  */
 class SettingsManager {
     constructor() {
-        // Use app data directory for settings storage
-        const appDataDir = process.env.APPDATA ||
-            path.join(os.homedir(), 'AppData', 'Roaming');
-
-        this.settingsDir = path.join(appDataDir, 'ComputerUseAgent');
+        const { app } = require('electron');
+        // Use Electron's official userData directory for settings storage
+        this.settingsDir = app.getPath('userData');
         this.globalSettingsFile = path.join(this.settingsDir, 'settings.json');
         this.currentUserId = null;
 

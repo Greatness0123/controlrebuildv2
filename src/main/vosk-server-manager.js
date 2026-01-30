@@ -30,7 +30,7 @@ class VoskServerManager {
 
     resolvePaths() {
         const { app } = require('electron');
-        const isPackaged = app ? app.isPackaged : !require("electron-is-dev");
+        const isPackaged = app.isPackaged;
 
         const searchDirs = [];
         if (isPackaged) {
