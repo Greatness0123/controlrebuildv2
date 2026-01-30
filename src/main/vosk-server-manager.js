@@ -13,23 +13,67 @@ const exec = util.promisify(require('child_process').exec);
 
 class VoskServerManager {
     constructor() {
-        // Use require('electron') directly to ensure app is available in this scope
         const { app } = require('electron');
-
         this.serverProcess = null;
         this.client = null;
         this.port = 2700;
         this.host = '127.0.0.1';
         this.isRunning = false;
         this.pythonExePath = null;
-        const isProd = !require('electron-is-dev');
-        this.serverScriptPath = isProd
-            ? path.join(process.resourcesPath, 'vosk_server_v2.py')
-            : path.join(__dirname, '../../vosk_server_v2.py');
+
+        this.resolvePaths();
 
         const logDir = app.getPath('userData');
         this.logFile = path.join(logDir, 'vosk-server.log');
         this.errorFile = path.join(logDir, 'vosk-server-error.log');
+    }
+
+    resolvePaths() {
+        const { app } = require('electron');
+        const isPackaged = app ? app.isPackaged : !require("electron-is-dev");
+
+        const searchDirs = [];
+        if (isPackaged) {
+            searchDirs.push(process.resourcesPath);
+            searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked"));
+        } else {
+            searchDirs.push(path.join(__dirname, "../../"));
+        }
+        searchDirs.push(process.cwd());
+
+        // Find vosk_server_v2.py
+        this.serverScriptPath = null;
+        for (const dir of searchDirs) {
+            const p = path.join(dir, "vosk_server_v2.py");
+            if (fs.existsSync(p)) {
+                this.serverScriptPath = p;
+                console.log(`[Vosk] Found server script at: ${p}`);
+                break;
+            }
+        }
+        if (!this.serverScriptPath) {
+            this.serverScriptPath = path.join(searchDirs[0], "vosk_server_v2.py");
+            console.error(`[Vosk] Server script not found. Fallback: ${this.serverScriptPath}`);
+        }
+
+        // Find vosk-model
+        this.modelPath = null;
+        const modelSubDirs = ["assets/vosk-model", "vosk-model"];
+        for (const dir of searchDirs) {
+            for (const sub of modelSubDirs) {
+                const p = path.join(dir, sub);
+                if (fs.existsSync(p)) {
+                    this.modelPath = p;
+                    console.log(`[Vosk] Found model at: ${p}`);
+                    break;
+                }
+            }
+            if (this.modelPath) break;
+        }
+        if (!this.modelPath) {
+            this.modelPath = path.join(searchDirs[0], "assets/vosk-model");
+            console.error(`[Vosk] Model not found. Fallback: ${this.modelPath}`);
+        }
     }
 
     /**
@@ -116,14 +160,8 @@ class VoskServerManager {
                 return true;
             }
 
-            const isProd = !require('electron-is-dev');
-            const baseDir = isProd
-                ? path.join(process.resourcesPath, 'assets')
-                : path.join(__dirname, '../../assets');
-
-            const modelPath = path.join(baseDir, 'vosk-model');
-            if (!fs.existsSync(modelPath)) {
-                console.error('[Vosk] ERROR: Vosk model not found at:', modelPath);
+            if (!fs.existsSync(this.modelPath)) {
+                console.error('[Vosk] ERROR: Vosk model not found at:', this.modelPath);
                 console.error('[Vosk] Please download a model from https://alphacephei.com/vosk/models and extract it to assets/vosk-model');
                 return false;
             }
@@ -144,7 +182,7 @@ class VoskServerManager {
                 this.serverScriptPath,
                 '--host', this.host,
                 '--port', this.port.toString(),
-                '--model', modelPath
+                '--model', this.modelPath
             ], {
                 detached: false,
                 stdio: ['ignore', 'pipe', 'pipe'],
