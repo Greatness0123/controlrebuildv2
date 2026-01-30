@@ -914,7 +914,8 @@ class ComputerUseAgent {
     getSettings() {
         const settings = this.settingsManager.getSettings();
         // Ensure security manager PIN status is reflected
-        settings.pinEnabled = this.securityManager.isEnabled();
+        // We use the raw pinEnabled property to ensure the toggle state is preserved even before a PIN hash is set
+        settings.pinEnabled = this.securityManager.pinEnabled;
         // Include autoSendAfterWakeWord, lastMode, windowVisibility, and wakeWordToggleChat
         settings.autoSendAfterWakeWord = this.appSettings.autoSendAfterWakeWord || false;
         settings.lastMode = this.appSettings.lastMode || 'act';
