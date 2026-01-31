@@ -31,9 +31,26 @@ class BackendManager extends EventEmitter {
     }
 
     setupMessageHandlers() {
-        this.messageHandlers.set('ai_response', (data) => {
+        this.messageHandlers.set('ai_response', (data, source) => {
             this.broadcastToWindows('ai-response', data);
             this.emit('ai-response', data);
+
+            // Defensive: if edge glow is disabled in settings, ensure overlays are hidden immediately
+            const edgeEnabled = global.appSettings?.edgeGlowEnabled !== false;
+            if (!edgeEnabled) {
+                console.log('[BackendManager] ai_response received while edgeGlow disabled - hiding visual effects proactively');
+                try { this.hideVisualEffects(); } catch (e) { console.error('[BackendManager] hideVisualEffects error:', e); }
+            }
+
+            // If this response came from ASK backend, ensure the chat window is visible
+            // so the frontend can display the response and clear any thinking indicators.
+            if (source === 'ASK' && global.windowManager) {
+                try {
+                    global.windowManager.showWindow('chat');
+                } catch (e) {
+                    console.error('[BackendManager] Failed to show chat window on ai_response:', e);
+                }
+            }
         });
 
         this.messageHandlers.set('action_start', (data) => {
@@ -51,6 +68,14 @@ class BackendManager extends EventEmitter {
 
         this.messageHandlers.set('action_complete', (data) => {
             this.broadcastToWindows('action-complete', data);
+        });
+
+        // After-message (ACT only): user-facing message that is not part of task logs
+        this.messageHandlers.set('after_message', (data, source) => {
+            this.broadcastToWindows('after-message', data);
+            this.emit('after-message', data);
+            console.log('[BackendManager] after_message received:', { data, source });
+            // Do not force-show chat for ACT to avoid disrupting user's window state; let renderer decide
         });
 
         this.messageHandlers.set('task_start', (data) => {
@@ -249,8 +274,20 @@ class BackendManager extends EventEmitter {
         this.currentTask = null;
     }
 
-    showVisualEffects() { if (global.windowManager) global.windowManager.showVisualEffect('task-active'); }
-    hideVisualEffects() { if (global.windowManager) global.windowManager.showVisualEffect('task-inactive'); }
+    showVisualEffects() {
+        const enabled = global.appSettings?.edgeGlowEnabled !== false;
+        console.log('[BackendManager] showVisualEffects called, edgeGlowEnabled=', enabled);
+        if (!enabled) {
+            console.log('[BackendManager] Edge glow disabled in settings - skipping visual effects');
+            return;
+        }
+        if (global.windowManager) global.windowManager.showVisualEffect('task-active');
+    }
+
+    hideVisualEffects() {
+        console.log('[BackendManager] hideVisualEffects called - sending task-inactive');
+        if (global.windowManager) global.windowManager.showVisualEffect('task-inactive');
+    }
 
     broadcastToWindows(channel, data) {
         if (global.windowManager) {

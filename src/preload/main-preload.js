@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onInteractionModeChanged: (callback) => ipcRenderer.on('interaction-mode-changed', callback),
     onShowFloatingButton: (callback) => ipcRenderer.on('show-floating-button', callback),
     onHideFloatingButton: (callback) => ipcRenderer.on('hide-floating-button', callback),
+    onShowFloatingButtonIfEnabled: (callback) => ipcRenderer.on('show-floating-button-if-enabled', callback),
+    onHideFloatingButtonIfEnabled: (callback) => ipcRenderer.on('hide-floating-button-if-enabled', callback),
     onFloatingButtonToggle: (callback) => ipcRenderer.on('floating-button-toggle', callback),
     onRequestPinAndToggle: (callback) => ipcRenderer.on('request-pin-and-toggle', callback),
     
@@ -24,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     
     // Settings helpers for overlay
     getSettings: () => ipcRenderer.invoke('get-settings'),
+    onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', callback),
     verifyPin: (pin) => ipcRenderer.invoke('verify-pin', pin),
     verifyEntryID: (id) => ipcRenderer.invoke('verify-entry-id', id),
     isAppLocked: () => ipcRenderer.invoke('is-app-locked'),
@@ -39,6 +42,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onTaskStart: (callback) => ipcRenderer.on('task-start', callback),
     onTaskComplete: (callback) => ipcRenderer.on('task-complete', callback),
     onTaskStopped: (callback) => ipcRenderer.on('task-stopped', callback),
+    // AI responses (so overlay can react / hide effects when needed)
+    onAIResponse: (callback) => ipcRenderer.on('ai-response', callback),
 });
 
 // Also expose a small convenience global for HTML onclick usage

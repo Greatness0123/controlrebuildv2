@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onTaskComplete: (callback) => ipcRenderer.on('task-complete', callback),
     onTaskStopped: (callback) => ipcRenderer.on('task-stopped', callback),
     onBackendError: (callback) => ipcRenderer.on('backend-error', callback),
+    onAfterMessage: (callback) => ipcRenderer.on('after-message', callback),
 
     // Audio state events
     onAudioStarted: (callback) => ipcRenderer.on('audio-started', callback),

@@ -33,7 +33,7 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - **MAPPING STRATEGY:**
   1. Mentally map the edges of the image to the forwarded screen resolution (0,0 to Width,Height).
   2. To find an element, draw IMAGINARY PERPENDICULAR LINES from the X-axis (top) and Y-axis (left) to the target element.
-  3. PINPOINT the exact pixel intersection of these imaginary lines.
+  3. PINPOINT the exact pixel intersection of these imaginary lines (x,y).
 - **PRECISION CONSENSUS:**
   1. Calculate the coordinates TWICE independently using this visual mapping.
   2. If both results match, proceed.
@@ -135,7 +135,7 @@ class ActBackend {
 
   setupGeminiAPI(apiKey) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
     if (key === this.currentApiKey && this.model) return;
 
@@ -164,7 +164,7 @@ class ActBackend {
         const pos = await mouse.getPosition();
         cursorX = pos.x;
         cursorY = pos.y;
-      } catch (e) {}
+      } catch (e) { }
 
       if (markCursor && cursorX > 0 && cursorY > 0) {
         const color = 0xFF0000FF; // Red
@@ -270,13 +270,13 @@ class ActBackend {
               "right": Key.Right
             };
             const keys = params.keys.map(k => {
-                const lowK = k.toLowerCase();
-                if (keyMap[lowK]) return keyMap[lowK];
-                // Map a-z to Key.A - Key.Z
-                if (/^[a-z]$/.test(lowK)) return Key[lowK.toUpperCase()];
-                // Map 0-9 to Key.Num0 - Key.Num9
-                if (/^[0-9]$/.test(lowK)) return Key[`Num${lowK}`];
-                return k;
+              const lowK = k.toLowerCase();
+              if (keyMap[lowK]) return keyMap[lowK];
+              // Map a-z to Key.A - Key.Z
+              if (/^[a-z]$/.test(lowK)) return Key[lowK.toUpperCase()];
+              // Map 0-9 to Key.Num0 - Key.Num9
+              if (/^[0-9]$/.test(lowK)) return Key[`Num${lowK}`];
+              return k;
             });
 
             if (params.combo) {
@@ -390,28 +390,28 @@ Respond ONLY with JSON:
 }`;
 
     const content = [
-        prompt,
-        {
-            inlineData: {
-                mimeType: "image/png",
-                data: fs.readFileSync(shot.filepath).toString("base64")
-            }
+      prompt,
+      {
+        inlineData: {
+          mimeType: "image/png",
+          data: fs.readFileSync(shot.filepath).toString("base64")
         }
+      }
     ];
 
     try {
-        const result = await this.model.generateContent(content);
-        const response = await result.response;
-        const text = response.text();
-        const jsonMatch = /\{.*\}/s.exec(text);
-        const data = JSON.parse(jsonMatch[0]);
-        return {
-            verified: data.verification_status === "success",
-            message: data.observations,
-            retry_suggestion: data.retry_suggestion
-        };
+      const result = await this.model.generateContent(content);
+      const response = await result.response;
+      const text = response.text();
+      const jsonMatch = /\{.*\}/s.exec(text);
+      const data = JSON.parse(jsonMatch[0]);
+      return {
+        verified: data.verification_status === "success",
+        message: data.observations,
+        retry_suggestion: data.retry_suggestion
+      };
     } catch (err) {
-        return { verified: false, message: "Verification error: " + err.message };
+      return { verified: false, message: "Verification error: " + err.message };
     }
   }
 
@@ -428,7 +428,7 @@ Respond ONLY with JSON:
       const shot = await this.takeScreenshot();
       if (this.stopRequested) return;
       if (!shot) {
-          throw new Error("Failed to capture screenshot. Please ensure the app has screen recording permissions.");
+        throw new Error("Failed to capture screenshot. Please ensure the app has screen recording permissions.");
       }
 
       console.log("[ACT JS] Sending request to Gemini...");
@@ -436,13 +436,13 @@ Respond ONLY with JSON:
 Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${process.platform}`;
 
       const content = [
-          prompt,
-          {
-              inlineData: {
-                  mimeType: "image/png",
-                  data: fs.readFileSync(shot.filepath).toString("base64")
-              }
+        prompt,
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: fs.readFileSync(shot.filepath).toString("base64")
           }
+        }
       ];
 
       const result = await this.model.generateContent(content);
@@ -457,14 +457,16 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
       if (this.stopRequested) return;
 
       if (plan.type !== 'task') {
-          onEvent("ai_response", { text: plan.response || "I cannot perform that task in Act mode.", is_action: false });
-          return;
+        onEvent("ai_response", { text: plan.response || "I cannot perform that task in Act mode.", is_action: false });
+        return;
       }
 
       const actions = plan.actions || [];
       if (actions.length > 0) {
-          onEvent("action_start", { description: `Executing ${actions.length} steps` });
+        onEvent("action_start", { description: `Executing ${actions.length} steps` });
       }
+
+      let overallSuccess = true;
 
       for (let i = 0; i < actions.length; i++) {
         if (this.stopRequested) break;
@@ -474,37 +476,61 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
         let success = false;
         let attempt = 0;
         while (attempt < this.maxActionRetries && !success) {
-            attempt++;
-            const execResult = await this.executeAction(action);
-            if (execResult.success) {
-                const verification = await this.verifyAction(action, execResult);
-                if (verification.verified) {
-                    success = true;
-                } else {
-                    console.log(`[ACT JS] Verification failed: ${verification.message}`);
-                }
+          attempt++;
+          const execResult = await this.executeAction(action);
+          if (execResult.success) {
+            const verification = await this.verifyAction(action, execResult);
+            if (verification.verified) {
+              success = true;
+            } else {
+              console.log(`[ACT JS] Verification failed: ${verification.message}`);
             }
+          }
         }
 
         if (!success) {
-            if (!this.stopRequested) {
-                onEvent("action_complete", { description: action.description, success: false, details: "Action failed after retries" });
-            }
-            break;
+          overallSuccess = false;
+          if (!this.stopRequested) {
+            onEvent("action_complete", { description: action.description, success: false, details: "Action failed after retries" });
+          }
+          break;
         } else {
-            if (!this.stopRequested) {
-                onEvent("action_complete", { description: action.description, success: true });
-            }
+          if (!this.stopRequested) {
+            onEvent("action_complete", { description: action.description, success: true });
+          }
         }
       }
 
       if (!this.stopRequested) {
-          onEvent("task_complete", { task: userRequest, success: true });
+        // Report task completion using the aggregated success state
+        onEvent("task_complete", { task: userRequest, success: overallSuccess });
+
+        // Provide AI response depending on overall success
+        if (overallSuccess) {
           onEvent("ai_response", { text: "Task completed.", is_action: true });
+        } else {
+          onEvent("ai_response", { text: "Task failed during execution.", is_action: true, type: 'error' });
+        }
+
+        // If the plan provided a post-task message (non-log), emit it as an "after_message"
+        // so frontends can display it and TTS can speak it if enabled.
+        try {
+          if (plan && plan.after_message) {
+            onEvent("after_message", { text: plan.after_message, meta: { source: 'act' } });
+          }
+        } catch (e) {
+          console.error('[ACT JS] Error emitting after_message:', e);
+        }
       }
 
     } catch (err) {
       console.error("[ACT JS] Task error:", err);
+      // Ensure we signal task completion (failed) so visual effects are cleared
+      try {
+        onEvent("task_complete", { task: userRequest, success: false });
+      } catch (e) {
+        console.error('[ACT JS] Error emitting task_complete on catch:', e);
+      }
       onError({ message: err.message });
     }
   }

@@ -247,6 +247,11 @@ class ChatWindow {
     }
 
     setupIPCListeners() {
+        // Register this window for wakeword devtools logging
+        if (window.electronAPI && window.electronAPI.ipcSend) {
+            window.electronAPI.ipcSend('register-devtools-window');
+        }
+
         if (window.chatAPI) {
             // App initialization complete - play greeting after full initialization
             if (window.chatAPI.onAppInitialized) {
@@ -303,20 +308,37 @@ class ChatWindow {
                 });
             }
 
-            // AI responses
+            // AI responses - ALWAYS show them regardless of task state
             window.chatAPI.onAIResponse((event, data) => {
-                if (!this.currentTask && !data.is_greeting) {
-                    console.log('[ChatWindow] Ignoring AI response as no task is active');
-                    return;
-                }
-
+                console.log('[ChatWindow] AI Response received:', data);
+                
                 // Force-clear ALL thinking indicators
                 this.forceStopThinking();
 
+                // Log the response data for debugging
+                if (!data.text && !data.message) {
+                    console.warn('[ChatWindow] AI Response has no text content:', data);
+                }
+
                 if (data.type === 'rejection' || data.type === 'error') {
+                    console.log('[ChatWindow] Adding error message:', data.message);
                     this.addMessage(data.message, 'ai', false);
                 } else {
-                    this.addMessage(data.text || data.message, 'ai', data.is_action);
+                    const content = data.text || data.message;
+                    console.log('[ChatWindow] Adding AI message (length:', content?.length, ')', content?.substring(0, 100));
+                    this.addMessage(content, 'ai', data.is_action);
+                }
+            });
+
+            // ACT after-messages (user-facing, non-log) - display and optionally style differently
+            window.chatAPI.onAfterMessage((event, data) => {
+                console.log('[ChatWindow] After-message received:', data);
+                // Do not clear thinking indicators here - they may have been cleared already
+                if (data && data.text) {
+                    // Use an 'ai' bubble but mark as 'after' via meta if needed
+                    this.addMessage(data.text, 'ai', false);
+                } else {
+                    console.warn('[ChatWindow] After-message has no text:', data);
                 }
             });
 
@@ -336,10 +358,8 @@ class ChatWindow {
             window.chatAPI.onActionStart((event, data) => {
                 if (!this.currentTask) return;
                 console.log('[ChatWindow] Action start:', data);
-                // If we don't have an action ID yet, create one
-                if (!this.lastActionId || !this.actionStatuses.has(this.lastActionId)) {
-                    this.addActionMessage(data.description || 'Executing action...', 'running');
-                }
+                // Always create a new action container for each action start so logs do not mix between tasks
+                this.addActionMessage(data.description || 'Executing action...', 'running');
             });
 
             window.chatAPI.onActionStep((event, data) => {
@@ -368,10 +388,12 @@ class ChatWindow {
             });
 
             window.chatAPI.onTaskComplete((event, data) => {
+                const completedTask = this.currentTask;
+                const success = !!(data && data.success);
                 this.currentTask = null;
                 this.updateStatus('Ready', 'ready');
-                // Fallback: Clear any lingering spinners
-                this.updateActionStatus(null, true);
+                // Finalize action statuses for the completed task based on success
+                this.finalizeActionStatusesForTask(completedTask, success);
                 this.updateSendButton();
                 // Chat window will be shown automatically by backend manager
             });
@@ -413,6 +435,20 @@ class ChatWindow {
                     console.log('[ChatWindow] Wake word detected but chat was already open, not auto-starting transcription');
                 }
             });
+
+            // Devtools logging for wakeword debugging
+            if (window.electronAPI && window.electronAPI.onDevToolsLog) {
+                window.electronAPI.onDevToolsLog((event, data) => {
+                    const { message, level, timestamp } = data;
+                    const logStyle = {
+                        'success': 'color: #4ade80; font-weight: bold;',
+                        'error': 'color: #f87171; font-weight: bold;',
+                        'warn': 'color: #facc15; font-weight: bold;',
+                        'info': 'color: #60a5fa; font-weight: bold;'
+                    };
+                    console.log(`%c[${timestamp}] ${message}`, logStyle[level] || 'color: #999;');
+                });
+            }
 
             window.chatAPI.onAudioStarted((event, data) => {
                 this.setAudioPlayingState(true);
@@ -1174,6 +1210,8 @@ class ChatWindow {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message ai action';
         messageDiv.dataset.actionId = actionId;
+        // Attach the current task to this action element for correct grouping
+        messageDiv.dataset.task = this.currentTask || '';
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
@@ -1200,7 +1238,7 @@ class ChatWindow {
         messageDiv.appendChild(contentDiv);
         this.messagesContainer.appendChild(messageDiv);
         this.scrollToBottom();
-        this.actionStatuses.set(actionId, { element: messageDiv, text });
+        this.actionStatuses.set(actionId, { element: messageDiv, text, task: this.currentTask || '' });
         this.lastActionId = actionId;
 
         this.hideWelcomeScreen();
@@ -1209,18 +1247,31 @@ class ChatWindow {
     updateActionStatus(actionText, success, details) {
         let entries = [];
 
-        // Find the action element(s)
+        // Find the action element(s) - only consider actions that belong to the current task (if set)
         if (actionText) {
             for (const [id, data] of this.actionStatuses.entries()) {
                 if (data.text === actionText) {
-                    entries.push(data.element);
+                    // If there is a currentTask, ensure task matches
+                    if (!this.currentTask || data.task === this.currentTask) {
+                        entries.push(data.element);
+                    }
                 }
             }
         }
 
+        // If no explicit match by text, try to pick the last action for the current task
         if (entries.length === 0 && this.lastActionId) {
             const lastEntry = this.actionStatuses.get(this.lastActionId);
-            if (lastEntry) entries.push(lastEntry.element);
+            if (lastEntry && (!this.currentTask || lastEntry.task === this.currentTask)) entries.push(lastEntry.element);
+            else {
+                // Fallback: find the most recent action matching current task
+                for (const [id, data] of Array.from(this.actionStatuses.entries()).reverse()) {
+                    if (!this.currentTask || data.task === this.currentTask) {
+                        entries.push(data.element);
+                        break;
+                    }
+                }
+            }
         }
 
         // If success is null/undefined but we're calling this, we probably want to stop the spinner
@@ -1293,6 +1344,17 @@ class ChatWindow {
         // Reset status bar to ready + rate display
         this.updateStatus('Ready', 'ready');
         this.updateRateLimitDisplay();
+    }
+
+    // Helper to finalize action statuses for a given task
+    finalizeActionStatusesForTask(task, success) {
+        if (!task) return;
+        for (const [id, actionData] of this.actionStatuses.entries()) {
+            if (actionData.task === task) {
+                // Mark with success flag (true => check, false => x)
+                this.updateActionStatus(actionData.text, !!success);
+            }
+        }
     }
 
     getOrCreateMessageGroup(timestamp) {

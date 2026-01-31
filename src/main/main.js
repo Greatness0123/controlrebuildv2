@@ -332,6 +332,24 @@ class ComputerUseAgent {
                 }
             });
 
+            // Listen for ACT after-message events and treat them as front-facing messages (display + optional TTS)
+            this.backendManager.on('after-message', (data) => {
+                console.log('[Main] After-message received from ACT:', JSON.stringify(data, null, 2));
+
+                // Send to chat window for display (if present)
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('after-message', data);
+                }
+
+                // Speak the after-message if voice response enabled and text present
+                if (this.appSettings.voiceResponse && data && data.text) {
+                    console.log('[Main] Speaking ACT after-message via EdgeTTS');
+                    const cleanText = this.cleanMarkdownForTTS(data.text);
+                    this.edgeTTS.speak(cleanText);
+                }
+            });
+
             // Add IPC handlers for TTS control
             ipcMain.handle('tts-stop', () => {
                 console.log('[Main] [IPC] tts-stop requested');
@@ -875,17 +893,39 @@ class ComputerUseAgent {
 
 
         ipcMain.handle('update-floating-button', (event, visible) => {
-            // Update settings
+            // Update appSettings and persist synchronously so subsequent get-settings calls see the change
             this.appSettings.floatingButtonVisible = visible;
-            this.saveSettings(this.appSettings);
+            // Update settings manager immediately to make get-settings reflect new value
+            try {
+                this.settingsManager.updateSettings({ floatingButtonVisible: visible });
+            } catch (e) {
+                console.error('[Main] Failed to update settings manager for floating button:', e);
+            }
 
-            // Broadcast to overlay window
+            // Broadcast new settings to all windows so renderers can react immediately
+            try {
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+            } catch (e) {
+                console.error('[Main] Failed to broadcast settings-updated after floating button change:', e);
+            }
+
+            // Ensure global.appSettings is in sync
+            try {
+                global.appSettings = this.appSettings;
+            } catch (e) {
+                console.error('[Main] Failed to update global.appSettings:', e);
+            }
+
+            console.log('[Main] Floating button updated:', visible);
+
+            // Broadcast to overlay window about the toggle so it can enforce visibility immediately
             const mainWin = this.windowManager.getWindow('main');
             if (mainWin && !mainWin.isDestroyed()) {
                 mainWin.webContents.send('floating-button-toggle', visible);
             }
 
-            return { success: true };
+            // Also return the new persisted state
+            return { success: true, floatingButtonVisible: visible };
         });
 
         ipcMain.handle('open-website', () => {
@@ -1121,6 +1161,7 @@ const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
     console.log('[Main] Another instance is already running, quitting...');
+    console.log('[Main] Application already running - exiting this instance');
     app.quit();
 } else {
     // Create and start the application
@@ -1128,22 +1169,29 @@ if (!gotTheLock) {
 
     app.on('second-instance', (event, commandLine, workingDirectory) => {
         console.log('[Main] Second instance detected, showing entry window');
+        console.log('[Main] Attempting to open entry page for second instance');
         // If someone tried to run a second instance, we should focus our window.
         if (agent && agent.windowManager) {
-            // First check if user is already authenticated
-            if (agent.isAuthenticated) {
-                console.log('[Main] User already authenticated, but showing entry page as requested');
-            }
+            // Log the second instance attempt
+            console.log('[Main] Second instance - current authentication state:', agent.isAuthenticated);
 
             const entryWin = agent.windowManager.getWindow('entry');
             if (entryWin && !entryWin.isDestroyed()) {
+                console.log('[Main] Entry window exists, showing and focusing it');
                 if (entryWin.isMinimized()) entryWin.restore();
                 entryWin.show();
                 entryWin.focus();
             } else {
                 // If entry window doesn't exist or was closed, recreate/show it
+                console.log('[Main] Entry window does not exist, creating it');
                 agent.windowManager.showWindow('entry');
             }
         }
     });
-}
+
+        // Register devtools window for wakeword logging
+        ipcMain.on('register-devtools-window', (event) => {
+            console.log('[Main] DevTools window registered for logging');
+            this.wakewordManager.registerDevToolsWindow(BrowserWindow.fromWebContents(event.sender));
+        });
+    }

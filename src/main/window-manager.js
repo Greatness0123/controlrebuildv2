@@ -308,12 +308,16 @@ class WindowManager {
         if (browserWindow && !browserWindow.isDestroyed()) {
             if (windowType === 'chat') {
                 this.chatVisible = true;
-                this.hideFloatingButton();
+                // Only hide floating button if it's enabled in settings
+                console.log('[WindowManager] showWindow(chat): hiding floating button if enabled');
+                this.hideFloatingButtonIfEnabled();
             }
             if (windowType === 'settings') {
                 // Make overlay click-through while settings is open so settings receives events
                 this.setInteractive(false);
-                this.hideFloatingButton();
+                // Only hide floating button if it's enabled in settings
+                console.log('[WindowManager] showWindow(settings): hiding floating button if enabled');
+                this.hideFloatingButtonIfEnabled();
             }
             console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             browserWindow.show();
@@ -332,7 +336,8 @@ class WindowManager {
             }
             // Always restore overlay to non-interactive default after closing a window
             this.setInteractive(false);
-            this.showFloatingButton();
+            // Only show floating button if it's enabled in settings
+            this.showFloatingButtonIfEnabled();
 
             browserWindow.hide();
             console.log(`[WindowManager] hideWindow: Hiding ${windowType}. Current state: chatVisible=${this.chatVisible}`);
@@ -378,6 +383,29 @@ class WindowManager {
         }
     }
 
+    // Hide floating button only if it's enabled in settings (respects user toggle)
+    hideFloatingButtonIfEnabled() {
+        const mainWindow = this.windows.get('main');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('hide-floating-button-if-enabled');
+        }
+    }
+
+    // Show floating button only if it's enabled in settings (respects user toggle)
+    showFloatingButtonIfEnabled() {
+        const mainWindow = this.windows.get('main');
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            const enabled = global.appSettings?.floatingButtonVisible !== false;
+            console.log(`[WindowManager] showFloatingButtonIfEnabled - floatingButtonVisible=${enabled}`);
+            if (enabled) {
+                // Send a direct show request - overlay will still respect its own settings guard
+                mainWindow.webContents.send('show-floating-button');
+            } else {
+                console.log('[WindowManager] Skipping showFloatingButtonIfEnabled: floating button disabled in settings');
+            }
+        }
+    }
+
     setInteractive(interactive) {
         this.isInteractive = interactive;
         const mainWindow = this.windows.get('main');
@@ -395,6 +423,14 @@ class WindowManager {
     }
 
     showVisualEffect(effectType) {
+        const enabled = global.appSettings?.edgeGlowEnabled !== false;
+        console.log('[WindowManager] showVisualEffect called:', effectType, 'edgeGlowEnabled=', enabled);
+        if (!enabled) {
+            console.log('[WindowManager] Skipping showVisualEffect because edge glow disabled in settings');
+            console.trace('[WindowManager] showVisualEffect called when disabled - trace');
+            return;
+        }
+        console.trace('[WindowManager] showVisualEffect proceeding - trace');
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('show-visual-effect', { type: effectType });

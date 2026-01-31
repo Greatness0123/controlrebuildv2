@@ -17,17 +17,36 @@ class WakewordHelper {
     const { app } = require('electron');
     const isPackaged = app.isPackaged;
 
+    // Detect platform and set the appropriate suffix
     const platform = process.platform;
     let platformSuffix = "windows";
-    if (platform === "darwin") platformSuffix = "mac";
-    else if (platform === "linux") platformSuffix = "linux";
+    let osName = "Windows";
+    
+    if (platform === "darwin") {
+      platformSuffix = "mac";
+      osName = "macOS";
+    } else if (platform === "linux") {
+      platformSuffix = "linux";
+      osName = "Linux";
+    }
 
+    console.log(`[WAKEWORD JS] Detected OS: ${osName} (platform: ${platform})`);
+    console.log(`[WAKEWORD JS] Architecture: ${process.arch}`);
+    console.log(`[WAKEWORD JS] App packaged: ${isPackaged}`);
+
+    // Build list of model file names for this platform
     const possibleNames = [
       `hey-control_en_${platformSuffix}_v4_0_0.ppn`,
+      // Fallback names if exact platform suffix doesn't match
+      `hey-control_${platformSuffix}.ppn`,
+      `hey-control_en_${platformSuffix}.ppn`,
       "hey-control_en_windows_v4_0_0.ppn",
       "hey-control.ppn"
     ];
 
+    console.log(`[WAKEWORD JS] Looking for model files: ${possibleNames.join(', ')}`);
+
+    // Build list of search directories
     const searchDirs = [];
     if (isPackaged) {
       // 1. extraResources (standard for electron-builder)
@@ -44,6 +63,7 @@ class WakewordHelper {
     searchDirs.push(path.join(process.cwd(), "wakeword"));
 
     console.log("[WAKEWORD JS] Searching for model file...");
+    console.log(`[WAKEWORD JS] Search directories: ${searchDirs.join(', ')}`);
 
     let foundPath = null;
     for (const dir of searchDirs) {
@@ -54,13 +74,15 @@ class WakewordHelper {
 
       console.log(`[WAKEWORD JS] Checking directory: ${dir}`);
 
-      // Try exact names
+      // Try exact names first
       for (const name of possibleNames) {
         const p = path.join(dir, name);
         if (fs.existsSync(p)) {
           console.log(`[WAKEWORD JS] SUCCESS: Found model at ${p}`);
           foundPath = p;
           break;
+        } else {
+          console.log(`[WAKEWORD JS] Not found: ${p}`);
         }
       }
 
@@ -68,6 +90,7 @@ class WakewordHelper {
         // Try finding ANY .ppn file in this dir
         try {
           const files = fs.readdirSync(dir);
+          console.log(`[WAKEWORD JS] Files in directory: ${files.join(', ')}`);
           const ppnFile = files.find(f => f.endsWith(".ppn"));
           if (ppnFile) {
             foundPath = path.join(dir, ppnFile);

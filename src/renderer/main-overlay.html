@@ -64,9 +64,10 @@
         }
 
         .floating-button.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transform: scale(0);
+            opacity: 0 !important;
+            pointer-events: none !important;
+            transform: scale(0) !important;
+            visibility: hidden !important;
         }
 
         .floating-button .logo {
@@ -504,7 +505,7 @@
     </div>
 
     <!-- Control Working Indicator -->
-    <div class="control-working" id="controlWorking">Control is Working</div>
+    <!-- <div class="control-working" id="controlWorking">Control is Working</div> -->
 
     <!-- Notification Indicator -->
     <div class="notification-indicator" id="notificationIndicator"></div>
@@ -548,6 +549,7 @@
                 try {
                     if (window.settingsAPI && window.settingsAPI.getSettings) {
                         const settings = await window.settingsAPI.getSettings();
+                        console.log('[MainOverlay] Loading floating button visibility. Settings:', settings.floatingButtonVisible);
                         if (settings && settings.floatingButtonVisible === false) {
                             this.hideFloatingButton();
                         } else {
@@ -619,8 +621,34 @@
 
             setupIPCListeners() {
                 if (window.electronAPI) {
-                    window.electronAPI.onShowFloatingButton(() => this.showFloatingButton());
-                    window.electronAPI.onHideFloatingButton(() => this.hideFloatingButton());
+                    window.electronAPI.onShowFloatingButton(async () => {
+                        console.log('[Overlay] onShowFloatingButton received');
+                        if (await this.isFloatingButtonEnabled()) {
+                            this.showFloatingButton();
+                        } else {
+                            console.log('[Overlay] onShowFloatingButton ignored: floating button disabled');
+                        }
+                    });
+                    window.electronAPI.onHideFloatingButton(() => {
+                        console.log('[Overlay] onHideFloatingButton received - hiding');
+                        this.hideFloatingButton();
+                    });
+                    
+                    // Conditional show/hide - respects user toggle setting
+                    window.electronAPI.onShowFloatingButtonIfEnabled(async () => {
+                        console.log('[Overlay] onShowFloatingButtonIfEnabled received');
+                        if (await this.isFloatingButtonEnabled()) {
+                            this.showFloatingButton();
+                        } else {
+                            console.log('[Overlay] onShowFloatingButtonIfEnabled ignored: floating button disabled');
+                        }
+                    });
+                    // Always hide when asked to hide-if-enabled (prevents race where a show event might make it visible)
+                    window.electronAPI.onHideFloatingButtonIfEnabled(async () => {
+                        console.log('[Overlay] onHideFloatingButtonIfEnabled received - hiding');
+                        this.hideFloatingButton();
+                    });
+                    
                     window.electronAPI.onVisualEffect((event, data) => this.showVisualEffect(data && data.type));
 
                     window.electronAPI.onInteractionModeChanged((event, data) => {
@@ -640,21 +668,40 @@
 
                     window.electronAPI.onFloatingButtonToggle((event, visible) => {
                         console.log('[Overlay] Floating button toggle:', visible);
+                        // ALWAYS enforce the toggle state, regardless of chat/window state
                         if (visible) {
                             this.showFloatingButton();
                         } else {
+                            // Force hide - it should be invisible regardless of any other state
                             this.hideFloatingButton();
                         }
                     });
 
+                    // React to global settings updates so we can immediately enforce toggles
+                    window.electronAPI.onSettingsUpdated?.((event, settings) => {
+                        console.log('[Overlay] Settings updated:', settings);
+                        if (settings.edgeGlowEnabled === false) {
+                            this.hideEdgeGlow();
+                        }
+                        if (settings.floatingButtonVisible === false) {
+                            this.hideFloatingButton();
+                        } else if (settings.floatingButtonVisible === true) {
+                            this.showFloatingButton();
+                        }
+                    });
+
                     // Action status listeners
-                    window.electronAPI.onActionStart((event, data) => {
+                    window.electronAPI.onActionStart(async (event, data) => {
                         console.log('[Overlay] action-start received:', data);
-                        // Only show if not already showing from task-start
+                        // Only show if not already showing from task-start AND edge glow is enabled
                         if (!this.edgeGlow.classList.contains('active')) {
                             this.showActionStatus(data || 'Executing action');
-                            this.showFlashOverlay();
-                            this.showEdgeGlow();
+                            if (await this.isEdgeGlowEnabled()) {
+                                this.showFlashOverlay();
+                                this.showEdgeGlow();
+                            } else {
+                                console.log('[Overlay] Edge glow disabled - skipping flash/edge glow on action-start');
+                            }
                         }
                     });
 
@@ -668,14 +715,23 @@
                     window.electronAPI.onActionComplete((event, data) => {
                         console.log('[Overlay] action-complete received:', data);
                         this.updateActionStatus((data && data.description) || 'Action complete', !!(data && data.success));
+                        // If an action failed, hide the edge glow immediately and mark failure visually
+                        if (data && data.success === false) {
+                            console.log('[Overlay] action failed - hiding edge glow');
+                            this.hideEdgeGlow();
+                        }
                     });
 
-                    window.electronAPI.onTaskStart((event, data) => {
+                    window.electronAPI.onTaskStart(async (event, data) => {
                         console.log('[Overlay] task-start received:', data);
                         this.showActionStatus((data && data.task) || 'Starting task');
                         this.showControlWorking();
-                        this.showFlashOverlay();
-                        this.showEdgeGlow();
+                        if (await this.isEdgeGlowEnabled()) {
+                            this.showFlashOverlay();
+                            this.showEdgeGlow();
+                        } else {
+                            console.log('[Overlay] Edge glow disabled - skipping flash/edge glow on task-start');
+                        }
                     });
 
                     window.electronAPI.onTaskComplete((event, data) => {
@@ -691,6 +747,21 @@
                         this.hideActionStatus();
                         this.hideControlWorking();
                         this.hideEdgeGlow();
+                    });
+
+                    // Ensure edge glow doesn't appear (or is hidden) on AI responses when the setting is disabled
+                    window.electronAPI.onAIResponse?.(async (event, data) => {
+                        console.log('[Overlay] ai-response received:', data);
+                        try {
+                            const enabled = await this.isEdgeGlowEnabled();
+                            if (!enabled) {
+                                console.log('[Overlay] Edge glow disabled - hiding any glow/flash on ai-response');
+                                this.hideEdgeGlow();
+                                this.flashOverlay.classList.remove('active');
+                            }
+                        } catch (e) {
+                            console.error('[Overlay] Error while handling ai-response:', e);
+                        }
                     });
                 }
             }
@@ -969,19 +1040,37 @@
                 }
             }
 
-            showFloatingButton() {
+            async showFloatingButton() {
+                // Enforce user preference: do not show if disabled
+                if (!await this.isFloatingButtonEnabled()) {
+                    console.log('[Overlay] Floating button disabled in settings; not showing');
+                    return;
+                }
+                console.log('[Overlay] SHOW floating button');
                 this.floatingButton.classList.remove('hidden');
+                this.floatingButton.style.visibility = 'visible';
+                this.floatingButton.style.pointerEvents = 'auto';
             }
 
             hideFloatingButton() {
+                console.log('[Overlay] HIDE floating button');
                 this.floatingButton.classList.add('hidden');
+                this.floatingButton.style.visibility = 'hidden';
+                this.floatingButton.style.pointerEvents = 'none';
             }
 
-            showVisualEffect(effectType) {
+            async showVisualEffect(effectType) {
+                console.trace('[Overlay] showVisualEffect called with effectType:', effectType);
                 switch (effectType) {
                     case 'task-active':
                         this.showControlWorking();
-                        this.showEdgeGlow();
+                        if (await this.isEdgeGlowEnabled()) {
+                            console.log('[Overlay] showVisualEffect: edgeGlow enabled - showing flash and glow');
+                            this.showFlashOverlay();
+                            this.showEdgeGlow();
+                        } else {
+                            console.log('[Overlay] showVisualEffect skipped edge glow (disabled in settings)');
+                        }
                         break;
                     case 'task-inactive':
                         this.hideControlWorking();
@@ -1021,9 +1110,17 @@
             }
 
             async showFlashOverlay() {
+                // Trace to help debug unexpected calls
+                console.trace('[Overlay] showFlashOverlay called');
                 // Check if edge glow is enabled in settings
-                if (!await this.isEdgeGlowEnabled()) return;
+                if (!await this.isEdgeGlowEnabled()) {
+                    console.log('[Overlay] Edge glow disabled in settings, not showing flash overlay');
+                    // Ensure it's hidden just in case
+                    this.flashOverlay.classList.remove('active');
+                    return;
+                }
 
+                console.log('[Overlay] Showing flash overlay');
                 // Show flash overlay for 1 second
                 this.flashOverlay.classList.add('active');
                 // Remove after animation completes
@@ -1033,13 +1130,22 @@
             }
 
             async showEdgeGlow() {
+                // Trace to help debug unexpected calls
+                console.trace('[Overlay] showEdgeGlow called');
                 // Check if edge glow is enabled in settings
-                if (!await this.isEdgeGlowEnabled()) return;
+                if (!await this.isEdgeGlowEnabled()) {
+                    console.log('[Overlay] Edge glow disabled in settings, not showing');
+                    // Ensure it's hidden just in case
+                    this.edgeGlow.classList.remove('active');
+                    return;
+                }
 
+                console.log('[Overlay] Showing edge glow');
                 this.edgeGlow.classList.add('active');
             }
 
             hideEdgeGlow() {
+                console.log('[Overlay] Hiding edge glow');
                 this.edgeGlow.classList.remove('active');
             }
 
@@ -1047,12 +1153,28 @@
                 try {
                     if (window.settingsAPI && window.settingsAPI.getSettings) {
                         const settings = await window.settingsAPI.getSettings();
+                        console.log('[Overlay] Checking edgeGlowEnabled setting:', settings.edgeGlowEnabled);
                         // Default to true if not set
                         return settings.edgeGlowEnabled !== false;
                     }
                     return true;
                 } catch (e) {
                     console.error('[Overlay] Error checking edgeGlowEnabled:', e);
+                    return true;
+                }
+            }
+
+            async isFloatingButtonEnabled() {
+                try {
+                    if (window.settingsAPI && window.settingsAPI.getSettings) {
+                        const settings = await window.settingsAPI.getSettings();
+                        console.log('[Overlay] Checking floatingButtonVisible setting:', settings.floatingButtonVisible);
+                        // Default to true if not set
+                        return settings.floatingButtonVisible !== false;
+                    }
+                    return true;
+                } catch (e) {
+                    console.error('[Overlay] Error checking floatingButtonVisible:', e);
                     return true;
                 }
             }

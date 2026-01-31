@@ -545,7 +545,7 @@ module.exports = {
             // Set a timeout for the Firebase request to avoid hanging on poor connection
             const configDoc = await Promise.race([
                 db.collection('config').doc('api_keys').get(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 5000))
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), 15000))
             ]);
 
             if (configDoc.exists) {
@@ -553,7 +553,7 @@ module.exports = {
                 const keysToCache = {
                     gemini: remoteKeys.gemini_free || remoteKeys.gemini,
                     porcupine: remoteKeys.porcupine_access_key || remoteKeys.porcupine,
-                    gemini_model: remoteKeys.gemini_model || "gemini-2.0-flash"
+                    gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash"
                 };
 
                 if (keysToCache.gemini && keysToCache.porcupine) {

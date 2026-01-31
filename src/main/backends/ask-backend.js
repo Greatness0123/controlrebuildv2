@@ -16,7 +16,7 @@ class AskBackend {
 
   setupGeminiAPI(apiKey) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
     if (key === "test_api_key") {
       console.warn("[ASK JS] No API key found");

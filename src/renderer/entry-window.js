@@ -251,8 +251,9 @@ class EntryWindow {
 
     async startApplication() {
         if (this.isAuthenticated && window.entryAPI) {
-            // Close entry window and show main app
-            await window.entryAPI.closeWindow();
+            // Minimize entry window instead of closing it
+            console.log('[EntryWindow] Start button clicked, minimizing entry window');
+            await window.entryAPI.minimizeWindow();
         }
     }
 
