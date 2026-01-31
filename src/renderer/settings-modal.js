@@ -1087,7 +1087,7 @@ class SettingsModal {
 
         const anchor = document.createElement('a');
         anchor.href = '#';
-        // anchor.textContent = 'oice Console';
+        // anchor.textContent = 'picovoice Console';
         anchor.style.fontWeight = '600';
         anchor.style.color = '#0d0d0d';
         anchor.addEventListener('click', (e) => {
