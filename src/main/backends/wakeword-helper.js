@@ -172,11 +172,15 @@ class WakewordHelper {
           this.porcupine = new Porcupine(currentKey, [this.modelPath], [0.5]);
           console.log("[WAKEWORD JS] Porcupine engine initialized successfully");
       } catch (e) {
-          console.error("[WAKEWORD JS] Porcupine initialization failed:", e);
-          if (e.message.includes("Invalid AccessKey")) {
-              console.error("[WAKEWORD JS] Check your Picovoice Access Key.");
+          // Avoid exposing low-level error details (may include raw keys). Emit a generic invalid key event for UI.
+          const msg = (e && e.message && (e.message.includes('Invalid') || e.message.includes('AccessKey') || e.message.includes('parse'))) ? 'Invalid Picovoice key' : 'Wakeword initialization failed';
+          console.error("[WAKEWORD JS] Porcupine initialization failed:", msg);
+
+          if (msg === 'Invalid Picovoice key') {
+              try { process.emit && process.emit('wakeword-invalid-key', { message: 'Invalid Picovoice key' }); } catch (err) {}
           }
-          throw e;
+
+          throw new Error(msg);
       }
 
       const frameLength = this.porcupine.frameLength;
@@ -228,6 +232,24 @@ class WakewordHelper {
     } catch (err) {
       console.error("[WAKEWORD JS] Failed to start:", err);
       if (onError) onError(err);
+    }
+  }
+
+  async validateAccessKey(accessKey) {
+    try {
+      const keyToTest = accessKey || this.accessKey || process.env.PORCUPINE_ACCESS_KEY;
+      console.log('[WAKEWORD JS] validateAccessKey called, hasKey=', !!keyToTest);
+      if (!keyToTest) return { success: false, message: 'Missing Picovoice access key' };
+
+      // Try to instantiate Porcupine briefly to validate key
+      const testPorcupine = new Porcupine(keyToTest, [this.modelPath], [0.5]);
+      testPorcupine.release();
+      console.log('[WAKEWORD JS] validateAccessKey: key appears valid');
+      return { success: true };
+    } catch (e) {
+      console.error('[WAKEWORD JS] validateAccessKey error:', e && e.message ? e.message : e);
+      // Do not forward verbose errors to the renderer
+      return { success: false, message: 'Invalid Picovoice key' };
     }
   }
 

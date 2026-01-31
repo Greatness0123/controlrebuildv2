@@ -473,16 +473,22 @@ module.exports = {
             await userDoc.ref.update(firebaseUpdates);
 
             // 3. Update local cache with synced values and latest remote fields (like plan)
+            console.log('Remote user data keys present:', {
+                picovoiceKey: !!remoteData.picovoiceKey,
+                porcupine_access_key: !!remoteData.porcupine_access_key
+            });
+
             const finalSyncedUser = {
                 ...cachedUser,
                 ...firebaseUpdates,
                 plan: remoteData.plan || cachedUser.plan, // Plan upgrades happen on server
-                isActive: remoteData.isActive !== false
+                isActive: remoteData.isActive !== false,
+                picovoiceKey: remoteData.picovoiceKey || cachedUser.picovoiceKey || null,
+                porcupine_access_key: remoteData.porcupine_access_key || cachedUser.porcupine_access_key || null
             };
 
             this.cacheUser(finalSyncedUser);
-
-            console.log('✓ User data successfully synced to Firebase');
+            console.log('✓ User data successfully synced to Firebase (cached includes picovoiceKey=', !!finalSyncedUser.picovoiceKey, ', porcupine_access_key=', !!finalSyncedUser.porcupine_access_key, ')');
             return finalSyncedUser;
         } catch (error) {
             console.error('✗ Sync user data error:', error.message);
@@ -552,23 +558,22 @@ module.exports = {
                 const remoteKeys = configDoc.data();
                 const keysToCache = {
                     gemini: remoteKeys.gemini_free || remoteKeys.gemini,
-                    porcupine: remoteKeys.porcupine_access_key || remoteKeys.porcupine,
+                    // NOTE: Porcupine / Picovoice keys are now stored per-user in the users collection
                     gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash"
                 };
 
-                if (keysToCache.gemini && keysToCache.porcupine) {
-                    // Check if they are different from cached
+                if (keysToCache.gemini) {
+                    // Check if they are different from cached (porcupine intentionally not compared)
                     const keysChanged = !cachedKeys ||
                         cachedKeys.gemini !== keysToCache.gemini ||
-                        cachedKeys.porcupine !== keysToCache.porcupine ||
                         cachedKeys.gemini_model !== keysToCache.gemini_model;
 
                     if (keysChanged) {
                         // 3. Update local cache
                         fs.writeFileSync(keysCacheFile, JSON.stringify(keysToCache));
-                        console.log('✓ API keys updated from Firebase and cached locally');
+                        console.log('✓ API keys updated from Firebase and cached locally (porcupine is per-user)');
                     } else {
-                        console.log('✓ Local keys are up to date with Firebase');
+                        console.log('✓ Local keys are up to date with Firebase (porcupine is per-user)');
                     }
                     return keysToCache;
                 }

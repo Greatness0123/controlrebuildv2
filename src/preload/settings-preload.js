@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     // Event listeners for real-time updates
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', callback),
     onUserChanged: (callback) => ipcRenderer.on('user-changed', callback),
+    onPorcupineKeyInvalid: (callback) => ipcRenderer.on('porcupine-key-invalid', callback),
 
     // Floating button visibility
     updateFloatingButton: (visible) => ipcRenderer.invoke('update-floating-button', visible),
@@ -36,6 +37,12 @@ contextBridge.exposeInMainWorld('settingsAPI', {
 
     // External links
     openWebsite: () => ipcRenderer.invoke('open-website'),
+    openExternal: (url) => ipcRenderer.invoke('open-external-url', url),
+
+    // Picovoice (per-user) key management
+    getPicovoiceKey: () => ipcRenderer.invoke('get-picovoice-key'),
+    setPicovoiceKey: (key) => ipcRenderer.invoke('set-picovoice-key', key),
+    validatePicovoiceKey: (key) => ipcRenderer.invoke('validate-picovoice-key', key),
 
     // Window visibility
     setWindowVisibility: (visible) => ipcRenderer.invoke('set-window-visibility', visible),

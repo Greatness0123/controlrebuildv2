@@ -176,6 +176,22 @@ class ComputerUseAgent {
                 console.error('Error handling hotkey event:', e);
             }
         });
+
+        // Handle invalid picovoice/porcupine key events emitted by wakeword helper
+        process.on('wakeword-invalid-key', async (payload) => {
+            console.warn('[Main] Wakeword invalid key event received:', payload);
+            console.log('[Main] Handling wakeword-invalid-key: disabling voiceActivation and notifying renderers');
+            try {
+                // Turn off the voice activation setting to avoid broken state
+                this.settingsManager.updateSettings({ voiceActivation: false });
+                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+
+                // Notify renderers for a user-facing message
+                this.windowManager.broadcast('porcupine-key-invalid', { message: payload && payload.message ? payload.message : 'Invalid Picovoice key' });
+            } catch (e) {
+                console.error('[Main] Failed to handle wakeword-invalid-key:', e);
+            }
+        });
     }
 
     setupEventHandlers() {
@@ -192,12 +208,10 @@ class ComputerUseAgent {
         try {
             console.log('[Main] Control starting...');
 
-            // Fetch and cache API keys from Firebase
+            // Fetch and cache API keys from Firebase (gemini remains global; porcupine/picovoice is per-user)
             const apiKeys = await firebaseService.fetchAndCacheKeys();
             if (apiKeys) {
-                if (apiKeys.porcupine) {
-                    process.env.PORCUPINE_ACCESS_KEY = apiKeys.porcupine;
-                }
+                // Porcupine/Picovoice keys are per-user and will be applied when users provide them.
                 if (apiKeys.gemini) {
                     process.env.GEMINI_API_KEY = apiKeys.gemini;
                 }
@@ -250,6 +264,19 @@ class ComputerUseAgent {
                 if (syncedUser) {
                     this.currentUser = syncedUser;
                     this.settingsManager.updateSettings({ userDetails: syncedUser });
+
+                    // If user has a per-user Picovoice key, apply it for this session
+                    try {
+                        const userKey = syncedUser.picovoiceKey || syncedUser.porcupine_access_key;
+                        console.log('[Main] Synced user has picovoice key:', !!userKey);
+                        if (userKey) {
+                            // Apply to process env for this session (do not log actual key value)
+                            process.env.PORCUPINE_ACCESS_KEY = userKey;
+                            console.log('[Main] Applied per-user Picovoice key into process.env for this session');
+                        }
+                    } catch (e) {
+                        console.error('[Main] Error applying per-user Picovoice key during startup', e);
+                    }
                 }
 
                 // Broadcast to all windows
@@ -596,6 +623,85 @@ class ComputerUseAgent {
                     success: false,
                     message: 'Verification failed. Please try again.'
                 };
+            }
+        });
+
+        // Picovoice key management (per-user)
+        ipcMain.handle('get-picovoice-key', async () => {
+            try {
+                console.log('[Main] [IPC] get-picovoice-key called');
+                const user = this.currentUser || firebaseService.checkCachedUser();
+                const hasKey = !!(user && (user.picovoiceKey || user.porcupine_access_key));
+                console.log('[Main] [IPC] get-picovoice-key: userFound=', !!user, 'hasKey=', hasKey);
+                return { success: true, key: user ? (user.picovoiceKey || user.porcupine_access_key || null) : null };
+            } catch (e) {
+                console.error('[Main] [IPC] get-picovoice-key error:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('set-picovoice-key', async (event, key) => {
+            try {
+                console.log('[Main] [IPC] set-picovoice-key called by renderer (user id=', this.currentUser ? this.currentUser.id : 'none', ')');
+                if (!this.currentUser || !this.currentUser.id) return { success: false, message: 'Not authenticated' };
+                const updateRes = await firebaseService.updateUser(this.currentUser.id, { picovoiceKey: key, porcupine_access_key: key });
+                console.log('[Main] [IPC] updateUser result:', updateRes && updateRes.success);
+                if (!updateRes || !updateRes.success) return updateRes;
+                const synced = await firebaseService.syncUserData(this.currentUser.id);
+                console.log('[Main] [IPC] syncUserData result:', !!synced);
+                if (synced) {
+                    this.currentUser = synced;
+                    this.settingsManager.updateSettings({ userDetails: synced });
+                    this.windowManager.broadcast('user-changed', this.currentUser);
+
+                    // Apply key for current session without exposing it in logs
+                    try {
+                        process.env.PORCUPINE_ACCESS_KEY = key;
+                        console.log('[Main] [IPC] Applied picovoice key to process.env for this session');
+                    } catch (e) {
+                        console.error('[Main] [IPC] Error applying key to env:', e);
+                    }
+
+                    // Enable voice activation now that a valid key is stored
+                    try {
+                        this.settingsManager.updateSettings({ voiceActivation: true });
+                        this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                        console.log('[Main] [IPC] voiceActivation enabled via settingsManager after key save');
+                    } catch (e) {
+                        console.error('[Main] [IPC] Error updating settings after key save:', e);
+                    }
+                }
+                return { success: true };
+            } catch (e) {
+                console.error('[Main] [IPC] set-picovoice-key failed:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('validate-picovoice-key', async (event, key) => {
+            try {
+                console.log('[Main] [IPC] validate-picovoice-key called (key length=', key ? key.length : 0, ')');
+                const WakewordHelper = require('./backends/wakeword-helper');
+                const helper = new WakewordHelper({ accessKey: key });
+                if (helper.validateAccessKey) {
+                    const res = await helper.validateAccessKey(key);
+                    console.log('[Main] [IPC] validate-picovoice-key result:', res);
+                    if (!res || !res.success) return { success: false, message: 'Invalid Picovoice key' };
+                    return { success: true };
+                }
+                return { success: true };
+            } catch (e) {
+                console.error('[Main] [IPC] validate-picovoice-key error:', e);
+                return { success: false, message: 'Invalid Picovoice key' };
+            }
+        });
+
+        ipcMain.handle('open-external-url', (event, url) => {
+            try {
+                shell.openExternal(url);
+                return { success: true };
+            } catch (e) {
+                return { success: false, message: e.message };
             }
         });
 
@@ -984,6 +1090,7 @@ class ComputerUseAgent {
     }
 
     async saveSettings(settings) {
+        console.log('[Main] saveSettings called with updates:', settings);
         try {
             const oldSettings = this.settingsManager.getSettings();
 
@@ -998,6 +1105,7 @@ class ComputerUseAgent {
                 }
             }
             if (settings.voiceActivation !== undefined) {
+                console.log('[Main] saveSettings: request to set voiceActivation=', !!settings.voiceActivation, 'PORCUPINE_KEY_PRESENT=', !!process.env.PORCUPINE_ACCESS_KEY);
                 this.appSettings.voiceActivation = !!settings.voiceActivation;
                 await this.wakewordManager.enable(this.appSettings.voiceActivation);
             }

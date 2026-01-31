@@ -2,6 +2,7 @@ class SettingsModal {
     constructor() {
         this.currentUser = null;
         this.isAuthenticated = false;
+        this.freeDefaultsApplied = false; // <- guard to avoid repeated auto-save loops for free users
         this.settings = {
             pinEnabled: false,
             voiceActivation: false,
@@ -27,6 +28,8 @@ class SettingsModal {
         this.setupIPCListeners();
         await this.loadUserStatus();
         await this.loadSettings();
+        // Load whether a per-user Picovoice/Porcupine key exists
+        await this.loadPicovoiceKey();
         this.updateUI();
         this.initializeLucideIcons();
 
@@ -175,7 +178,18 @@ class SettingsModal {
         if (window.settingsAPI) {
             // Listen for settings updates
             window.settingsAPI.onSettingsUpdated?.((event, settings) => {
+                console.log('[Settings] onSettingsUpdated received', settings);
                 this.settings = { ...this.settings, ...settings };
+                this.updateUI();
+            });
+
+            // Listen for picovoice key invalid messages from main
+            window.settingsAPI.onPorcupineKeyInvalid?.((event, payload) => {
+                console.log('[Settings] onPorcupineKeyInvalid received', payload);
+                const msg = (payload && payload.message) ? payload.message : 'Invalid Picovoice key detected';
+                this.showToast(msg, 'error');
+                this.hasPicovoiceKey = false;
+                this.settings.voiceActivation = false;
                 this.updateUI();
             });
 
@@ -183,6 +197,16 @@ class SettingsModal {
             window.settingsAPI.onUserChanged?.((event, user) => {
                 this.currentUser = user;
                 this.isAuthenticated = !!user;
+                // Refresh keys and UI
+                this.loadPicovoiceKey().then(() => this.updateUI());
+            });
+
+            // Listen for picovoice key invalid messages from main
+            window.settingsAPI.onPorcupineKeyInvalid?.((event, payload) => {
+                const msg = (payload && payload.message) ? payload.message : 'Invalid Picovoice key detected';
+                this.showToast(msg, 'error');
+                this.hasPicovoiceKey = false;
+                this.settings.voiceActivation = false;
                 this.updateUI();
             });
         }
@@ -225,16 +249,50 @@ class SettingsModal {
         }
     }
 
-    async saveSettings() {
+    async loadPicovoiceKey() {
+        console.log('[Settings] loadPicovoiceKey: checking main process for stored key');
         try {
             if (window.settingsAPI) {
-                await window.settingsAPI.saveSettings(this.settings);
+                const res = await window.settingsAPI.getPicovoiceKey();
+                console.log('[Settings] loadPicovoiceKey: main returned', { success: !!(res && res.success), hasKey: !!(res && res.key) });
+                this.hasPicovoiceKey = !!(res && res.success && res.key);
+                if (!this.hasPicovoiceKey) {
+                    // Ensure voiceActivation is off when there's no key
+                    this.settings.voiceActivation = false;
+                }
+            } else {
+                console.log('[Settings] loadPicovoiceKey: settingsAPI not available');
+                this.hasPicovoiceKey = false;
+            }
+        } catch (e) {
+            console.error('[Settings] loadPicovoiceKey: Failed to check Picovoice key:', e);
+            this.hasPicovoiceKey = false;
+        }
+        console.log('[Settings] loadPicovoiceKey: final hasPicovoiceKey=', !!this.hasPicovoiceKey);
+    }
+
+    setFreeDefaults() {
+        // Apply fixed defaults for free users (visible but locked)
+        this.settings.voiceActivation = false;
+        this.settings.wakeWordToggleChat = false;
+        this.settings.windowVisibility = true;
+        this.settings.floatingButtonVisible = true;
+        if (this.settings.edgeGlowEnabled === undefined) this.settings.edgeGlowEnabled = true;
+    }
+
+    async saveSettings() {
+        try {
+            console.log('[Settings] saveSettings: saving settings', this.settings);
+            if (window.settingsAPI) {
+                const res = await window.settingsAPI.saveSettings(this.settings);
+                console.log('[Settings] saveSettings: main returned', res);
             } else {
                 // Fallback to sessionStorage
                 sessionStorage.setItem('appSettings', JSON.stringify(this.settings));
+                console.log('[Settings] saveSettings: saved to sessionStorage');
             }
         } catch (error) {
-            console.error('Failed to save settings:', error);
+            console.error('[Settings] Failed to save settings:', error);
             this.showToast('Failed to save settings', 'error');
         }
     }
@@ -293,6 +351,31 @@ class SettingsModal {
 
             // Enable settings that require authentication
             this.setAuthenticatedState(true);
+
+            // Apply plan-based restrictions
+            try {
+                // Normalize plan string (handles values like 'Free Plan', 'Pro Plan', etc.)
+                const planRaw = (this.currentUser.plan || '').toLowerCase();
+                const plan = planRaw.replace(/\s*plan\s*/gi, '').trim();
+                console.log('[Settings] Detected user plan:', { raw: planRaw, normalized: plan });
+                if (plan === 'free') {
+                    this.setFreeDefaults();
+                    // Persist enforced defaults only once per session to avoid continuous save/update loops
+                    if (!this.freeDefaultsApplied) {
+                        this.freeDefaultsApplied = true;
+                        this.saveSettings().then(() => console.log('[Settings] Free defaults applied and saved'));
+                    }
+                    this.isFreePlan = true;
+                } else {
+                    // pro / master: no forced defaults
+                    this.isFreePlan = false;
+                    // Reset the guard so if user later downgrades, defaults will be applied once
+                    this.freeDefaultsApplied = false;
+                }
+            } catch (e) {
+                // ignore
+                this.isFreePlan = false;
+            }
         } else {
             // User is not authenticated - show placeholder
             if (userAvatar) {
@@ -331,6 +414,11 @@ class SettingsModal {
     }
 
     updateToggleStates() {
+        // Determine plan-level restrictions (normalized plan string)
+        const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
+        const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
+        const isFreePlan = !!(normalizedPlan === 'free' || this.isFreePlan);
+
         // Update PIN toggle
         const pinToggle = document.getElementById('pinToggle');
         if (pinToggle) {
@@ -344,10 +432,30 @@ class SettingsModal {
         // Update voice activation toggle
         const voiceToggle = document.getElementById('voiceToggle');
         if (voiceToggle) {
+            // If no per-user Picovoice key is present, ensure feature is off
+            if (!this.hasPicovoiceKey) {
+                this.settings.voiceActivation = false;
+            }
+
             if (this.settings.voiceActivation) {
                 voiceToggle.classList.add('active');
             } else {
                 voiceToggle.classList.remove('active');
+            }
+
+            // Disable interaction for free users
+            if (isFreePlan) {
+                voiceToggle.style.pointerEvents = 'none';
+                voiceToggle.style.opacity = '0.5';
+                this.addUpgradeNoteToSetting('voiceToggle', 'Upgrade to PRO to activate voice activation');
+            } else {
+                voiceToggle.style.pointerEvents = '';
+                voiceToggle.style.opacity = '1';
+                this.removeUpgradeNoteFromSetting('voiceToggle');
+                // If pro/master but key is missing, show instruction
+                if (!this.hasPicovoiceKey) {
+                    this.addUpgradeNoteToSetting('voiceToggle', 'Add Picovoice key to enable voice activation');
+                }
             }
         }
 
@@ -399,6 +507,15 @@ class SettingsModal {
             } else {
                 floatingButtonToggle.classList.remove('active');
             }
+            if (isFreePlan) {
+                floatingButtonToggle.style.pointerEvents = 'none';
+                floatingButtonToggle.style.opacity = '0.5';
+                this.addUpgradeNoteToSetting('floatingButtonToggle', 'Upgrade to PRO to control floating button');
+            } else {
+                floatingButtonToggle.style.pointerEvents = '';
+                floatingButtonToggle.style.opacity = '1';
+                this.removeUpgradeNoteFromSetting('floatingButtonToggle');
+            }
         }
 
         // Update edge glow toggle
@@ -410,6 +527,15 @@ class SettingsModal {
             } else {
                 edgeGlowToggle.classList.remove('active');
             }
+            if (isFreePlan) {
+                edgeGlowToggle.style.pointerEvents = 'none';
+                edgeGlowToggle.style.opacity = '0.5';
+                this.addUpgradeNoteToSetting('edgeGlowToggle', 'Upgrade to PRO to control edge glow effect');
+            } else {
+                edgeGlowToggle.style.pointerEvents = '';
+                edgeGlowToggle.style.opacity = '1';
+                this.removeUpgradeNoteFromSetting('edgeGlowToggle');
+            }
         }
 
         // Update window visibility toggle
@@ -420,6 +546,15 @@ class SettingsModal {
             } else {
                 windowVisibilityToggle.classList.remove('active');
             }
+            if (isFreePlan) {
+                windowVisibilityToggle.style.pointerEvents = 'none';
+                windowVisibilityToggle.style.opacity = '0.5';
+                this.addUpgradeNoteToSetting('windowVisibilityToggle', 'Upgrade to PRO to control window visibility');
+            } else {
+                windowVisibilityToggle.style.pointerEvents = '';
+                windowVisibilityToggle.style.opacity = '1';
+                this.removeUpgradeNoteFromSetting('windowVisibilityToggle');
+            }
         }
 
         // Update wake word toggle chat toggle
@@ -429,6 +564,15 @@ class SettingsModal {
                 wakeWordToggleChatToggle.classList.add('active');
             } else {
                 wakeWordToggleChatToggle.classList.remove('active');
+            }
+            if (isFreePlan) {
+                wakeWordToggleChatToggle.style.pointerEvents = 'none';
+                wakeWordToggleChatToggle.style.opacity = '0.5';
+                this.addUpgradeNoteToSetting('wakeWordToggleChatToggle', 'Upgrade to PRO to activate wake word chat toggle');
+            } else {
+                wakeWordToggleChatToggle.style.pointerEvents = '';
+                wakeWordToggleChatToggle.style.opacity = '1';
+                this.removeUpgradeNoteFromSetting('wakeWordToggleChatToggle');
             }
         }
 
@@ -500,7 +644,44 @@ class SettingsModal {
     }
 
     async toggleVoiceActivation() {
+        const isFree = this.isUserFreePlan();
+        console.log('[Settings] toggleVoiceActivation called', { isFree, hasPicovoiceKey: !!this.hasPicovoiceKey, current: !!this.settings.voiceActivation });
+
+        // Free users cannot enable voice activation
+        if (isFree) {
+            this.showToast('Upgrade to PRO to activate voice activation', 'error');
+            console.log('[Settings] toggleVoiceActivation blocked: free plan');
+            return;
+        }
+
+        // For pro/master users, ensure there's a picovoice key
+        if (!this.hasPicovoiceKey) {
+            // Double-check with main process (in case cache/state is out of sync)
+            try {
+                console.log('[Settings] toggleVoiceActivation: querying main for key');
+                const res = await window.settingsAPI.getPicovoiceKey();
+                console.log('[Settings] toggleVoiceActivation: getPicovoiceKey returned', { success: !!(res && res.success), hasKey: !!(res && res.key) });
+                const keyExists = !!(res && res.success && res.key);
+                if (keyExists) {
+                    // update local state and proceed with toggle
+                    this.hasPicovoiceKey = true;
+                }
+            } catch (e) {
+                console.error('[Settings] toggleVoiceActivation: error checking key from main', e);
+                // ignore and fall through to modal
+            }
+        }
+
+        if (!this.hasPicovoiceKey) {
+            // Show modal that instructs user to obtain their Picovoice access key
+            console.log('[Settings] toggleVoiceActivation: no key, showing modal');
+            this.showPicovoiceKeyModal();
+            return;
+        }
+
+        // Toggle normally when key present
         this.settings.voiceActivation = !this.settings.voiceActivation;
+        console.log('[Settings] toggleVoiceActivation: toggling, new value=', !!this.settings.voiceActivation);
         this.updateToggleStates();
         await this.saveSettings();
 
@@ -559,7 +740,19 @@ class SettingsModal {
         );
     }
 
+    isUserFreePlan() {
+        const pr = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
+        const normalized = pr.replace(/\s*plan\s*/gi, '').trim();
+        return normalized === 'free' || !!this.isFreePlan;
+    }
+
     async toggleEdgeGlow() {
+        if (this.isUserFreePlan()) {
+            this.showToast('Upgrade to PRO to control edge glow effect', 'error');
+            console.log('[Settings] toggleEdgeGlow blocked: free plan');
+            return;
+        }
+
         // Default to true if undefined, then toggle
         this.settings.edgeGlowEnabled = !(this.settings.edgeGlowEnabled !== false);
         this.updateToggleStates();
@@ -572,6 +765,12 @@ class SettingsModal {
     }
 
     async toggleFloatingButton() {
+        if (this.isUserFreePlan()) {
+            this.showToast('Upgrade to PRO to control floating button', 'error');
+            console.log('[Settings] toggleFloatingButton blocked: free plan');
+            return;
+        }
+
         this.settings.floatingButtonVisible = !this.settings.floatingButtonVisible;
         this.updateToggleStates();
         await this.saveSettings();
@@ -588,6 +787,12 @@ class SettingsModal {
     }
 
     async toggleWindowVisibility() {
+        if (this.isUserFreePlan()) {
+            this.showToast('Upgrade to PRO to control window visibility', 'error');
+            console.log('[Settings] toggleWindowVisibility blocked: free plan');
+            return;
+        }
+
         this.settings.windowVisibility = !this.settings.windowVisibility;
         this.updateToggleStates();
         await this.saveSettings();
@@ -599,6 +804,12 @@ class SettingsModal {
     }
 
     async toggleWakeWordToggleChat() {
+        if (this.isUserFreePlan()) {
+            this.showToast('Upgrade to PRO to activate wake word chat toggle', 'error');
+            console.log('[Settings] toggleWakeWordToggleChat blocked: free plan');
+            return;
+        }
+
         this.settings.wakeWordToggleChat = !this.settings.wakeWordToggleChat;
         this.updateToggleStates();
         await this.saveSettings();
@@ -682,6 +893,42 @@ class SettingsModal {
         return modal;
     }
 
+    addUpgradeNoteToSetting(toggleId, message) {
+        try {
+            const toggle = document.getElementById(toggleId);
+            if (!toggle) return;
+            const item = toggle.closest('.setting-item');
+            if (!item) return;
+            let note = item.querySelector('.upgrade-note');
+            if (!note) {
+                note = document.createElement('div');
+                note.className = 'upgrade-note';
+                note.style.color = '#ef4444';
+                note.style.fontSize = '12px';
+                note.style.marginTop = '6px';
+                note.style.fontWeight = '600';
+                const info = item.querySelector('.setting-info');
+                if (info) info.appendChild(note);
+            }
+            note.textContent = message;
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    removeUpgradeNoteFromSetting(toggleId) {
+        try {
+            const toggle = document.getElementById(toggleId);
+            if (!toggle) return;
+            const item = toggle.closest('.setting-item');
+            if (!item) return;
+            const note = item.querySelector('.upgrade-note');
+            if (note) note.remove();
+        } catch (e) {
+            // ignore
+        }
+    }
+
     async handlePinSave(type, modal) {
         const newPin = modal.querySelector('#newPin').value;
         const confirmPin = modal.querySelector('#confirmPin').value;
@@ -720,6 +967,130 @@ class SettingsModal {
             console.error('PIN save error:', error);
             this.showToast('Failed to save PIN', 'error');
         }
+    }
+
+    showPicovoiceKeyModal() {
+        // Create modal
+        const modal = document.createElement('div');
+        modal.className = 'pin-modal';
+        modal.style.alignItems = 'center';
+        modal.innerHTML = `
+            <div class="pin-content" style="width:420px;">
+                <h3 class="pin-title">Picovoice Access Key</h3>
+                <p class="pin-description">To use Voice Activation, please login to your Picovoice dashboard and copy your access key.</p>
+                <div style="margin-top:12px;">
+                    <input type="text" id="picovoiceKeyInput" placeholder="Paste access key here" style="width:100%; padding:8px; font-size:14px;" />
+                    <div id="picovoiceKeyError" style="color:#ef4444; font-size:13px; margin-top:8px; display:none;"></div>
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+                    <button class="button button-secondary" id="picovoiceKeyCancel">Cancel</button>
+                    <button class="button button-primary" id="picovoiceKeyValidate">Validate & Save</button>
+                </div>
+                <div style="font-size:12px; color:#6b7280; margin-top:12px;">You will be redirected to <span style="font-weight:600;">https://console.picovoice.ai/</span> in a moment to copy your key.</div>
+            </div>
+        `;
+
+        // Append and show
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+
+        // Close when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        const input = modal.querySelector('#picovoiceKeyInput');
+        const errDiv = modal.querySelector('#picovoiceKeyError');
+        const validateBtn = modal.querySelector('#picovoiceKeyValidate');
+        const cancelBtn = modal.querySelector('#picovoiceKeyCancel');
+
+        cancelBtn.addEventListener('click', () => modal.remove());
+
+        validateBtn.addEventListener('click', async () => {
+            const key = input.value && input.value.trim();
+            if (!key) {
+                errDiv.textContent = 'Please paste your access key';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                validateBtn.disabled = true;
+                console.log('[Settings] Picovoice modal: validating key (length=', key.length, ')');
+                const res = await window.settingsAPI.validatePicovoiceKey(key);
+                console.log('[Settings] Picovoice modal: validate response:', res);
+                if (!res || !res.success) {
+                    errDiv.textContent = res && res.message ? res.message : 'Invalid key';
+                    errDiv.style.display = 'block';
+                    validateBtn.disabled = false;
+                    return;
+                }
+
+                // Save key for user
+                console.log('[Settings] Picovoice modal: saving key');
+                const saveRes = await window.settingsAPI.setPicovoiceKey(key);
+                console.log('[Settings] Picovoice modal: save response:', saveRes);
+                if (!saveRes || !saveRes.success) {
+                    errDiv.textContent = saveRes && saveRes.message ? saveRes.message : 'Failed to save key';
+                    errDiv.style.display = 'block';
+                    validateBtn.disabled = false;
+                    return;
+                }
+
+                // Update local state and remove upgrade note
+                this.hasPicovoiceKey = true;
+                this.settings.voiceActivation = true;
+                this.removeUpgradeNoteFromSetting('voiceToggle');
+
+                // Persist settings and refresh keys from main to ensure cache/sync consistency
+                await this.saveSettings();
+                await this.loadPicovoiceKey();
+                console.log('[Settings] Picovoice modal: key saved and state updated');
+                this.showToast('Picovoice key saved and voice activation enabled', 'success');
+                modal.remove();
+                this.updateUI();
+            } catch (e) {
+                console.error('[Settings] Picovoice modal: validation/save error', e);
+                errDiv.textContent = e.message || 'Validation failed';
+                errDiv.style.display = 'block';
+                validateBtn.disabled = false;
+            }
+        });
+
+        // Provide an explicit link/button instead of auto-redirect
+        const linkRow = document.createElement('div');
+        linkRow.style.marginTop = '12px';
+        linkRow.style.display = 'flex';
+        linkRow.style.justifyContent = 'space-between';
+
+        const anchor = document.createElement('a');
+        anchor.href = '#';
+        anchor.textContent = 'Open Picovoice Console';
+        anchor.style.fontWeight = '600';
+        anchor.style.color = '#0d0d0d';
+        anchor.addEventListener('click', (e) => {
+            e.preventDefault();
+            try {
+                window.settingsAPI.openExternal('https://console.picovoice.ai/');
+            } catch (err) {
+                // ignore
+            }
+        });
+
+        const openBtn = document.createElement('button');
+        openBtn.className = 'button button-secondary';
+        openBtn.textContent = 'Open Console';
+        openBtn.addEventListener('click', () => {
+            try {
+                window.settingsAPI.openExternal('https://console.picovoice.ai/');
+            } catch (err) {}
+        });
+
+        linkRow.appendChild(anchor);
+        linkRow.appendChild(openBtn);
+
+        const content = modal.querySelector('.pin-content');
+        if (content) content.appendChild(linkRow);
     }
 
     async lockApp() {
