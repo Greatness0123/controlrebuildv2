@@ -553,8 +553,40 @@ class ComputerUseAgent {
                 // 1. Check memory settings first
                 if (settings.userAuthenticated && settings.userDetails) {
                     console.log('[Main] Found user details in settings memory');
-                    // Check if we need to sync with Firebase (optional, but good for rate limits)
-                    // We return the memory version for speed, background sync can happen elsewhere
+
+                    // Try to get a fresher copy from Firebase (with a short timeout so we don't block startup)
+                    try {
+                        const userId = settings.userDetails.id;
+                        if (userId && firebaseService.getUserById) {
+                            const timeoutMs = 3000; // do not stall renderer for long
+                            const fetchPromise = firebaseService.getUserById(userId);
+                            const timed = await Promise.race([
+                                fetchPromise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
+                            ]).catch(err => {
+                                console.warn('[Main] Quick Firebase check for user failed or timed out:', err.message || err);
+                                return null;
+                            });
+
+                            if (timed && timed.success && timed.user) {
+                                console.log('[Main] get-user-info: refreshed user data from Firebase for', userId);
+                                // update memory and cache
+                                this.settingsManager.updateSettings({ userDetails: timed.user });
+                                this.currentUser = timed.user;
+
+                                return {
+                                    success: true,
+                                    isAuthenticated: true,
+                                    ...timed.user
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        // don't block on errors
+                        console.warn('[Main] get-user-info: error while checking Firebase for fresh user:', e.message || e);
+                    }
+
+                    // Fallback to in-memory copy if no fresh copy available
                     return {
                         success: true,
                         isAuthenticated: true,
@@ -573,6 +605,36 @@ class ComputerUseAgent {
                     });
                     this.isAuthenticated = true;
                     this.currentUser = cachedUser;
+
+                    // Try to sync with Firebase now (quick attempt)
+                    try {
+                        if (cachedUser.id && firebaseService.getUserById) {
+                            const timeoutMs = 3000;
+                            const fetchPromise = firebaseService.getUserById(cachedUser.id);
+                            const timed = await Promise.race([
+                                fetchPromise,
+                                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase timeout')), timeoutMs))
+                            ]).catch(err => {
+                                console.warn('[Main] Quick Firebase check for cached user failed or timed out:', err.message || err);
+                                return null;
+                            });
+
+                            if (timed && timed.success && timed.user) {
+                                console.log('[Main] get-user-info: refreshed cached user from Firebase for', cachedUser.id);
+                                // Update memory and cache
+                                this.settingsManager.updateSettings({ userDetails: timed.user, userAuthenticated: true });
+                                this.currentUser = timed.user;
+
+                                return {
+                                    success: true,
+                                    isAuthenticated: true,
+                                    ...timed.user
+                                };
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Main] get-user-info: error while checking Firebase for cached user:', e.message || e);
+                    }
 
                     return {
                         success: true,

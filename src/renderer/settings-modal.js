@@ -218,6 +218,28 @@ class SettingsModal {
                 this.currentUser = await window.settingsAPI.getCurrentUser();
                 console.log('Loaded user status:', this.currentUser);
                 this.isAuthenticated = !!(this.currentUser && this.currentUser.id);
+
+                // Robustness: perform a short delayed re-check to capture any Firebase-side changes
+                // that might be applied during main process startup/sync. This won't block UI.
+                setTimeout(async () => {
+                    try {
+                        const refreshed = await window.settingsAPI.getCurrentUser();
+                        if (refreshed && refreshed.isAuthenticated && refreshed.id) {
+                            // If plan or critical fields changed, update local state and UI
+                            if (!this.currentUser || refreshed.plan !== this.currentUser.plan || refreshed.picovoiceKey !== this.currentUser.picovoiceKey) {
+                                console.log('[Settings] Detected refreshed user data from main:', { before: this.currentUser ? this.currentUser.plan : null, after: refreshed.plan });
+                                this.currentUser = refreshed;
+                                this.isAuthenticated = true;
+                                // Trigger UI update and reload any per-user keys
+                                await this.loadPicovoiceKey();
+                                this.updateUI();
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Settings] Delayed user refresh failed:', e.message || e);
+                    }
+                }, 2000);
+
             } else {
                 // Fallback for standalone testing
                 const stored = sessionStorage.getItem('currentUser');
@@ -986,7 +1008,7 @@ class SettingsModal {
                     <button class="button button-secondary" id="picovoiceKeyCancel">Cancel</button>
                     <button class="button button-primary" id="picovoiceKeyValidate">Validate & Save</button>
                 </div>
-                <div style="font-size:12px; color:#6b7280; margin-top:12px;">You will be redirected to <span style="font-weight:600;">https://console.picovoice.ai/</span> in a moment to copy your key.</div>
+                <div style="font-size:12px; color:#6b7280; margin-top:12px;">Get your Access Key from <span style="font-weight:600;">https://console.picovoice.ai/</span></div>
             </div>
         `;
 
@@ -1065,7 +1087,7 @@ class SettingsModal {
 
         const anchor = document.createElement('a');
         anchor.href = '#';
-        anchor.textContent = 'Open Picovoice Console';
+        // anchor.textContent = 'oice Console';
         anchor.style.fontWeight = '600';
         anchor.style.color = '#0d0d0d';
         anchor.addEventListener('click', (e) => {
@@ -1076,7 +1098,6 @@ class SettingsModal {
                 // ignore
             }
         });
-
         const openBtn = document.createElement('button');
         openBtn.className = 'button button-secondary';
         openBtn.textContent = 'Open Console';
