@@ -1,5 +1,22 @@
-const { Porcupine } = require("@picovoice/porcupine-node");
-const { PvRecorder } = require("@picovoice/pvrecorder-node");
+let Porcupine, PvRecorder;
+try {
+  Porcupine = require("@picovoice/porcupine-node").Porcupine;
+  PvRecorder = require("@picovoice/pvrecorder-node").PvRecorder;
+  console.log('[WAKEWORD JS] Native modules loaded via standard require');
+} catch (e) {
+  console.warn('[WAKEWORD JS] Standard require failed, attempting to load from app.asar.unpacked');
+  try {
+    const { app } = require('electron');
+    const path = require('path');
+    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
+    Porcupine = require(path.join(unpackedPath, '@picovoice/porcupine-node')).Porcupine;
+    PvRecorder = require(path.join(unpackedPath, '@picovoice/pvrecorder-node')).PvRecorder;
+    console.log('[WAKEWORD JS] Native modules loaded from app.asar.unpacked');
+  } catch (err) {
+    console.error('[WAKEWORD JS] Failed to load native modules:', err.message);
+  }
+}
+
 const path = require("path");
 const fs = require("fs");
 
@@ -206,9 +223,15 @@ class WakewordHelper {
 
       console.log("[WAKEWORD JS] Initializing PvRecorder...");
       try {
+          if (!PvRecorder) throw new Error("PvRecorder module not loaded");
+
           const devices = PvRecorder.getAvailableDevices();
           console.log(`[WAKEWORD JS] Available audio devices: ${devices.length} found`);
           devices.forEach((d, i) => console.log(`[WAKEWORD JS] Device ${i}: ${d}`));
+
+          if (devices.length === 0) {
+              throw new Error("No audio input devices found. Please connect a microphone.");
+          }
 
           // Use default device (-1)
           this.recorder = new PvRecorder(frameLength, -1);
@@ -256,6 +279,8 @@ class WakewordHelper {
 
   async validateAccessKey(accessKey) {
     try {
+      if (!Porcupine) throw new Error("Porcupine module not loaded");
+
       const keyToTest = accessKey || this.accessKey || process.env.PORCUPINE_ACCESS_KEY;
       console.log('[WAKEWORD JS] validateAccessKey called, hasKey=', !!keyToTest);
       if (!keyToTest) return { success: false, message: 'Missing Picovoice access key' };

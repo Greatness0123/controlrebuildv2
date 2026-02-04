@@ -421,6 +421,10 @@ class ChatWindow {
 
             window.chatAPI.onBackendError((event, data) => {
                 console.log('[ChatWindow] Backend error:', data);
+
+                // Clear all thinking indicators
+                this.forceStopThinking();
+
                 const userMessage = this.parseErrorMessage(data.message);
                 this.updateActionStatus(null, false, userMessage);
                 this.addMessage(userMessage, 'ai', false);

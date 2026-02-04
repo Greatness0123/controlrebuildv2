@@ -12,6 +12,15 @@ const getKeysCacheFile = () => {
     return path.join(app.getPath('userData'), 'api_keys.json');
 };
 
+const logToFile = (msg) => {
+    try {
+        const { app } = require('electron');
+        const logPath = path.join(app.getPath('userData'), 'firebase.log');
+        const timestamp = new Date().toISOString();
+        fs.appendFileSync(logPath, `[${timestamp}] ${msg}\n`);
+    } catch (e) {}
+};
+
 let db = null;
 
 // Initialize Firebase Admin SDK
@@ -25,24 +34,46 @@ try {
         const possiblePaths = [
             path.join(process.resourcesPath, 'config/firebase-service-account.json'),
             path.join(process.resourcesPath, 'firebase-service-account.json'),
-            path.join(app.getPath('userData'), 'firebase-service-account.json')
+            path.join(app.getPath('userData'), 'firebase-service-account.json'),
+            // Fallback for some installs
+            path.join(path.dirname(app.getPath('exe')), 'resources', 'config', 'firebase-service-account.json')
         ];
-        serviceAccountPath = possiblePaths.find(p => fs.existsSync(p)) || possiblePaths[0];
+        serviceAccountPath = possiblePaths.find(p => fs.existsSync(p));
+
+        if (!serviceAccountPath) {
+            logToFile(`✗ Could not find firebase-service-account.json. Checked: ${possiblePaths.join(', ')}`);
+            // Try one more: maybe it's in the app.asar (not ideal but happens)
+            const asarPath = path.join(app.getAppPath(), 'config/firebase-service-account.json');
+            if (fs.existsSync(asarPath)) serviceAccountPath = asarPath;
+        }
     } else {
         serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
     }
 
-    console.log('Loading Firebase service account from:', serviceAccountPath);
-    const serviceAccount = require(serviceAccountPath);
+    if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
+        console.log('Loading Firebase service account from:', serviceAccountPath);
+        logToFile(`Loading service account from: ${serviceAccountPath}`);
+        const serviceAccount = require(serviceAccountPath);
 
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-    });
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount)
+        });
 
-    db = admin.firestore();
-    console.log('✓ Firebase Admin SDK initialized');
+        db = admin.firestore();
+        // Set settings for better connectivity in restricted environments
+        db.settings({
+            ignoreUndefinedProperties: true,
+            ssl: true
+        });
+
+        console.log('✓ Firebase Admin SDK initialized');
+        logToFile('✓ Firebase Admin SDK initialized');
+    } else {
+        throw new Error('Firebase service account file not found');
+    }
 } catch (error) {
     console.error('✗ Failed to initialize Firebase:', error.message);
+    logToFile(`✗ Failed to initialize Firebase: ${error.message}`);
     console.error('Make sure firebase-service-account.json exists in /config folder');
 }
 
@@ -76,7 +107,11 @@ module.exports = {
 
             // Query Firestore for user with matching 'id' field
             const usersRef = db.collection('users');
-            const snapshot = await usersRef.where('id', '==', normalizedId).get();
+            // Add a timeout to prevent hanging on poor connection
+            const snapshot = await Promise.race([
+                usersRef.where('id', '==', normalizedId).get(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase connection timeout')), 10000))
+            ]);
 
             if (snapshot.empty) {
                 console.log('Entry ID not found:', normalizedId);
@@ -574,7 +609,10 @@ module.exports = {
         try {
             if (!db) return null;
             // Assuming keys are stored in a 'config' collection or 'secrets' document
-            const configDoc = await db.collection('config').doc('api_keys').get();
+            const configDoc = await Promise.race([
+                db.collection('config').doc('api_keys').get(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Firebase key fetch timeout')), 5000))
+            ]);
             if (configDoc.exists) {
                 const keys = configDoc.data();
                 if (plan === 'free') return keys.gemini_free;
