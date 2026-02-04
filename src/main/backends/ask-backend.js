@@ -12,6 +12,10 @@ class AskBackend {
     this.currentApiKey = null;
     this.stopRequested = false;
     this.setupGeminiAPI();
+    
+    // Conversation history for context memory
+    this.conversationHistory = [];
+    this.maxHistoryLength = 20; // Keep last 20 exchanges (10 user + 10 AI)
   }
 
   setupGeminiAPI(apiKey) {
@@ -35,6 +39,7 @@ class AskBackend {
 - Analyze images, PDFs, and file attachments users send
 - **Analyze what's visible on the user's screen** when needed
 - **Check system status** (battery, memory, processes, etc.) when needed
+- **Use web search** when you need current information or need to research how to perform tasks
 
 **CURRENT OS:** ${process.platform}
 
@@ -52,16 +57,24 @@ You can request information by including these tags in your response:
    - Memory: \`[REQUEST_COMMAND: powershell Get-Process | Sort-Object -Property WS -Descending | Select-Object -First 5 Name,WS]\` (Windows)
    - Processes: \`[REQUEST_COMMAND: tasklist /FI "STATUS eq RUNNING" /NH]\` (Windows)
 
+3. **Web Search** - You have access to Google Search. Use it when:
+   - You need current/real-time information
+   - You need to research how to perform specific tasks
+   - You need to verify facts or get updated information
+   - The user asks about recent events or current data
+
 **WORKFLOW:**
 1. If user asks about their screen → Request a screenshot first
 2. If user asks about system status → Request appropriate command
-3. When you receive the result, analyze it and respond to the user
-4. You can make multiple requests if needed
+3. If you need current information or need to research → Use web search automatically
+4. When you receive the result, analyze it and respond to the user
+5. You can make multiple requests if needed
 
 **IMPORTANT:**
 - You only OBSERVE and INFORM - you do NOT perform actions
 - Only use read-only commands (no writes, deletes, or system changes)
 - If user asks for actions (e.g., "open Chrome"), explain they should switch to Act mode
+- Use web search proactively when it would help answer the user's question better
 
 **RESPONSE FORMAT:**
 - Chat directly with the user using Markdown
@@ -146,6 +159,15 @@ You can request information by including these tags in your response:
 
     try {
       const conversationParts = [];
+      
+      // Add conversation history for context
+      if (this.conversationHistory.length > 0) {
+        const recentHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+        for (const exchange of recentHistory) {
+          conversationParts.push(`User: ${exchange.user}`);
+          conversationParts.push(`Assistant: ${exchange.ai}`);
+        }
+      }
 
       if (attachments && attachments.length > 0) {
         for (const att of attachments) {
@@ -212,6 +234,19 @@ You can request information by including these tags in your response:
 
         const { requestType, requestData, cleanText } = this.parseAIResponse(responseText);
         if (this.stopRequested) break;
+        
+        // Store in conversation history (only final responses, not intermediate tool requests)
+        if (!requestType) {
+          this.conversationHistory.push({
+            user: userRequest,
+            ai: responseText.substring(0, 1000) // Store first 1000 chars of response
+          });
+          
+          // Trim history if too long
+          if (this.conversationHistory.length > this.maxHistoryLength) {
+            this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+          }
+        }
 
         if (requestType === "screenshot") {
           console.log("[ASK JS] AI requested screenshot");

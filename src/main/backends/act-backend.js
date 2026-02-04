@@ -19,6 +19,18 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **FULL UNDERSTANDING:** READ the user request CAREFULLY. Understand the GOAL before acting.
 
+**CRITICAL: THIRD-PARTY APPLICATION INTERACTIONS**
+- Tasks involving third-party applications require UTMOST PRECISION, MAXIMUM EFFICIENCY, and ABSOLUTE ACCURACY.
+- Every click, keyboard stroke, mouse movement, and action must be executed with CORRECTNESS and PRECISION.
+- Control is primarily used to perform tasks on third-party applications - accuracy is PARAMOUNT.
+- Before executing actions on applications:
+  1. Verify the exact UI element location with multiple coordinate calculations
+  2. Ensure the application is in focus and ready for interaction
+  3. Use the most efficient method (GUI or Terminal) for each action
+  4. Double-check coordinates and action parameters before execution
+  5. Verify each action's success before proceeding to the next step
+- Precision over speed: It's better to be slow and accurate than fast and incorrect.
+
 
 **OS-AWARE NAVIGATION:**
 - You will receive the Operating System (Windows, macOS, Linux) in the screen context.
@@ -131,6 +143,10 @@ class ActBackend {
 
     this.stopRequested = false;
     this.screenSize = { width: 1920, height: 1080 };
+    
+    // Conversation history for context memory
+    this.conversationHistory = [];
+    this.maxHistoryLength = 20; // Keep last 20 exchanges (10 user + 10 AI)
   }
 
   setupGeminiAPI(apiKey) {
@@ -449,7 +465,66 @@ Respond ONLY with JSON:
       }
 
       console.log("[ACT JS] Sending request to Gemini...");
-      const prompt = `User Request: ${userRequest}\nAnalyze the screen and provide a step-by-step PLAN to execute this task. Respond with JSON TASK structure.
+      
+      // Process attachments (documents/media) for context
+      let attachmentContext = "";
+      const contentParts = [];
+      
+      if (attachments && attachments.length > 0) {
+        for (const att of attachments) {
+          if (att.path && fs.existsSync(att.path)) {
+            const ext = path.extname(att.path).toLowerCase();
+            const imageMimeTypes = {
+              ".png": "image/png",
+              ".jpg": "image/jpeg",
+              ".jpeg": "image/jpeg",
+              ".webp": "image/webp",
+              ".gif": "image/gif",
+              ".bmp": "image/bmp",
+            };
+
+            if (imageMimeTypes[ext]) {
+              const data = fs.readFileSync(att.path);
+              contentParts.push({
+                inlineData: {
+                  mimeType: imageMimeTypes[ext],
+                  data: data.toString("base64"),
+                },
+              });
+              attachmentContext += `\n[Attached image: ${att.name || "file"} - Analyze this image for task context]`;
+            } else if (ext === ".pdf") {
+              const data = fs.readFileSync(att.path);
+              contentParts.push({
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: data.toString("base64"),
+                },
+              });
+              attachmentContext += `\n[Attached PDF: ${att.name || "file"} - Extract and utilize information from this document for task execution]`;
+            } else {
+              try {
+                const textContent = fs.readFileSync(att.path, "utf-8");
+                attachmentContext += `\n\n--- Attached File: ${att.name || "file"} ---\n${textContent}\n--- End of Attachment ---\n`;
+              } catch (e) {
+                console.warn(`[ACT JS] Could not read ${att.path} as text`);
+              }
+            }
+          }
+        }
+      }
+
+      // Build prompt with context history
+      let contextHistory = "";
+      if (this.conversationHistory.length > 0) {
+        contextHistory = "\n\n**CONVERSATION CONTEXT (Previous exchanges):**\n";
+        // Include last few exchanges for context
+        const recentHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+        for (const exchange of recentHistory) {
+          contextHistory += `User: ${exchange.user}\nAI: ${exchange.ai}\n\n`;
+        }
+      }
+
+      const prompt = `User Request: ${userRequest}${attachmentContext}${contextHistory}\n\nAnalyze the screen and any attached documents/media. Provide a step-by-step PLAN to execute this task. Utilize information from attachments if provided. Respond with JSON TASK structure.
 Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${process.platform}`;
 
       const content = [
@@ -459,7 +534,8 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
             mimeType: "image/png",
             data: fs.readFileSync(shot.filepath).toString("base64")
           }
-        }
+        },
+        ...contentParts
       ];
 
       const result = await this.model.generateContent(content);
@@ -473,6 +549,18 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
 
       if (this.stopRequested) return;
       const text = response.text();
+      
+      // Store in conversation history
+      this.conversationHistory.push({
+        user: userRequest,
+        ai: text.substring(0, 500) // Store first 500 chars of response
+      });
+      
+      // Trim history if too long
+      if (this.conversationHistory.length > this.maxHistoryLength) {
+        this.conversationHistory = this.conversationHistory.slice(-this.maxHistoryLength);
+      }
+      
       const jsonMatch = /\{.*\}/s.exec(text);
       if (!jsonMatch) throw new Error("No JSON in AI response");
 
