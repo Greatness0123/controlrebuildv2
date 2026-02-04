@@ -81,16 +81,19 @@ You can request information by including these tags in your response:
 - Be helpful and friendly
 - When you have enough information, provide your answer directly (no special tags)
 `;
-    this.model = genAI.getGenerativeModel({
+    const modelOptions = {
       model: modelName,
       systemInstruction: systemPrompt,
-      tools: [
-        {
-          googleSearch: {},
-        },
-      ],
-    });
-    console.log(`[ASK JS] Model initialized with: ${modelName} (with Google Search tool)`);
+    };
+
+    // Only add search tool if not explicitly disabled or if model is known to support it
+    // Some custom/fine-tuned models might fail with tools enabled
+    if (!process.env.DISABLE_SEARCH_TOOL) {
+      modelOptions.tools = [{ googleSearch: {} }];
+    }
+
+    this.model = genAI.getGenerativeModel(modelOptions);
+    console.log(`[ASK JS] Model initialized with: ${modelName}`);
   }
 
   async takeScreenshot() {

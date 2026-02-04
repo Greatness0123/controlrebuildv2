@@ -8,12 +8,36 @@ try {
   try {
     const { app } = require('electron');
     const path = require('path');
-    const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
-    Porcupine = require(path.join(unpackedPath, '@picovoice/porcupine-node')).Porcupine;
-    PvRecorder = require(path.join(unpackedPath, '@picovoice/pvrecorder-node')).PvRecorder;
-    console.log('[WAKEWORD JS] Native modules loaded from app.asar.unpacked');
+
+    const possibleUnpackedPaths = [
+        path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
+        path.join(path.dirname(app.getPath('exe')), 'resources', 'app.asar.unpacked', 'node_modules'),
+        path.join(app.getAppPath(), '..', 'app.asar.unpacked', 'node_modules')
+    ];
+
+    for (const unpackedPath of possibleUnpackedPaths) {
+        try {
+            console.log(`[WAKEWORD JS] Trying unpacked path: ${unpackedPath}`);
+            const porcupinePkg = require(path.join(unpackedPath, '@picovoice/porcupine-node'));
+            const pvrecorderPkg = require(path.join(unpackedPath, '@picovoice/pvrecorder-node'));
+
+            Porcupine = porcupinePkg.Porcupine;
+            PvRecorder = pvrecorderPkg.PvRecorder;
+
+            if (Porcupine && PvRecorder) {
+                console.log(`[WAKEWORD JS] Native modules successfully loaded from: ${unpackedPath}`);
+                break;
+            }
+        } catch (innerErr) {
+            console.log(`[WAKEWORD JS] Failed to load from ${unpackedPath}: ${innerErr.message}`);
+        }
+    }
+
+    if (!Porcupine || !PvRecorder) {
+        throw new Error("Could not find native modules in any unpacked path");
+    }
   } catch (err) {
-    console.error('[WAKEWORD JS] Failed to load native modules:', err.message);
+    console.error('[WAKEWORD JS] Critical error loading native modules:', err.message);
   }
 }
 
@@ -168,12 +192,30 @@ class WakewordHelper {
       console.log("[WAKEWORD JS] Initializing Porcupine...");
       console.log(`[WAKEWORD JS] OS: ${process.platform}, Arch: ${process.arch}`);
 
-      // ALWAYS use the latest key from environment/firebase
-      const currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
+      // ALWAYS use the latest key from environment/firebase/cache
+      let currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
+
+      // Secondary fallback: check local user cache directly if still missing
+      if (!currentKey) {
+          try {
+              const firebaseService = require('../firebase-service');
+              const cachedUser = firebaseService.checkCachedUser();
+              if (cachedUser) {
+                  currentKey = cachedUser.picovoiceKey || cachedUser.porcupine_access_key;
+                  if (currentKey) {
+                      console.log('[WAKEWORD JS] Recovered key from user cache');
+                      process.env.PORCUPINE_ACCESS_KEY = currentKey;
+                  }
+              }
+          } catch (e) {
+              console.warn('[WAKEWORD JS] Failed to check user cache for key:', e.message);
+          }
+      }
+
       this.accessKey = currentKey;
 
       if (!currentKey) {
-        throw new Error("Porcupine Access Key missing. Please set PORCUPINE_ACCESS_KEY environment variable.");
+        throw new Error("Porcupine Access Key missing. Please set your Picovoice key in Settings.");
       }
 
       console.log(`[WAKEWORD JS] Loading model from: ${this.modelPath}`);

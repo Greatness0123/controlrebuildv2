@@ -31,20 +31,31 @@ try {
     let serviceAccountPath;
     if (isPackaged) {
         // In production, look in extraResources or app data
-        const possiblePaths = [
+        const searchPaths = [
             path.join(process.resourcesPath, 'config/firebase-service-account.json'),
             path.join(process.resourcesPath, 'firebase-service-account.json'),
             path.join(app.getPath('userData'), 'firebase-service-account.json'),
-            // Fallback for some installs
-            path.join(path.dirname(app.getPath('exe')), 'resources', 'config', 'firebase-service-account.json')
+            path.join(app.getAppPath(), 'config/firebase-service-account.json'),
+            path.join(app.getAppPath(), 'src/config/firebase-service-account.json'),
+            path.join(path.dirname(app.getPath('exe')), 'resources', 'config', 'firebase-service-account.json'),
+            path.join(path.dirname(app.getPath('exe')), 'resources', 'app/src/config/firebase-service-account.json'),
+            // Aggressive search: look for it anywhere in the resources folder
+            path.join(process.resourcesPath, 'app/src/config/firebase-service-account.json')
         ];
-        serviceAccountPath = possiblePaths.find(p => fs.existsSync(p));
+
+        logToFile(`Production search paths for service account: ${searchPaths.join('\n')}`);
+
+        for (const p of searchPaths) {
+            if (fs.existsSync(p)) {
+                serviceAccountPath = p;
+                logToFile(`✓ Found service account at: ${p}`);
+                break;
+            }
+        }
 
         if (!serviceAccountPath) {
             logToFile(`✗ Could not find firebase-service-account.json. Checked: ${possiblePaths.join(', ')}`);
-            // Try one more: maybe it's in the app.asar (not ideal but happens)
-            const asarPath = path.join(app.getAppPath(), 'config/firebase-service-account.json');
-            if (fs.existsSync(asarPath)) serviceAccountPath = asarPath;
+            console.error(`✗ Could not find firebase-service-account.json in any of the following paths: ${possiblePaths.join('\n')}`);
         }
     } else {
         serviceAccountPath = path.join(__dirname, '../config/firebase-service-account.json');
@@ -87,9 +98,11 @@ module.exports = {
     async verifyEntryID(entryId) {
         try {
             if (!db) {
+                console.error('✗ verifyEntryID: Database not initialized');
+                logToFile('✗ verifyEntryID: Database not initialized');
                 return {
                     success: false,
-                    message: 'Database not initialized. Please check Firebase configuration.'
+                    message: 'Database connection failed. Please check your internet or configuration.'
                 };
             }
 
@@ -378,6 +391,13 @@ module.exports = {
             let plan = 'free';
             const today = new Date().toISOString().split('T')[0];
 
+            if (cachedUser && cachedUser.id === userId) {
+                currentCount = cachedUser[`${mode}Count`] || 0;
+                plan = cachedUser.plan || 'free';
+                const dailyTokens = cachedUser.dailyTokenUsage || {};
+                currentTokens = (dailyTokens[today] && dailyTokens[today].total) || 0;
+            }
+
             // Try to get from Firebase if online
             if (db) {
                 try {
@@ -607,7 +627,10 @@ module.exports = {
 
     async getGeminiKey(plan) {
         try {
-            if (!db) return null;
+            if (!db) {
+                const cachedKeys = this.getKeys();
+                return (cachedKeys && cachedKeys.gemini) || null;
+            }
             // Assuming keys are stored in a 'config' collection or 'secrets' document
             const configDoc = await Promise.race([
                 db.collection('config').doc('api_keys').get(),

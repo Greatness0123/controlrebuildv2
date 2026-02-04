@@ -209,15 +209,20 @@ class ComputerUseAgent {
             console.log('[Main] Control starting...');
 
             // Fetch and cache API keys from Firebase (gemini remains global; porcupine/picovoice is per-user)
-            const apiKeys = await firebaseService.fetchAndCacheKeys();
-            if (apiKeys) {
-                // Porcupine/Picovoice keys are per-user and will be applied when users provide them.
-                if (apiKeys.gemini) {
-                    process.env.GEMINI_API_KEY = apiKeys.gemini;
+            try {
+                const apiKeys = await firebaseService.fetchAndCacheKeys();
+                if (apiKeys) {
+                    if (apiKeys.gemini) {
+                        process.env.GEMINI_API_KEY = apiKeys.gemini;
+                        console.log('[Main] Gemini API key loaded from cache/firebase');
+                    }
+                    if (apiKeys.gemini_model) {
+                        process.env.GEMINI_MODEL = apiKeys.gemini_model;
+                        console.log('[Main] Gemini model set to:', apiKeys.gemini_model);
+                    }
                 }
-                if (apiKeys.gemini_model) {
-                    process.env.GEMINI_MODEL = apiKeys.gemini_model;
-                }
+            } catch (keyErr) {
+                console.warn('[Main] Failed to fetch API keys during startup:', keyErr.message);
             }
 
             // Set up security and permissions
@@ -261,22 +266,24 @@ class ComputerUseAgent {
 
                 // Sync user data with Firebase (pushes local progress to DB)
                 const syncedUser = await firebaseService.syncUserData(cachedUser.id);
-                if (syncedUser) {
-                    this.currentUser = syncedUser;
-                    this.settingsManager.updateSettings({ userDetails: syncedUser });
 
-                    // If user has a per-user Picovoice key, apply it for this session
-                    try {
-                        const userKey = syncedUser.picovoiceKey || syncedUser.porcupine_access_key;
-                        console.log('[Main] Synced user has picovoice key:', !!userKey);
-                        if (userKey) {
-                            // Apply to process env for this session (do not log actual key value)
-                            process.env.PORCUPINE_ACCESS_KEY = userKey;
-                            console.log('[Main] Applied per-user Picovoice key into process.env for this session');
-                        }
-                    } catch (e) {
-                        console.error('[Main] Error applying per-user Picovoice key during startup', e);
+                // CRITICAL: Fallback to cached user if sync fails (e.g. offline or DB error)
+                this.currentUser = syncedUser || cachedUser;
+                this.settingsManager.updateSettings({ userDetails: this.currentUser });
+
+                // If user has a per-user Picovoice key, apply it for this session
+                try {
+                    const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
+                    console.log('[Main] User has picovoice key (source:', syncedUser ? 'firebase' : 'cache', '):', !!userKey);
+                    if (userKey) {
+                        // Apply to process env for this session (do not log actual key value)
+                        process.env.PORCUPINE_ACCESS_KEY = userKey;
+                        console.log('[Main] Applied per-user Picovoice key into process.env for this session');
+                    } else {
+                        console.warn('[Main] No Picovoice key found in user profile');
                     }
+                } catch (e) {
+                    console.error('[Main] Error applying per-user Picovoice key during startup', e);
                 }
 
                 // Broadcast to all windows
@@ -706,33 +713,28 @@ class ComputerUseAgent {
             try {
                 console.log('[Main] [IPC] set-picovoice-key called by renderer (user id=', this.currentUser ? this.currentUser.id : 'none', ')');
                 if (!this.currentUser || !this.currentUser.id) return { success: false, message: 'Not authenticated' };
-                const updateRes = await firebaseService.updateUser(this.currentUser.id, { picovoiceKey: key, porcupine_access_key: key });
-                console.log('[Main] [IPC] updateUser result:', updateRes && updateRes.success);
-                if (!updateRes || !updateRes.success) return updateRes;
-                const synced = await firebaseService.syncUserData(this.currentUser.id);
-                console.log('[Main] [IPC] syncUserData result:', !!synced);
-                if (synced) {
-                    this.currentUser = synced;
-                    this.settingsManager.updateSettings({ userDetails: synced });
-                    this.windowManager.broadcast('user-changed', this.currentUser);
 
-                    // Apply key for current session without exposing it in logs
-                    try {
-                        process.env.PORCUPINE_ACCESS_KEY = key;
-                        console.log('[Main] [IPC] Applied picovoice key to process.env for this session');
-                    } catch (e) {
-                        console.error('[Main] [IPC] Error applying key to env:', e);
-                    }
+                // Try to update Firebase but don't let it block local success
+                firebaseService.updateUser(this.currentUser.id, { picovoiceKey: key, porcupine_access_key: key })
+                    .then(res => console.log('[Main] Picovoice key updated in Firebase:', res.success))
+                    .catch(e => console.warn('[Main] Firebase key update failed, using local only:', e.message));
 
-                    // Enable voice activation now that a valid key is stored
-                    try {
-                        this.settingsManager.updateSettings({ voiceActivation: true });
-                        this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
-                        console.log('[Main] [IPC] voiceActivation enabled via settingsManager after key save');
-                    } catch (e) {
-                        console.error('[Main] [IPC] Error updating settings after key save:', e);
-                    }
-                }
+                // Always update local state
+                this.currentUser.picovoiceKey = key;
+                this.currentUser.porcupine_access_key = key;
+                firebaseService.cacheUser(this.currentUser);
+
+                this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                this.windowManager.broadcast('user-changed', this.currentUser);
+
+                // Apply key for current session
+                process.env.PORCUPINE_ACCESS_KEY = key;
+                console.log('[Main] [IPC] Applied picovoice key to process.env');
+
+                // Enable voice activation
+                this.settingsManager.updateSettings({ voiceActivation: true });
+                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+
                 return { success: true };
             } catch (e) {
                 console.error('[Main] [IPC] set-picovoice-key failed:', e);
