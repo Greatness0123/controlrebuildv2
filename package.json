@@ -70,6 +70,7 @@
     },
     "asarUnpack": [
       "**/node_modules/@picovoice/porcupine-node/**/*",
+      "**/node_modules/@picovoice/porcupine-node/lib/**/*",
       "**/node_modules/@picovoice/pvrecorder-node/**/*",
       "**/node_modules/screenshot-desktop/**/*",
       "src/main/backends/**/*",

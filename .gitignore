@@ -3,3 +3,4 @@ config
 src/config
 .env
 assets/vosk-model
+dist
