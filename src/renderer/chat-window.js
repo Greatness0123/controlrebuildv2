@@ -1762,6 +1762,13 @@ class ChatWindow {
             </div>
         `).join('') || '<p style="color: #999;">No past conversations yet.</p>';
 
+        // Tap outside to close
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+
         modal.style.display = 'flex';
     }
 }

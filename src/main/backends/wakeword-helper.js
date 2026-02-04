@@ -54,6 +54,12 @@ class WakewordHelper {
       searchDirs.push(path.join(process.resourcesPath, "wakeword"));
       // 2. Unpacked ASAR (in case it was put there)
       searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked/assets/wakeword"));
+      searchDirs.push(path.join(process.resourcesPath, "app.asar.unpacked/wakeword"));
+
+      // Mac specific path
+      if (process.platform === 'darwin') {
+          searchDirs.push(path.join(path.dirname(process.resourcesPath), "Resources/assets/wakeword"));
+      }
     } else {
       // Development
       searchDirs.push(path.join(__dirname, "../../../assets/wakeword"));
@@ -167,12 +173,25 @@ class WakewordHelper {
 
       try {
           console.log(`[WAKEWORD JS] Initializing Porcupine with key: ${currentKey.substring(0, 5)}...`);
+          console.log(`[WAKEWORD JS] Model path: ${this.modelPath}`);
+
+          // Diagnostic: check if model exists
+          if (!fs.existsSync(this.modelPath)) {
+              console.error(`[WAKEWORD JS] CRITICAL: Model file DOES NOT exist at ${this.modelPath}`);
+          } else {
+              const stats = fs.statSync(this.modelPath);
+              console.log(`[WAKEWORD JS] Model file size: ${stats.size} bytes`);
+          }
+
           // Note: Porcupine for Node.js handles ASAR unpacking for its native module,
           // but the model file MUST be on disk (not in ASAR).
           this.porcupine = new Porcupine(currentKey, [this.modelPath], [0.5]);
           console.log("[WAKEWORD JS] Porcupine engine initialized successfully");
       } catch (e) {
-          // Avoid exposing low-level error details (may include raw keys). Emit a generic invalid key event for UI.
+          // Log the actual error for dev/production debugging (it will show up in wakeword.log)
+          console.error("[WAKEWORD JS] Porcupine initialization error details:", e.message);
+
+          // Avoid exposing low-level error details to UI. Emit a generic invalid key event for UI.
           const msg = (e && e.message && (e.message.includes('Invalid') || e.message.includes('AccessKey') || e.message.includes('parse'))) ? 'Invalid Picovoice key' : 'Wakeword initialization failed';
           console.error("[WAKEWORD JS] Porcupine initialization failed:", msg);
 

@@ -144,6 +144,11 @@ class ActBackend {
     this.model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
+      tools: [
+        {
+          googleSearch: {},
+        },
+      ],
     });
     console.log(`[ACT JS] Model initialized with: ${modelName}`);
   }
@@ -402,6 +407,14 @@ Respond ONLY with JSON:
     try {
       const result = await this.model.generateContent(content);
       const response = await result.response;
+
+      // Track token usage for verification
+      const firebaseService = require('../firebase-service');
+      const cachedUser = firebaseService.checkCachedUser();
+      if (response.usageMetadata && cachedUser) {
+        firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
+      }
+
       const text = response.text();
       const jsonMatch = /\{.*\}/s.exec(text);
       const data = JSON.parse(jsonMatch[0]);
@@ -419,6 +432,9 @@ Respond ONLY with JSON:
     console.log(`[ACT JS] Processing request: ${userRequest}`);
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
+
+    const firebaseService = require('../firebase-service');
+    const cachedUser = firebaseService.checkCachedUser();
 
     onEvent("task_start", { task: userRequest, show_effects: true });
 
@@ -448,6 +464,12 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
       const result = await this.model.generateContent(content);
       if (this.stopRequested) return;
       const response = await result.response;
+
+      // Track token usage for plan generation
+      if (response.usageMetadata && cachedUser) {
+        firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
+      }
+
       if (this.stopRequested) return;
       const text = response.text();
       const jsonMatch = /\{.*\}/s.exec(text);
@@ -525,13 +547,27 @@ Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${proces
 
     } catch (err) {
       console.error("[ACT JS] Task error:", err);
+
+      const errorStr = err.message.toLowerCase();
+      let userMessage = err.message;
+
+      // Check for quota or 429 errors and rotate key for next time
+      if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
+        userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
+        console.log("[ACT JS] Quota exceeded, rotating key...");
+        firebaseService.rotateGeminiKey();
+      } else if (errorStr.includes("google_search_retrieval")) {
+        userMessage = "Search tool configuration error. Rotating key and updating tool settings. Please retry.";
+        firebaseService.rotateGeminiKey();
+      }
+
       // Ensure we signal task completion (failed) so visual effects are cleared
       try {
         onEvent("task_complete", { task: userRequest, success: false });
       } catch (e) {
         console.error('[ACT JS] Error emitting task_complete on catch:', e);
       }
-      onError({ message: err.message });
+      onError({ message: userMessage });
     }
   }
 
