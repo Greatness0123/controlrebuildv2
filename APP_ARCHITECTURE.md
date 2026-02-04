@@ -43,4 +43,24 @@ The backbone of the application. It manages:
 - **Local Settings**: Stored in `userData/settings.json`.
 - **User Cache**: Stored in `userData/cached_user.json`.
 - **API Keys**: Cached in `userData/api_keys.json` after being fetched from Firebase.
-- **Logs**: `backend-manager.log` and `wakeword.log` in the `userData` folder.
+- **Logs**: `backend-manager.log`, `wakeword.log`, and `firebase.log` in the `userData` folder.
+
+## Production Troubleshooting
+
+### 1. Database/Firebase Issues
+If you see "Database not initialized" or connection errors:
+- Ensure `firebase-service-account.json` is present in the `resources/config` folder of your installation.
+- Check `firebase.log` in `userData` for detailed path discovery logs.
+- Ensure the application has internet access and is not blocked by a firewall.
+
+### 2. Wake Word / Picovoice Issues
+If the wake word is not detected or the key is reported as invalid:
+- Check `wakeword.log` for initialization errors.
+- Ensure a microphone is connected and recognized by the OS.
+- If running the executable, ensure native modules are correctly unpacked in `app.asar.unpacked`.
+
+### 3. Stuck "Thinking"
+If the app gets stuck on "Thinking":
+- Check the status bar for error messages.
+- The UI is designed to clear the thinking state on any backend error (see `onBackendError` in `chat-window.js`).
+- Key rotation happens automatically on 429 errors to help recover from quota limits.
