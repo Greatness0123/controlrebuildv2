@@ -9,7 +9,7 @@ class WakewordManager {
         this.isRunning = false;
         this.isEnabled = false;
         this.helper = new WakewordHelper();
-        this.logFile = path.join(app.getPath('userData'), 'wakeword-manager.log');
+        this.logFile = path.join(app.getPath('userData'), 'wakeword.log');
         this.devToolsWindows = [];
     }
 

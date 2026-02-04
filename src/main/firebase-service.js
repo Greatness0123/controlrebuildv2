@@ -339,7 +339,9 @@ module.exports = {
             // Get cached user data first
             const cachedUser = this.checkCachedUser();
             let currentCount = 0;
+            let currentTokens = 0;
             let plan = 'free';
+            const today = new Date().toISOString().split('T')[0];
 
             // Try to get from Firebase if online
             if (db) {
@@ -350,10 +352,15 @@ module.exports = {
                         plan = userData.plan || 'free';
                         currentCount = userData[`${mode}Count`] || 0;
 
+                        // Check daily token limit
+                        const dailyTokens = userData.dailyTokenUsage || {};
+                        currentTokens = (dailyTokens[today] && dailyTokens[today].total) || 0;
+
                         // Update local cache with Firebase data
                         if (cachedUser && cachedUser.id === userId) {
                             cachedUser[`${mode}Count`] = currentCount;
                             cachedUser.plan = plan;
+                            cachedUser.dailyTokenUsage = dailyTokens;
                             this.cacheUser(cachedUser);
                         }
                     } else {
@@ -361,30 +368,32 @@ module.exports = {
                     }
                 } catch (firebaseError) {
                     console.log('Firebase offline, using cached data');
-                    // Use cached data if Firebase fails
                     if (cachedUser && cachedUser.id === userId) {
                         currentCount = cachedUser[`${mode}Count`] || 0;
                         plan = cachedUser.plan || 'free';
+                        const dailyTokens = cachedUser.dailyTokenUsage || {};
+                        currentTokens = (dailyTokens[today] && dailyTokens[today].total) || 0;
                     }
                 }
             } else if (cachedUser && cachedUser.id === userId) {
-                // Offline mode - use cached data
                 currentCount = cachedUser[`${mode}Count`] || 0;
                 plan = cachedUser.plan || 'free';
+                const dailyTokens = cachedUser.dailyTokenUsage || {};
+                currentTokens = (dailyTokens[today] && dailyTokens[today].total) || 0;
             }
 
             // Define limits
             const limits = {
-                free: { act: 10, ask: 20 },
-                pro: { act: 200, ask: 300 },
-                master: { act: Infinity, ask: Infinity }
+                free: { act: 10, ask: 20, tokens: 200000 },
+                pro: { act: 200, ask: 300, tokens: 2000000 },
+                master: { act: Infinity, ask: Infinity, tokens: Infinity }
             };
 
-            // Normalize plan name (Firebase may store "Free Plan", "Pro Plan", etc.)
             const normalizedPlan = String(plan).toLowerCase().replace(/\s*plan\s*/gi, '').trim() || 'free';
             const userLimit = limits[normalizedPlan] || limits.free;
-            const limit = userLimit[mode];
 
+            // 1. Check task limit
+            const limit = userLimit[mode];
             if (currentCount >= limit) {
                 return {
                     allowed: false,
@@ -392,10 +401,75 @@ module.exports = {
                 };
             }
 
-            return { allowed: true, plan, remaining: limit - currentCount, currentCount };
+            // 2. Check daily token limit
+            if (currentTokens >= userLimit.tokens) {
+                return {
+                    allowed: false,
+                    error: `Daily token limit exceeded (${currentTokens}/${userLimit.tokens}). Please wait until tomorrow or upgrade.`
+                };
+            }
+
+            return { allowed: true, plan, remaining: limit - currentCount, currentCount, tokenUsage: currentTokens };
         } catch (error) {
             console.error('Rate limit check error:', error);
             return { allowed: true };
+        }
+    },
+
+    async updateTokenUsage(userId, mode, usage) {
+        try {
+            if (!usage) return;
+            const { promptTokenCount, candidatesTokenCount, totalTokenCount } = usage;
+            const today = new Date().toISOString().split('T')[0];
+
+            // Update local cache
+            const cachedUser = this.checkCachedUser();
+            if (cachedUser && cachedUser.id === userId) {
+                // Total usage
+                cachedUser.tokenUsage = cachedUser.tokenUsage || { ask: { prompt: 0, candidates: 0, total: 0 }, act: { prompt: 0, candidates: 0, total: 0 } };
+                const mUsage = cachedUser.tokenUsage[mode] || { prompt: 0, candidates: 0, total: 0 };
+                mUsage.prompt += promptTokenCount || 0;
+                mUsage.candidates += candidatesTokenCount || 0;
+                mUsage.total += totalTokenCount || 0;
+                cachedUser.tokenUsage[mode] = mUsage;
+
+                // Daily usage
+                cachedUser.dailyTokenUsage = cachedUser.dailyTokenUsage || {};
+                const dUsage = cachedUser.dailyTokenUsage[today] || { prompt: 0, candidates: 0, total: 0 };
+                dUsage.prompt += promptTokenCount || 0;
+                dUsage.candidates += candidatesTokenCount || 0;
+                dUsage.total += totalTokenCount || 0;
+                cachedUser.dailyTokenUsage[today] = dUsage;
+
+                this.cacheUser(cachedUser);
+            }
+
+            // Update Firebase
+            if (db) {
+                try {
+                    const snapshot = await db.collection('users').where('id', '==', userId).get();
+                    if (!snapshot.empty) {
+                        const docRef = snapshot.docs[0].ref;
+                        const totalPrefix = `tokenUsage.${mode}`;
+                        const dailyPrefix = `dailyTokenUsage.${today}`;
+
+                        await docRef.update({
+                            [`${totalPrefix}.prompt`]: admin.firestore.FieldValue.increment(promptTokenCount || 0),
+                            [`${totalPrefix}.candidates`]: admin.firestore.FieldValue.increment(candidatesTokenCount || 0),
+                            [`${totalPrefix}.total`]: admin.firestore.FieldValue.increment(totalTokenCount || 0),
+                            [`${dailyPrefix}.prompt`]: admin.firestore.FieldValue.increment(promptTokenCount || 0),
+                            [`${dailyPrefix}.candidates`]: admin.firestore.FieldValue.increment(candidatesTokenCount || 0),
+                            [`${dailyPrefix}.total`]: admin.firestore.FieldValue.increment(totalTokenCount || 0),
+                            lastTokenUpdate: new Date().toISOString()
+                        });
+                        console.log(`✓ Firebase token usage updated for ${mode}`);
+                    }
+                } catch (firebaseError) {
+                    console.error('Firebase token update failed:', firebaseError.message);
+                }
+            }
+        } catch (error) {
+            console.error('Update token usage error:', error);
         }
     },
 
@@ -556,24 +630,28 @@ module.exports = {
 
             if (configDoc.exists) {
                 const remoteKeys = configDoc.data();
+
+                // Handle multiple keys
+                const geminiKeys = remoteKeys.gemini_keys || [remoteKeys.gemini_free || remoteKeys.gemini];
+                const currentIndex = cachedKeys && cachedKeys.rotationIndex !== undefined ? cachedKeys.rotationIndex : 0;
+
                 const keysToCache = {
-                    gemini: remoteKeys.gemini_free || remoteKeys.gemini,
-                    // NOTE: Porcupine / Picovoice keys are now stored per-user in the users collection
+                    gemini_keys: geminiKeys,
+                    gemini: geminiKeys[currentIndex % geminiKeys.length],
+                    rotationIndex: currentIndex % geminiKeys.length,
                     gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash"
                 };
 
                 if (keysToCache.gemini) {
-                    // Check if they are different from cached (porcupine intentionally not compared)
                     const keysChanged = !cachedKeys ||
-                        cachedKeys.gemini !== keysToCache.gemini ||
+                        JSON.stringify(cachedKeys.gemini_keys) !== JSON.stringify(keysToCache.gemini_keys) ||
                         cachedKeys.gemini_model !== keysToCache.gemini_model;
 
                     if (keysChanged) {
-                        // 3. Update local cache
                         fs.writeFileSync(keysCacheFile, JSON.stringify(keysToCache));
-                        console.log('✓ API keys updated from Firebase and cached locally (porcupine is per-user)');
+                        console.log(`✓ API keys updated from Firebase. Total Gemini keys: ${geminiKeys.length}`);
                     } else {
-                        console.log('✓ Local keys are up to date with Firebase (porcupine is per-user)');
+                        console.log('✓ Local keys are up to date with Firebase');
                     }
                     return keysToCache;
                 }
@@ -599,6 +677,28 @@ module.exports = {
             }
         } catch (e) {
             console.error('Error reading keys cache:', e);
+        }
+        return null;
+    },
+
+    /**
+     * Rotate to the next Gemini API key in the cached list.
+     */
+    rotateGeminiKey() {
+        try {
+            const keys = this.getKeys();
+            if (keys && keys.gemini_keys && keys.gemini_keys.length > 1) {
+                const newIndex = (keys.rotationIndex + 1) % keys.gemini_keys.length;
+                keys.rotationIndex = newIndex;
+                keys.gemini = keys.gemini_keys[newIndex];
+
+                const keysCacheFile = getKeysCacheFile();
+                fs.writeFileSync(keysCacheFile, JSON.stringify(keys));
+                console.log(`✓ Gemini API key rotated to index ${newIndex} (Key: ${keys.gemini.substring(0, 5)}...)`);
+                return keys.gemini;
+            }
+        } catch (e) {
+            console.error('Error rotating Gemini key:', e);
         }
         return null;
     }
