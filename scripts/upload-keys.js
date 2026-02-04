@@ -1,6 +1,12 @@
 /**
  * Utility script to upload API keys to Firebase config/api_keys
- * Usage: node upload-keys.js <gemini_key> <porcupine_key>
+ * Supports uploading multiple Gemini API keys for rotation.
+ *
+ * Usage:
+ * node upload-keys.js <porcupine_key> <gemini_model> <gemini_key1> <gemini_key2> ...
+ *
+ * Example:
+ * node upload-keys.js YOUR_PORCUPINE_KEY gemini-2.0-flash KEY1 KEY2 KEY3 KEY4 KEY5
  */
 
 const admin = require('firebase-admin');
@@ -9,14 +15,20 @@ const fs = require('fs');
 
 async function uploadKeys() {
     const args = process.argv.slice(2);
-    if (args.length < 2) {
-        console.error('Usage: node upload-keys.js <gemini_key> <porcupine_key> [gemini_model]');
+
+    if (args.length < 3) {
+        console.error('Usage: node upload-keys.js <porcupine_key> <gemini_model> <gemini_key1> [gemini_key2] ...');
+        console.log('You must provide at least one Porcupine key, a model name, and one or more Gemini keys.');
         process.exit(1);
     }
 
-    const geminiKey = args[0];
-    const porcupineKey = args[1];
-    const geminiModel = args[2] || "gemini-2.0-flash";
+    const porcupineKey = args[0];
+    const geminiModel = args[1];
+    const geminiKeys = args.slice(2);
+
+    console.log(`Porcupine Key: ${porcupineKey.substring(0, 5)}...`);
+    console.log(`Gemini Model: ${geminiModel}`);
+    console.log(`Gemini Keys: ${geminiKeys.length} keys provided`);
 
     // Initialize Firebase
     try {
@@ -35,16 +47,22 @@ async function uploadKeys() {
         console.log('✓ Firebase initialized');
 
         console.log('Uploading keys to config/api_keys...');
-        await db.collection('config').doc('api_keys').set({
-            gemini: geminiKey,
-            gemini_free: geminiKey,
+
+        const dataToUpload = {
             porcupine: porcupineKey,
             porcupine_access_key: porcupineKey,
             gemini_model: geminiModel,
+            gemini_keys: geminiKeys,
+            // Keep legacy fields for compatibility during transition
+            gemini: geminiKeys[0],
+            gemini_free: geminiKeys[0],
             updatedAt: new Date().toISOString()
-        }, { merge: true });
+        };
+
+        await db.collection('config').doc('api_keys').set(dataToUpload, { merge: true });
 
         console.log('✓ API keys uploaded successfully!');
+        console.log(`Uploaded ${geminiKeys.length} Gemini keys to 'gemini_keys' array.`);
         process.exit(0);
     } catch (error) {
         console.error('✗ Failed to upload keys:', error.message);

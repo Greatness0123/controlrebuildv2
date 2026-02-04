@@ -84,7 +84,11 @@ You can request information by including these tags in your response:
     this.model = genAI.getGenerativeModel({
       model: modelName,
       systemInstruction: systemPrompt,
-      tools: [{ googleSearchRetrieval: {} }], // Enable Google Search tool
+      tools: [
+        {
+          googleSearch: {},
+        },
+      ],
     });
     console.log(`[ASK JS] Model initialized with: ${modelName} (with Google Search tool)`);
   }
@@ -140,6 +144,9 @@ You can request information by including these tags in your response:
     console.log(`[ASK JS] Processing request: ${userRequest}`);
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
+
+    const firebaseService = require('../firebase-service');
+    const cachedUser = firebaseService.checkCachedUser();
 
     if (!this.model) {
       console.error("[ASK JS] AI model not configured.");
@@ -211,6 +218,12 @@ You can request information by including these tags in your response:
         const result = await this.model.generateContent(conversationParts);
         if (this.stopRequested) break;
         const response = await result.response;
+
+        // Track token usage
+        if (response.usageMetadata && cachedUser) {
+          firebaseService.updateTokenUsage(cachedUser.id, 'ask', response.usageMetadata);
+        }
+
         if (this.stopRequested) break;
         const responseText = response.text().trim();
 
@@ -276,9 +289,17 @@ You can request information by including these tags in your response:
       console.error("[ASK JS] Error processing request:", err);
       let userMessage = "I encountered an error. Please try again.";
       const errorStr = err.message.toLowerCase();
+
+      // Check for quota or 429 errors and rotate key for next time
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
-        userMessage = "Unable to connect to AI. Please try again later.";
+        userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
+        console.log("[ASK JS] Quota exceeded, rotating key...");
+        firebaseService.rotateGeminiKey();
+      } else if (errorStr.includes("google_search_retrieval")) {
+        userMessage = "Search tool configuration error. Rotating key and updating tool settings. Please retry.";
+        firebaseService.rotateGeminiKey();
       }
+
       onError({ message: userMessage });
     }
   }
