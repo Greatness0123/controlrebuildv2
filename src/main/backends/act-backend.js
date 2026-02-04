@@ -141,15 +141,16 @@ class ActBackend {
 
     this.currentApiKey = key;
     const genAI = new GoogleGenerativeAI(key);
-    this.model = genAI.getGenerativeModel({
+    const modelOptions = {
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
-      tools: [
-        {
-          googleSearch: {},
-        },
-      ],
-    });
+    };
+
+    if (!process.env.DISABLE_SEARCH_TOOL) {
+      modelOptions.tools = [{ googleSearch: {} }];
+    }
+
+    this.model = genAI.getGenerativeModel(modelOptions);
     console.log(`[ACT JS] Model initialized with: ${modelName}`);
   }
 

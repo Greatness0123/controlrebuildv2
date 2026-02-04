@@ -48,10 +48,11 @@ The backbone of the application. It manages:
 ## Production Troubleshooting
 
 ### 1. Database/Firebase Issues
-If you see "Database not initialized" or connection errors:
+If you see "Database connection failed" or connection errors:
 - Ensure `firebase-service-account.json` is present in the `resources/config` folder of your installation.
+- The application now searches multiple locations (Resources, AppPath, UserData) for the service account.
 - Check `firebase.log` in `userData` for detailed path discovery logs.
-- Ensure the application has internet access and is not blocked by a firewall.
+- The app features local fallback for rate limiting and API keys if Firebase is unreachable.
 
 ### 2. Wake Word / Picovoice Issues
 If the wake word is not detected or the key is reported as invalid:

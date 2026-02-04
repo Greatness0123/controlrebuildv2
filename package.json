@@ -51,6 +51,7 @@
     "extraResources": [
       "assets/**/*",
       "config/**/*",
+      "src/config/**/*",
       "vosk_server_v2.py"
     ],
     "mac": {
