@@ -746,17 +746,19 @@ class ComputerUseAgent {
             try {
                 console.log('[Main] [IPC] validate-picovoice-key called (key length=', key ? key.length : 0, ')');
                 const WakewordHelper = require('./backends/wakeword-helper');
-                const helper = new WakewordHelper({ accessKey: key });
-                if (helper.validateAccessKey) {
-                    const res = await helper.validateAccessKey(key);
-                    console.log('[Main] [IPC] validate-picovoice-key result:', res);
-                    if (!res || !res.success) return { success: false, message: 'Invalid Picovoice key' };
-                    return { success: true };
-                }
-                return { success: true };
+
+                // Create a temporary helper with the same logger as the manager if possible
+                const helper = new WakewordHelper({
+                    accessKey: key,
+                    logger: (msg, level) => this.wakewordManager.logWithDevTools(msg, level)
+                });
+
+                const res = await helper.validateAccessKey(key);
+                console.log('[Main] [IPC] validate-picovoice-key result:', res);
+                return res;
             } catch (e) {
                 console.error('[Main] [IPC] validate-picovoice-key error:', e);
-                return { success: false, message: 'Invalid Picovoice key' };
+                return { success: false, message: `Validation error: ${e.message || 'Unknown error'}` };
             }
         });
 
