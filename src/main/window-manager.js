@@ -38,13 +38,13 @@ class WindowManager {
     }
 
     async createMainWindow() {
-        const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+        const { width, height, x, y } = screen.getPrimaryDisplay().bounds;
 
         this.mainWindow = new BrowserWindow({
             width: width,
             height: height,
-            x: 0,
-            y: 0,
+            x: x,
+            y: y,
             frame: false,
             transparent: true,
             alwaysOnTop: true,
