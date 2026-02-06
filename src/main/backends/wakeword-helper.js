@@ -1,17 +1,21 @@
+const path = require("path");
+const fs = require("fs");
+const { app } = require('electron');
+
 let Porcupine, PvRecorder;
+let nativeModulePath = null;
 const nativeModuleLogs = [];
 const nativeModuleLogger = (msg, level = 'info') => {
   console.log(`[WAKEWORD JS] [${level.toUpperCase()}] ${msg}`);
   nativeModuleLogs.push({ msg: `[NATIVE] ${msg}`, level });
 };
 
-try {
-  Porcupine = require("@picovoice/porcupine-node").Porcupine;
-  PvRecorder = require("@picovoice/pvrecorder-node").PvRecorder;
-  nativeModuleLogger('Native modules loaded via standard require');
-} catch (e) {
-  nativeModuleLogger('Standard require failed, attempting to load from app.asar.unpacked', 'warn');
-  try {
+const isPackaged = app.isPackaged;
+
+// In production, we MUST load from app.asar.unpacked because Picovoice
+// needs real filesystem paths for its .pv files.
+if (isPackaged) {
+    nativeModuleLogger('App is packaged, prioritizing app.asar.unpacked for native modules');
     const possibleUnpackedPaths = [
         path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
         path.join(path.dirname(app.getPath('exe')), 'resources', 'app.asar.unpacked', 'node_modules'),
@@ -29,28 +33,35 @@ try {
 
             if (Porcupine && PvRecorder) {
                 nativeModuleLogger(`Native modules successfully loaded from: ${unpackedPath}`);
+                nativeModulePath = unpackedPath;
                 break;
             }
         } catch (innerErr) {
             nativeModuleLogger(`Failed to load from ${unpackedPath}: ${innerErr.message}`, 'warn');
         }
     }
-
-    if (!Porcupine || !PvRecorder) {
-        throw new Error("Could not find native modules in any unpacked path");
-    }
-  } catch (err) {
-    nativeModuleLogger(`Critical error loading native modules: ${err.message}`, 'error');
-  }
 }
 
-const path = require("path");
-const fs = require("fs");
-const { app } = require('electron');
+// Fallback to standard require if not packaged or if unpacked loading failed
+if (!Porcupine || !PvRecorder) {
+    try {
+        nativeModuleLogger('Attempting standard require for native modules');
+        Porcupine = require("@picovoice/porcupine-node").Porcupine;
+        PvRecorder = require("@picovoice/pvrecorder-node").PvRecorder;
+        nativeModuleLogger('Native modules loaded via standard require');
+    } catch (e) {
+        nativeModuleLogger(`Standard require failed: ${e.message}`, 'error');
+    }
+}
+
+if (!Porcupine || !PvRecorder) {
+    nativeModuleLogger('CRITICAL: Failed to load native modules (Porcupine/PvRecorder). Wakeword will not function.', 'error');
+}
 
 class WakewordHelper {
   constructor(options = {}) {
     this.logger = options.logger || console.log;
+    this.porcupineParamsPath = this.resolvePorcupineParamsPath();
 
     // Flush any logs collected during native module loading
     if (nativeModuleLogs.length > 0) {
@@ -74,6 +85,29 @@ class WakewordHelper {
     if (this.logger) {
       this.logger(`[HELPER] ${msg}`, level === 'log' ? 'info' : level);
     }
+  }
+
+  resolvePorcupineParamsPath() {
+    // Priority 1: Check if we have a successful unpacked native module path
+    if (nativeModulePath) {
+      const p = path.join(nativeModulePath, '@picovoice/porcupine-node/lib/common/porcupine_params.pv');
+      if (fs.existsSync(p)) {
+        this.log(`Found Porcupine params in unpacked path: ${p}`);
+        return p;
+      }
+    }
+
+    // Priority 2: Standard location in node_modules (might be in ASAR, which is what we want to avoid)
+    try {
+      // Use require.resolve to find the package directory if not already known
+      const porcupineDir = path.dirname(require.resolve('@picovoice/porcupine-node/package.json'));
+      const p = path.join(porcupineDir, 'lib/common/porcupine_params.pv');
+      if (fs.existsSync(p)) {
+        return p;
+      }
+    } catch (e) {}
+
+    return null;
   }
 
   resolveModelPath() {
@@ -213,29 +247,73 @@ class WakewordHelper {
       this.log("Initializing Porcupine...");
       this.log(`OS: ${process.platform}, Arch: ${process.arch}`);
 
-      // ALWAYS use the latest key from environment/firebase/cache
+      // AGGRESSIVE KEY DISCOVERY
       let currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
 
-      // Secondary fallback: check local user cache directly if still missing
-      if (!currentKey) {
-          try {
-              const firebaseService = require('../firebase-service');
-              const cachedUser = firebaseService.checkCachedUser();
-              if (cachedUser) {
-                  currentKey = cachedUser.picovoiceKey || cachedUser.porcupine_access_key;
-                  if (currentKey) {
-                      this.log('Recovered key from user cache');
-                      process.env.PORCUPINE_ACCESS_KEY = currentKey;
-                  }
-              }
-          } catch (e) {
-              this.log('Failed to check user cache for key:', e.message);
+      if (currentKey) {
+        this.log(`Found access key in process.env or local state (starts with: ${currentKey.substring(0, 5)}...)`);
+      } else {
+        this.log('Access key not found in process.env, checking secondary sources...');
+
+        // 1. Try Firebase local cache
+        try {
+          const firebaseService = require('../firebase-service');
+          const cachedUser = firebaseService.checkCachedUser();
+          if (cachedUser) {
+            currentKey = cachedUser.picovoiceKey || cachedUser.porcupine_access_key;
+            if (currentKey) {
+              this.log(`Recovered key from Firebase user cache (starts with: ${currentKey.substring(0, 5)}...)`);
+              process.env.PORCUPINE_ACCESS_KEY = currentKey;
+            }
           }
+        } catch (e) {
+          this.log(`Firebase cache check failed: ${e.message}`, 'warn');
+        }
+
+        // 2. Try SettingsManager (global)
+        if (!currentKey) {
+          try {
+            const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+            if (fs.existsSync(settingsPath)) {
+              const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+              if (settings.userDetails) {
+                currentKey = settings.userDetails.picovoiceKey || settings.userDetails.porcupine_access_key;
+                if (currentKey) {
+                  this.log(`Recovered key from global settings.json (starts with: ${currentKey.substring(0, 5)}...)`);
+                }
+              }
+            }
+          } catch (e) {
+            this.log(`SettingsManager file check failed: ${e.message}`, 'warn');
+          }
+        }
+
+        // 3. Try scanning for ANY user settings file
+        if (!currentKey) {
+          try {
+            const userDataDir = app.getPath('userData');
+            const files = fs.readdirSync(userDataDir);
+            const userSettingsFiles = files.filter(f => f.startsWith('settings_') && f.endsWith('.json'));
+
+            for (const f of userSettingsFiles) {
+              const p = path.join(userDataDir, f);
+              const settings = JSON.parse(fs.readFileSync(p, 'utf8'));
+              currentKey = settings.picovoiceKey || settings.porcupine_access_key;
+              if (currentKey) {
+                this.log(`Recovered key from user settings file: ${f} (starts with: ${currentKey.substring(0, 5)}...)`);
+                break;
+              }
+            }
+          } catch (e) {
+            this.log(`Scanning user settings failed: ${e.message}`, 'warn');
+          }
+        }
       }
 
       this.accessKey = currentKey;
 
       if (!currentKey) {
+        this.log('CRITICAL: Picovoice access key is MISSING from all sources.', 'error');
         throw new Error("Picovoice access key missing. Please set your key in Settings.");
       }
 
@@ -267,7 +345,15 @@ class WakewordHelper {
 
           // Note: Porcupine for Node.js handles ASAR unpacking for its native module,
           // but the model file MUST be on disk (not in ASAR).
-          this.porcupine = new Porcupine(currentKey, [this.modelPath], [0.5]);
+          // We explicitly pass porcupineParamsPath to ensure it's loaded from the real filesystem.
+          this.log(`Using Porcupine params from: ${this.porcupineParamsPath || 'DEFAULT'}`);
+
+          this.porcupine = new Porcupine(
+            currentKey,
+            [this.modelPath],
+            [0.5],
+            this.porcupineParamsPath
+          );
           this.log("Porcupine engine initialized successfully");
       } catch (e) {
           // Log the actual error for dev/production debugging (it will show up in wakeword.log)
@@ -374,7 +460,12 @@ class WakewordHelper {
       }
 
       // Try to instantiate Porcupine briefly to validate key
-      const testPorcupine = new Porcupine(keyToTest, [this.modelPath], [0.5]);
+      const testPorcupine = new Porcupine(
+        keyToTest,
+        [this.modelPath],
+        [0.5],
+        this.porcupineParamsPath
+      );
       testPorcupine.release();
       this.log('validateAccessKey: key appears valid');
       return { success: true };
