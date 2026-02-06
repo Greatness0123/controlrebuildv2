@@ -2,7 +2,7 @@ let Porcupine, PvRecorder;
 const nativeModuleLogs = [];
 const nativeModuleLogger = (msg, level = 'info') => {
   console.log(`[WAKEWORD JS] [${level.toUpperCase()}] ${msg}`);
-  nativeModuleLogs.push({ msg, level });
+  nativeModuleLogs.push({ msg: `[NATIVE] ${msg}`, level });
 };
 
 try {
@@ -72,7 +72,7 @@ class WakewordHelper {
 
   log(msg, level = 'info') {
     if (this.logger) {
-      this.logger(`[WAKEWORD HELPER] [${level.toUpperCase()}] ${msg}`);
+      this.logger(`[HELPER] ${msg}`, level === 'log' ? 'info' : level);
     }
   }
 
