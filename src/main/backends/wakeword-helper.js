@@ -1,14 +1,17 @@
 let Porcupine, PvRecorder;
+const nativeModuleLogs = [];
+const nativeModuleLogger = (msg, level = 'info') => {
+  console.log(`[WAKEWORD JS] [${level.toUpperCase()}] ${msg}`);
+  nativeModuleLogs.push({ msg: `[NATIVE] ${msg}`, level });
+};
+
 try {
   Porcupine = require("@picovoice/porcupine-node").Porcupine;
   PvRecorder = require("@picovoice/pvrecorder-node").PvRecorder;
-  console.log('[WAKEWORD JS] Native modules loaded via standard require');
+  nativeModuleLogger('Native modules loaded via standard require');
 } catch (e) {
-  console.warn('[WAKEWORD JS] Standard require failed, attempting to load from app.asar.unpacked');
+  nativeModuleLogger('Standard require failed, attempting to load from app.asar.unpacked', 'warn');
   try {
-    const { app } = require('electron');
-    const path = require('path');
-
     const possibleUnpackedPaths = [
         path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules'),
         path.join(path.dirname(app.getPath('exe')), 'resources', 'app.asar.unpacked', 'node_modules'),
@@ -17,7 +20,7 @@ try {
 
     for (const unpackedPath of possibleUnpackedPaths) {
         try {
-            console.log(`[WAKEWORD JS] Trying unpacked path: ${unpackedPath}`);
+            nativeModuleLogger(`Trying unpacked path: ${unpackedPath}`);
             const porcupinePkg = require(path.join(unpackedPath, '@picovoice/porcupine-node'));
             const pvrecorderPkg = require(path.join(unpackedPath, '@picovoice/pvrecorder-node'));
 
@@ -25,11 +28,11 @@ try {
             PvRecorder = pvrecorderPkg.PvRecorder;
 
             if (Porcupine && PvRecorder) {
-                console.log(`[WAKEWORD JS] Native modules successfully loaded from: ${unpackedPath}`);
+                nativeModuleLogger(`Native modules successfully loaded from: ${unpackedPath}`);
                 break;
             }
         } catch (innerErr) {
-            console.log(`[WAKEWORD JS] Failed to load from ${unpackedPath}: ${innerErr.message}`);
+            nativeModuleLogger(`Failed to load from ${unpackedPath}: ${innerErr.message}`, 'warn');
         }
     }
 
@@ -37,15 +40,28 @@ try {
         throw new Error("Could not find native modules in any unpacked path");
     }
   } catch (err) {
-    console.error('[WAKEWORD JS] Critical error loading native modules:', err.message);
+    nativeModuleLogger(`Critical error loading native modules: ${err.message}`, 'error');
   }
 }
 
 const path = require("path");
 const fs = require("fs");
+const { app } = require('electron');
 
 class WakewordHelper {
   constructor(options = {}) {
+    this.logger = options.logger || console.log;
+
+    // Flush any logs collected during native module loading
+    if (nativeModuleLogs.length > 0) {
+      nativeModuleLogs.forEach(logEntry => {
+        if (this.logger) {
+          this.logger(logEntry.msg, logEntry.level);
+        }
+      });
+      nativeModuleLogs.length = 0; // Clear them
+    }
+
     this.accessKey = options.accessKey || process.env.PORCUPINE_ACCESS_KEY;
     this.modelPath = options.modelPath || this.resolveModelPath();
     this.porcupine = null;
@@ -54,8 +70,13 @@ class WakewordHelper {
     this.lastDetection = 0;
   }
 
+  log(msg, level = 'info') {
+    if (this.logger) {
+      this.logger(`[HELPER] ${msg}`, level === 'log' ? 'info' : level);
+    }
+  }
+
   resolveModelPath() {
-    const { app } = require('electron');
     const isPackaged = app.isPackaged;
 
     // Detect platform and set the appropriate suffix
@@ -71,9 +92,9 @@ class WakewordHelper {
       osName = "Linux";
     }
 
-    console.log(`[WAKEWORD JS] Detected OS: ${osName} (platform: ${platform})`);
-    console.log(`[WAKEWORD JS] Architecture: ${process.arch}`);
-    console.log(`[WAKEWORD JS] App packaged: ${isPackaged}`);
+    this.log(`Detected OS: ${osName} (platform: ${platform})`);
+    this.log(`Architecture: ${process.arch}`);
+    this.log(`App packaged: ${isPackaged}`);
 
     // Build list of model file names for this platform
     const possibleNames = [
@@ -85,7 +106,7 @@ class WakewordHelper {
       "hey-control.ppn"
     ];
 
-    console.log(`[WAKEWORD JS] Looking for model files: ${possibleNames.join(', ')}`);
+    this.log(`Looking for model files: ${possibleNames.join(', ')}`);
 
     // Build list of search directories
     const searchDirs = [];
@@ -109,27 +130,27 @@ class WakewordHelper {
     searchDirs.push(path.join(process.cwd(), "assets/wakeword"));
     searchDirs.push(path.join(process.cwd(), "wakeword"));
 
-    console.log("[WAKEWORD JS] Searching for model file...");
-    console.log(`[WAKEWORD JS] Search directories: ${searchDirs.join(', ')}`);
+    this.log("Searching for model file...");
+    this.log(`Search directories: ${searchDirs.join(', ')}`);
 
     let foundPath = null;
     for (const dir of searchDirs) {
       if (!fs.existsSync(dir)) {
-        console.log(`[WAKEWORD JS] Directory does not exist: ${dir}`);
+        this.log(`Directory does not exist: ${dir}`);
         continue;
       }
 
-      console.log(`[WAKEWORD JS] Checking directory: ${dir}`);
+      this.log(`Checking directory: ${dir}`);
 
       // Try exact names first
       for (const name of possibleNames) {
         const p = path.join(dir, name);
         if (fs.existsSync(p)) {
-          console.log(`[WAKEWORD JS] SUCCESS: Found model at ${p}`);
+          this.log(`SUCCESS: Found model at ${p}`);
           foundPath = p;
           break;
         } else {
-          console.log(`[WAKEWORD JS] Not found: ${p}`);
+          this.log(`Not found: ${p}`);
         }
       }
 
@@ -137,14 +158,14 @@ class WakewordHelper {
         // Try finding ANY .ppn file in this dir
         try {
           const files = fs.readdirSync(dir);
-          console.log(`[WAKEWORD JS] Files in directory: ${files.join(', ')}`);
+          this.log(`Files in directory: ${files.join(', ')}`);
           const ppnFile = files.find(f => f.endsWith(".ppn"));
           if (ppnFile) {
             foundPath = path.join(dir, ppnFile);
-            console.log(`[WAKEWORD JS] SUCCESS: Found alternative model ${ppnFile} at ${foundPath}`);
+            this.log(`SUCCESS: Found alternative model ${ppnFile} at ${foundPath}`);
           }
         } catch (e) {
-          console.error(`[WAKEWORD JS] Error reading dir ${dir}:`, e.message);
+          this.log(`Error reading dir ${dir}:`, e.message);
         }
       }
 
@@ -166,31 +187,31 @@ class WakewordHelper {
                            fs.statSync(foundPath).mtime > fs.statSync(targetPath).mtime;
 
         if (shouldCopy) {
-          console.log(`[WAKEWORD JS] Copying model to persistent storage: ${targetPath}`);
+          this.log(`Copying model to persistent storage: ${targetPath}`);
           fs.copyFileSync(foundPath, targetPath);
         }
 
         return targetPath;
       } catch (copyErr) {
-        console.warn(`[WAKEWORD JS] Failed to copy model to userData, using original path: ${copyErr.message}`);
+        this.log(`Failed to copy model to userData, using original path: ${copyErr.message}`);
         return foundPath;
       }
     }
 
     const fallbackPath = path.join(searchDirs[0] || "", possibleNames[0]);
-    console.error(`[WAKEWORD JS] ERROR: No model file found. Fallback to: ${fallbackPath}`);
+    this.log(`ERROR: No model file found. Fallback to: ${fallbackPath}`);
     return fallbackPath;
   }
 
   async start(onDetected, onError) {
     if (this.isListening) {
-      console.log("[WAKEWORD JS] Already listening");
+      this.log("Already listening");
       return;
     }
 
     try {
-      console.log("[WAKEWORD JS] Initializing Porcupine...");
-      console.log(`[WAKEWORD JS] OS: ${process.platform}, Arch: ${process.arch}`);
+      this.log("Initializing Porcupine...");
+      this.log(`OS: ${process.platform}, Arch: ${process.arch}`);
 
       // ALWAYS use the latest key from environment/firebase/cache
       let currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
@@ -203,58 +224,70 @@ class WakewordHelper {
               if (cachedUser) {
                   currentKey = cachedUser.picovoiceKey || cachedUser.porcupine_access_key;
                   if (currentKey) {
-                      console.log('[WAKEWORD JS] Recovered key from user cache');
+                      this.log('Recovered key from user cache');
                       process.env.PORCUPINE_ACCESS_KEY = currentKey;
                   }
               }
           } catch (e) {
-              console.warn('[WAKEWORD JS] Failed to check user cache for key:', e.message);
+              this.log('Failed to check user cache for key:', e.message);
           }
       }
 
       this.accessKey = currentKey;
 
       if (!currentKey) {
-        throw new Error("Porcupine Access Key missing. Please set your Picovoice key in Settings.");
+        throw new Error("Picovoice access key missing. Please set your key in Settings.");
       }
 
-      console.log(`[WAKEWORD JS] Loading model from: ${this.modelPath}`);
+      this.log(`Loading model from: ${this.modelPath}`);
       if (!fs.existsSync(this.modelPath)) {
         // One last try: relative to process.cwd()
         const altPath = path.join(process.cwd(), "assets/wakeword/hey-control_en_windows_v4_0_0.ppn");
         if (fs.existsSync(altPath)) {
             this.modelPath = altPath;
-            console.log(`[WAKEWORD JS] Found model at alternative location: ${altPath}`);
+            this.log(`Found model at alternative location: ${altPath}`);
         } else {
-            throw new Error(`Model file not found: ${this.modelPath}`);
+            throw new Error(`Model file not found at ${this.modelPath}. Please ensure the app assets are correctly installed.`);
         }
       }
 
       try {
-          console.log(`[WAKEWORD JS] Initializing Porcupine with key: ${currentKey.substring(0, 5)}...`);
-          console.log(`[WAKEWORD JS] Model path: ${this.modelPath}`);
+          this.log(`Initializing Porcupine with key: ${currentKey.substring(0, 5)}...`);
+          this.log(`Model path: ${this.modelPath}`);
+
+          if (!Porcupine) {
+            throw new Error("Porcupine native module not loaded. This usually means the library is not compatible with your system or was not correctly unpacked.");
+          }
 
           // Diagnostic: check if model exists
           if (!fs.existsSync(this.modelPath)) {
-              console.error(`[WAKEWORD JS] CRITICAL: Model file DOES NOT exist at ${this.modelPath}`);
-          } else {
-              const stats = fs.statSync(this.modelPath);
-              console.log(`[WAKEWORD JS] Model file size: ${stats.size} bytes`);
+              this.log(`CRITICAL: Model file DOES NOT exist at ${this.modelPath}`, 'error');
+              throw new Error(`Model file missing: ${this.modelPath}`);
           }
 
           // Note: Porcupine for Node.js handles ASAR unpacking for its native module,
           // but the model file MUST be on disk (not in ASAR).
           this.porcupine = new Porcupine(currentKey, [this.modelPath], [0.5]);
-          console.log("[WAKEWORD JS] Porcupine engine initialized successfully");
+          this.log("Porcupine engine initialized successfully");
       } catch (e) {
           // Log the actual error for dev/production debugging (it will show up in wakeword.log)
-          console.error("[WAKEWORD JS] Porcupine initialization error details:", e.message);
+          const detailedError = e.message || String(e);
+          this.log(`Porcupine initialization error details: ${detailedError}`, 'error');
 
-          // Avoid exposing low-level error details to UI. Emit a generic invalid key event for UI.
-          const msg = (e && e.message && (e.message.includes('Invalid') || e.message.includes('AccessKey') || e.message.includes('parse'))) ? 'Invalid Picovoice key' : 'Wakeword initialization failed';
-          console.error("[WAKEWORD JS] Porcupine initialization failed:", msg);
+          // If it's already one of our specific errors, re-throw it
+          if (detailedError.includes('native module not loaded') || detailedError.includes('Model file missing')) {
+            throw e;
+          }
 
-          if (msg === 'Invalid Picovoice key') {
+          // Distinguish between invalid key and other issues
+          const isKeyError = detailedError.includes('Invalid') ||
+                             detailedError.includes('AccessKey') ||
+                             detailedError.includes('parse') ||
+                             detailedError.includes('Unauthorized');
+
+          const msg = isKeyError ? 'Invalid Picovoice key' : `Wakeword engine failed to start: ${detailedError}`;
+
+          if (isKeyError) {
               try { process.emit && process.emit('wakeword-invalid-key', { message: 'Invalid Picovoice key' }); } catch (err) {}
           }
 
@@ -263,13 +296,13 @@ class WakewordHelper {
 
       const frameLength = this.porcupine.frameLength;
 
-      console.log("[WAKEWORD JS] Initializing PvRecorder...");
+      this.log("Initializing PvRecorder...");
       try {
           if (!PvRecorder) throw new Error("PvRecorder module not loaded");
 
           const devices = PvRecorder.getAvailableDevices();
-          console.log(`[WAKEWORD JS] Available audio devices: ${devices.length} found`);
-          devices.forEach((d, i) => console.log(`[WAKEWORD JS] Device ${i}: ${d}`));
+          this.log(`Available audio devices: ${devices.length} found`);
+          devices.forEach((d, i) => this.log(`Device ${i}: ${d}`));
 
           if (devices.length === 0) {
               throw new Error("No audio input devices found. Please connect a microphone.");
@@ -278,64 +311,86 @@ class WakewordHelper {
           // Use default device (-1)
           this.recorder = new PvRecorder(frameLength, -1);
           this.recorder.start();
-          console.log("[WAKEWORD JS] PvRecorder started successfully");
+          this.log("PvRecorder started successfully");
       } catch (e) {
-          console.error("[WAKEWORD JS] PvRecorder initialization failed:", e);
+          this.log(`PvRecorder initialization failed: ${e.message || e}`, 'error');
           throw e;
       }
 
       this.isListening = true;
-      console.log(`[WAKEWORD JS] Started listening with PvRecorder for wake word: ${path.basename(this.modelPath)}`);
+      this.log(`Started listening with PvRecorder for wake word: ${path.basename(this.modelPath)}`);
 
-      const processFrame = async () => {
-        if (!this.isListening) return;
+      const processFrame = () => {
+        if (!this.isListening || !this.recorder || !this.porcupine) return;
 
-        try {
-          const frame = await this.recorder.read();
-          const result = this.porcupine.process(frame);
+        this.recorder.read()
+          .then(frame => {
+            if (!this.isListening || !this.porcupine) return;
+            const result = this.porcupine.process(frame);
 
-          if (result >= 0) {
-            const now = Date.now();
-            if (now - this.lastDetection > 1500) { // 1.5s cooldown
-              this.lastDetection = now;
-              console.log("[WAKEWORD JS] DETECTED");
-              onDetected();
+            if (result >= 0) {
+              const now = Date.now();
+              if (now - this.lastDetection > 1500) { // 1.5s cooldown
+                this.lastDetection = now;
+                this.log("Wake word DETECTED");
+                onDetected();
+              }
             }
-          }
 
-          // Continue processing
-          setImmediate(processFrame);
-        } catch (err) {
-          console.error("[WAKEWORD JS] Recording error:", err);
-          if (onError) onError(err);
-        }
+            // Continue processing
+            if (this.isListening) {
+              setImmediate(processFrame);
+            }
+          })
+          .catch(err => {
+            this.log(`Recording loop error: ${err.message || err}`, 'error');
+            if (onError) onError(err);
+          });
       };
 
+      // Start the loop
       processFrame();
+      return true;
 
     } catch (err) {
-      console.error("[WAKEWORD JS] Failed to start:", err);
-      if (onError) onError(err);
+      this.log(`Failed to start: ${err.message}`, 'error');
+      // Re-throw to let the caller know initialization failed
+      throw err;
     }
   }
 
   async validateAccessKey(accessKey) {
     try {
-      if (!Porcupine) throw new Error("Porcupine module not loaded");
+      if (!Porcupine) {
+        return { success: false, message: 'Native module not loaded. Check system compatibility.' };
+      }
 
       const keyToTest = accessKey || this.accessKey || process.env.PORCUPINE_ACCESS_KEY;
-      console.log('[WAKEWORD JS] validateAccessKey called, hasKey=', !!keyToTest);
+      this.log('validateAccessKey called, hasKey=', !!keyToTest);
       if (!keyToTest) return { success: false, message: 'Missing Picovoice access key' };
+
+      if (!fs.existsSync(this.modelPath)) {
+        return { success: false, message: 'Wakeword model file missing' };
+      }
 
       // Try to instantiate Porcupine briefly to validate key
       const testPorcupine = new Porcupine(keyToTest, [this.modelPath], [0.5]);
       testPorcupine.release();
-      console.log('[WAKEWORD JS] validateAccessKey: key appears valid');
+      this.log('validateAccessKey: key appears valid');
       return { success: true };
     } catch (e) {
-      console.error('[WAKEWORD JS] validateAccessKey error:', e && e.message ? e.message : e);
-      // Do not forward verbose errors to the renderer
-      return { success: false, message: 'Invalid Picovoice key' };
+      const detailedError = e.message || String(e);
+      this.log(`validateAccessKey error: ${detailedError}`, 'error');
+
+      const isKeyError = detailedError.includes('Invalid') ||
+                         detailedError.includes('AccessKey') ||
+                         detailedError.includes('parse') ||
+                         detailedError.includes('Unauthorized');
+
+      return {
+        success: false,
+        message: isKeyError ? 'Invalid Picovoice key' : `Validation failed: ${detailedError}`
+      };
     }
   }
 
@@ -350,7 +405,7 @@ class WakewordHelper {
       this.porcupine.release();
       this.porcupine = null;
     }
-    console.log("[WAKEWORD JS] Stopped listening");
+    this.log("Stopped listening");
   }
 }
 

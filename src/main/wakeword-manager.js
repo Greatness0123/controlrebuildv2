@@ -8,9 +8,13 @@ class WakewordManager {
         const { app } = require('electron');
         this.isRunning = false;
         this.isEnabled = false;
-        this.helper = new WakewordHelper();
         this.logFile = path.join(app.getPath('userData'), 'wakeword.log');
         this.devToolsWindows = [];
+
+        // Initialize helper with logger that writes to file and devtools
+        this.helper = new WakewordHelper({
+            logger: (msg, level = 'log') => this.logWithDevTools(msg, level)
+        });
     }
 
     registerDevToolsWindow(window) {
@@ -69,10 +73,10 @@ class WakewordManager {
                     // Critical failure in the loop - mark as not running to allow auto-retry
                     this.isRunning = false;
 
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         if (this.isEnabled && !this.isRunning) {
                             this.logWithDevTools('Restarting wake word after operational error...', 'warn');
-                            this.start();
+                            await this.start();
                         }
                     }, 5000);
                 }
@@ -80,14 +84,14 @@ class WakewordManager {
             this.isRunning = true;
             this.logWithDevTools('Wake word detection started successfully', 'success');
         } catch (err) {
-            this.logWithDevTools(`Failed to start wake word helper: ${err}`, 'error');
+            this.logWithDevTools(`Failed to start wake word helper: ${err.message || err}`, 'error');
             this.isRunning = false;
 
             // Auto-retry after failure
-            setTimeout(() => {
+            setTimeout(async () => {
                 if (this.isEnabled && !this.isRunning) {
                     this.logWithDevTools('Retrying wake word start...', 'warn');
-                    this.start();
+                    await this.start();
                 }
             }, 5000);
         }
