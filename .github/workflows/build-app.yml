@@ -87,23 +87,14 @@ jobs:
         fi
 
         if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-          cp python-artifacts/dist/act_backend assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/ask_backend assets/binaries/ 2>/dev/null || true
           cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/assets/wakeword/dist/wakeword_helper assets/binaries/ 2>/dev/null || true
           chmod +x assets/binaries/* || true
 
         elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp python-artifacts/dist/act_backend.exe assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/dist/ask_backend.exe assets/binaries/ 2>/dev/null || true
           cp python-artifacts/dist/vosk_server_v2.exe assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/assets/wakeword/dist/wakeword_helper.exe assets/binaries/ 2>/dev/null || true
 
         elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-          cp -R python-artifacts/dist/act_backend.app assets/binaries/ 2>/dev/null || true
-          cp -R python-artifacts/dist/ask_backend.app assets/binaries/ 2>/dev/null || true
           cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
-          cp python-artifacts/assets/wakeword/dist/wakeword_helper assets/binaries/ 2>/dev/null || true
           chmod +x assets/binaries/* || true
         fi
 
