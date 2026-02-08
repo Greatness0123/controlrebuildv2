@@ -177,12 +177,12 @@ class ActBackend {
       const imgBuffer = await screenshot({ format: "png" });
       const image = await Jimp.read(imgBuffer);
 
-      // Use logical screen size for automation coordinates to handle DPI scaling correctly.
-      // Gemini's [0, 1000] normalized coordinates will be mapped to these logical dimensions.
-      const primaryDisplay = screen.getPrimaryDisplay();
+      // Use physical bitmap size for automation coordinates.
+      // Gemini analyzes the physical screenshot, so its 0-1000 coordinates map directly to these dimensions.
+      // nut-js on Windows/Linux also typically operates in physical pixel space.
       this.screenSize = {
-        width: primaryDisplay.bounds.width,
-        height: primaryDisplay.bounds.height
+        width: image.bitmap.width,
+        height: image.bitmap.height
       };
 
       let cursorX = 0, cursorY = 0;
@@ -196,18 +196,32 @@ class ActBackend {
         const color = 0xFF0000FF; // Red
         const radius = 15;
 
-        // Scale logical cursor position to physical pixels for the screenshot marking
-        const scaleX = image.bitmap.width / this.screenSize.width;
-        const scaleY = image.bitmap.height / this.screenSize.height;
-        const physicalX = Math.round(cursorX * scaleX);
-        const physicalY = Math.round(cursorY * scaleY);
+        // Note: cursorX/Y from nut-js might be logical or physical depending on platform.
+        // However, we need to mark them on the physical bitmap.
+        // If they are logical, we'd need to scale them.
+        // But if they are physical (likely on Windows), we can use them directly.
+        // To be safe, we check if they are already within physical bounds.
+        let markX = cursorX;
+        let markY = cursorY;
+
+        // Simple heuristic: if cursor position is significantly outside logical bounds but inside physical, it's physical.
+        // But since we now set this.screenSize to physical, we can try to get them into physical space.
+        const primaryDisplay = screen.getPrimaryDisplay();
+        const logicalWidth = primaryDisplay.bounds.width;
+        const logicalHeight = primaryDisplay.bounds.height;
+
+        if (cursorX <= logicalWidth && cursorY <= logicalHeight && (logicalWidth !== image.bitmap.width)) {
+           // Looks like logical coordinates, scale them up to physical
+           markX = Math.round(cursorX * (image.bitmap.width / logicalWidth));
+           markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
+        }
 
         for (let i = -radius; i <= radius; i++) {
-          if (physicalX + i >= 0 && physicalX + i < image.bitmap.width) {
-            image.setPixelColor(color, physicalX + i, physicalY);
+          if (markX + i >= 0 && markX + i < image.bitmap.width) {
+            image.setPixelColor(color, markX + i, markY);
           }
-          if (physicalY + i >= 0 && physicalY + i < image.bitmap.height) {
-            image.setPixelColor(color, physicalX, physicalY + i);
+          if (markY + i >= 0 && markY + i < image.bitmap.height) {
+            image.setPixelColor(color, markX, markY + i);
           }
         }
 
