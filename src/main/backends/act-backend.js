@@ -42,16 +42,12 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **COORDINATE CALCULATION & SPATIAL UNDERSTANDING:**
 - You perceive the screenshot in a normalized [0, 1000] grid.
-- **BOUNDING BOX FORMAT:** [ymin, xmin, ymax, xmax] (normalized [0, 1000]).
-- **POINT FORMAT:** [y, x] (normalized [0, 1000]).
+- **FORMAT:** [ymin, xmin, ymax, xmax] for bounding boxes.
 - **ORIGIN:** The top-left corner is [0, 0].
 - **MAPPING:** To target an element, identify its bounding box in the normalized grid.
-- **CRITICAL PRECISION:** You MUST provide the exact \`box2d\` for every UI element you interact with.
-- **ACTIONS:** For click, double_click, or mouse_move, provide BOTH:
-  1. \`box2d\`: The [ymin, xmin, ymax, xmax] bounding box of the element.
-  2. \`point\`: The [y, x] target coordinate (ideally the center of the box).
-- **SPATIAL GROUNDING:** Before performing an action, describe the target element's location using its [ymin, xmin, ymax, xmax] bounding box in your analysis.
-- **PRECISION GUIDELINES:** When clicking icons or buttons, identify the bounding box of the SPECIFIC element. Target the EXACT center of that bounding box to ensure you click ON the element, not beside it or at its edge. Double-check coordinates against visual features.
+- **ACTIONS:** For click, double_click, or mouse_move, provide the target point as [y, x] in the normalized [0, 1000] grid. This matches the [ymin, xmin] order.
+- **SPATIAL GROUNDING:** Before performing an action, describe the target element's location using its [ymin, xmin, ymax, xmax] bounding box in your analysis. Calculate the center of the box for the [y, x] coordinate to ensure maximum precision.
+- **PRECISION GUIDELINES:** When clicking icons in a list (like a taskbar or dock), identify the bounding box of the SPECIFIC icon. Use the exact center of that bounding box for the click coordinate. Double-check that you are not clicking a neighboring icon by verifying the icon's visual features.
 
 **GENERAL RULES - WORK LIKE A HUMAN:**
 1. Click on input fields BEFORE typing into them
@@ -102,10 +98,7 @@ Always respond with a JSON object in this format:
       "step": 1,
       "description": "Action description",
       "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|execute_automation",
-      "parameters": {
-         "point": [y, x],
-         "box2d": [ymin, xmin, ymax, xmax]
-      },
+      "parameters": {},
       "verification": {
         "expected_outcome": "Specific change that should occur",
         "verification_method": "visual|terminal_output|window_check",
@@ -117,13 +110,13 @@ Always respond with a JSON object in this format:
 
 **ACTION REFERENCE:**
 - screenshot: Capture current screen
-- click: Single click. Required params: {"box2d": [ymin, xmin, ymax, xmax], "point": [y, x]}
-- double_click: Double click. Required params: {"box2d": [ymin, xmin, ymax, xmax], "point": [y, x]}
-- type: Input text {"text": "content", "clear_first": true/false}. If clicking first: {"box2d": [...], "point": [...]}
+- click: Single click at normalized [0, 1000] coordinates {"coordinates": [y, x]}
+- double_click: Double click at normalized [0, 1000] coordinates {"coordinates": [y, x]}
+- type: Input text {"text": "content", "clear_first": true/false}
 - key_press: Keyboard shortcut {"keys": ["control", "c"], "combo": true}
-- mouse_move: Move cursor. Required params: {"box2d": [ymin, xmin, ymax, xmax], "point": [y, x]}
-- drag: Drag between points. Required params: {"point": [y1, x1], "end_point": [y2, x2]}
-- scroll: Scroll at position. Params: {"point": [y, x], "direction": "up|down", "amount": 3}
+- mouse_move: Move cursor at normalized [0, 1000] coordinates {"coordinates": [y, x]}
+- drag: Drag between normalized [0, 1000] coordinates {"coordinates": [y1, x1], "end_coordinates": [y2, x2]}
+- scroll: Scroll at normalized [0, 1000] position {"coordinates": [y, x], "direction": "up|down", "amount": 3}
 - terminal: Execute OS command {"command": "your_command_here"}
 - wait: Pause execution {"duration": seconds}
 - focus_window: Bring app to focus {"app_name": "AppName", "method": "alt_tab|search|terminal"}
@@ -184,20 +177,13 @@ class ActBackend {
       const imgBuffer = await screenshot({ format: "png" });
       const image = await Jimp.read(imgBuffer);
 
-      // Fetch user screen size (logical dimensions)
-      const primaryDisplay = screen.getPrimaryDisplay();
-      this.screenSize = {
-        width: primaryDisplay.bounds.width,
-        height: primaryDisplay.bounds.height
+      // Use physical bitmap size for automation coordinates. 
+      // Gemini analyzes the physical screenshot, so its 0-1000 coordinates map directly to these dimensions.
+      // nut-js on Windows/Linux also typically operates in physical pixel space.
+      this.screenSize = { 
+        width: image.bitmap.width, 
+        height: image.bitmap.height 
       };
-
-      // Also track physical size for cursor marking mapping
-      const physicalSize = {
-        width: image.bitmap.width,
-        height: image.bitmap.height
-      };
-
-      console.log(`[ACT JS] Screen Size (Logical): ${this.screenSize.width}x${this.screenSize.height}, Physical: ${physicalSize.width}x${physicalSize.height}`);
 
       let cursorX = 0, cursorY = 0;
       try {
@@ -206,13 +192,29 @@ class ActBackend {
         cursorY = pos.y;
       } catch (e) { }
 
-      if (markCursor && cursorX >= 0 && cursorY >= 0) {
+      if (markCursor && cursorX > 0 && cursorY > 0) {
         const color = 0xFF0000FF; // Red
         const radius = 15;
 
-        // Map logical cursor to physical bitmap for marking
-        const markX = Math.round(cursorX * (physicalSize.width / this.screenSize.width));
-        const markY = Math.round(cursorY * (physicalSize.height / this.screenSize.height));
+        // Note: cursorX/Y from nut-js might be logical or physical depending on platform.
+        // However, we need to mark them on the physical bitmap.
+        // If they are logical, we'd need to scale them. 
+        // But if they are physical (likely on Windows), we can use them directly.
+        // To be safe, we check if they are already within physical bounds.
+        let markX = cursorX;
+        let markY = cursorY;
+
+        // Simple heuristic: if cursor position is significantly outside logical bounds but inside physical, it's physical.
+        // But since we now set this.screenSize to physical, we can try to get them into physical space.
+        const primaryDisplay = screen.getPrimaryDisplay();
+        const logicalWidth = primaryDisplay.bounds.width;
+        const logicalHeight = primaryDisplay.bounds.height;
+
+        if (cursorX <= logicalWidth && cursorY <= logicalHeight && (logicalWidth !== image.bitmap.width)) {
+           // Looks like logical coordinates, scale them up to physical
+           markX = Math.round(cursorX * (image.bitmap.width / logicalWidth));
+           markY = Math.round(cursorY * (image.bitmap.height / logicalHeight));
+        }
 
         for (let i = -radius; i <= radius; i++) {
           if (markX + i >= 0 && markX + i < image.bitmap.width) {
@@ -231,10 +233,8 @@ class ActBackend {
       return {
         filepath,
         metadata: {
-          screen_width: physicalSize.width,
-          screen_height: physicalSize.height,
-          logical_width: this.screenSize.width,
-          logical_height: this.screenSize.height,
+          screen_width: this.screenSize.width,
+          screen_height: this.screenSize.height,
           cursor_x: cursorX,
           cursor_y: cursorY,
           timestamp
@@ -244,37 +244,6 @@ class ActBackend {
       console.error("[ACT JS] Screenshot error:", err);
       return null;
     }
-  }
-
-  /**
-   * Translates normalized [y, x] coordinates to absolute screen coordinates.
-   * Uses the formula: coordinate = int(norm / 1000 * size)
-   * Prioritizes box2d center if available.
-   */
-  getLogicalCoordinates(params) {
-    let normY = 0;
-    let normX = 0;
-
-    if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
-      // Calculate center of bounding box for maximum precision
-      normY = (params.box2d[0] + params.box2d[2]) / 2;
-      normX = (params.box2d[1] + params.box2d[3]) / 2;
-      console.log(`[ACT JS] De-normalizing box2d center: [${normY}, ${normX}] from box ${JSON.stringify(params.box2d)}`);
-    } else if (params.point && Array.isArray(params.point)) {
-      normY = params.point[0];
-      normX = params.point[1];
-    } else if (params.coordinates && Array.isArray(params.coordinates)) {
-      normY = params.coordinates[0];
-      normX = params.coordinates[1];
-    } else {
-      return null;
-    }
-
-    // Use absolute conversion logic: (norm / 1000) * size
-    const x = Math.floor((normX / 1000) * this.screenSize.width);
-    const y = Math.floor((normY / 1000) * this.screenSize.height);
-
-    return { x, y, normX, normY };
   }
 
   async executeAction(action) {
@@ -291,38 +260,31 @@ class ActBackend {
           break;
 
         case "click":
-          const clickPos = this.getLogicalCoordinates(params);
-          if (clickPos) {
-            await mouse.setPosition(new Point(clickPos.x, clickPos.y));
+          if (params.coordinates) {
+            // Gemini typically outputs [y, x] for points.
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            await mouse.setPosition(new Point(x, y));
             await mouse.leftClick();
             result.success = true;
-            result.message = `Clicked logical (${clickPos.x}, ${clickPos.y}) [Normalized: ${clickPos.normY}, ${clickPos.normX}]`;
-          } else {
-            result.message = "Missing coordinates for click";
+            result.message = `Clicked (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
         case "double_click":
-          const dblClickPos = this.getLogicalCoordinates(params);
-          if (dblClickPos) {
-            await mouse.setPosition(new Point(dblClickPos.x, dblClickPos.y));
+          if (params.coordinates) {
+            // Gemini typically outputs [y, x] for points.
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            await mouse.setPosition(new Point(x, y));
             await mouse.doubleClick(Button.LEFT);
             result.success = true;
-            result.message = `Double-clicked logical (${dblClickPos.x}, ${dblClickPos.y}) [Normalized: ${dblClickPos.normY}, ${dblClickPos.normX}]`;
-          } else {
-            result.message = "Missing coordinates for double_click";
+            result.message = `Double-clicked (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
         case "type":
           if (params.text) {
-            const focusPos = this.getLogicalCoordinates(params);
-            if (focusPos) {
-              await mouse.setPosition(new Point(focusPos.x, focusPos.y));
-              await mouse.leftClick();
-              // Small delay after click to ensure focus
-              await new Promise(r => setTimeout(r, 200));
-            }
             if (params.clear_first) {
               const modifier = process.platform === 'darwin' ? Key.LeftCmd : Key.LeftControl;
               await keyboard.pressKey(modifier, Key.A);
@@ -332,7 +294,7 @@ class ActBackend {
             }
             await keyboard.type(params.text);
             result.success = true;
-            result.message = `Typed: ${params.text.substring(0, 30)}${focusPos ? ` at logical (${focusPos.x}, ${focusPos.y})` : ""}`;
+            result.message = `Typed: ${params.text.substring(0, 30)}`;
           }
           break;
 
@@ -400,38 +362,35 @@ class ActBackend {
           break;
 
         case "mouse_move":
-          const movePos = this.getLogicalCoordinates(params);
-          if (movePos) {
-            await mouse.setPosition(new Point(movePos.x, movePos.y));
+          if (params.coordinates) {
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            await mouse.setPosition(new Point(x, y));
             result.success = true;
-            result.message = `Moved mouse to logical (${movePos.x}, ${movePos.y}) [Normalized: ${movePos.normY}, ${movePos.normX}]`;
-          } else {
-            result.message = "Missing coordinates for mouse_move";
+            result.message = `Moved mouse to (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
         case "drag":
-          const startParams = { point: params.point || params.coordinates, box2d: params.box2d };
-          const endParams = { point: params.end_point || params.end_coordinates, box2d: params.end_box2d };
-
-          const startPos = this.getLogicalCoordinates(startParams);
-          const endPos = this.getLogicalCoordinates(endParams);
-
-          if (startPos && endPos) {
-            await mouse.setPosition(new Point(startPos.x, startPos.y));
-            await mouse.drag(straightTo(new Point(endPos.x, endPos.y)));
+          if (params.coordinates && params.end_coordinates) {
+            const y1 = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x1 = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            const y2 = Math.round((params.end_coordinates[0] / 1000) * this.screenSize.height);
+            const x2 = Math.round((params.end_coordinates[1] / 1000) * this.screenSize.width);
+            await mouse.setPosition(new Point(x1, y1));
+            await mouse.drag(straightTo(new Point(x2, y2)));
             result.success = true;
-            result.message = `Dragged from logical (${startPos.x}, ${startPos.y}) to (${endPos.x}, ${endPos.y})`;
-          } else {
-            result.message = "Missing start or end coordinates for drag";
+            result.message = `Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`;
           }
           break;
 
         case "scroll":
           if (params.direction) {
-            const scrollPos = this.getLogicalCoordinates(params);
-            if (scrollPos) {
-              await mouse.setPosition(new Point(scrollPos.x, scrollPos.y));
+            let x, y;
+            if (params.coordinates) {
+              y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+              x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+              await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
             if (params.direction === "up") {
@@ -440,7 +399,7 @@ class ActBackend {
               await mouse.scrollDown(amount * 100);
             }
             result.success = true;
-            result.message = `Scrolled ${params.direction} by ${amount}${scrollPos ? ` at logical (${scrollPos.x}, ${scrollPos.y})` : ""}`;
+            result.message = `Scrolled ${params.direction} by ${amount}${params.coordinates ? ` at (${x}, ${y})` : ""}`;
           }
           break;
 
@@ -539,7 +498,7 @@ Respond ONLY with JSON:
     try {
       // Small delay to ensure chat window is hidden before taking screenshot
       await new Promise(r => setTimeout(r, 400));
-
+      
       console.log("[ACT JS] Taking initial screenshot...");
       if (this.stopRequested) return;
       const shot = await this.takeScreenshot();
