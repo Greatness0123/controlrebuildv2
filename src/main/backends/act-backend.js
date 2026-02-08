@@ -1,6 +1,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const screenshot = require("screenshot-desktop");
 const { mouse, keyboard, Button, Point, Key, straightTo } = require("@computer-use/nut-js");
+const { screen } = require("electron");
 const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -44,8 +45,9 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - **FORMAT:** [ymin, xmin, ymax, xmax] for bounding boxes.
 - **ORIGIN:** The top-left corner is [0, 0].
 - **MAPPING:** To target an element, identify its bounding box in the normalized grid.
-- **ACTIONS:** For click, double_click, or mouse_move, provide the target point as [x, y] in the normalized [0, 1000] grid.
-- **SPATIAL GROUNDING:** Before performing an action, describe the target element's location using its [ymin, xmin, ymax, xmax] bounding box in your analysis to ensure maximum precision.
+- **ACTIONS:** For click, double_click, or mouse_move, provide the target point as [y, x] in the normalized [0, 1000] grid. This matches the [ymin, xmin] order.
+- **SPATIAL GROUNDING:** Before performing an action, describe the target element's location using its [ymin, xmin, ymax, xmax] bounding box in your analysis. Calculate the center of the box for the [y, x] coordinate to ensure maximum precision.
+- **PRECISION GUIDELINES:** When clicking icons in a list (like a taskbar or dock), identify the bounding box of the SPECIFIC icon. Use the exact center of that bounding box for the click coordinate. Double-check that you are not clicking a neighboring icon by verifying the icon's visual features.
 
 **GENERAL RULES - WORK LIKE A HUMAN:**
 1. Click on input fields BEFORE typing into them
@@ -108,13 +110,13 @@ Always respond with a JSON object in this format:
 
 **ACTION REFERENCE:**
 - screenshot: Capture current screen
-- click: Single click at normalized [0, 1000] coordinates {"coordinates": [x, y]}
-- double_click: Double click at normalized [0, 1000] coordinates {"coordinates": [x, y]}
+- click: Single click at normalized [0, 1000] coordinates {"coordinates": [y, x]}
+- double_click: Double click at normalized [0, 1000] coordinates {"coordinates": [y, x]}
 - type: Input text {"text": "content", "clear_first": true/false}
 - key_press: Keyboard shortcut {"keys": ["control", "c"], "combo": true}
-- mouse_move: Move cursor at normalized [0, 1000] coordinates {"coordinates": [x, y]}
-- drag: Drag between normalized [0, 1000] coordinates {"coordinates": [x1, y1], "end_coordinates": [x2, y2]}
-- scroll: Scroll at normalized [0, 1000] position {"coordinates": [x, y], "direction": "up|down", "amount": 3}
+- mouse_move: Move cursor at normalized [0, 1000] coordinates {"coordinates": [y, x]}
+- drag: Drag between normalized [0, 1000] coordinates {"coordinates": [y1, x1], "end_coordinates": [y2, x2]}
+- scroll: Scroll at normalized [0, 1000] position {"coordinates": [y, x], "direction": "up|down", "amount": 3}
 - terminal: Execute OS command {"command": "your_command_here"}
 - wait: Pause execution {"duration": seconds}
 - focus_window: Bring app to focus {"app_name": "AppName", "method": "alt_tab|search|terminal"}
@@ -175,7 +177,13 @@ class ActBackend {
       const imgBuffer = await screenshot({ format: "png" });
       const image = await Jimp.read(imgBuffer);
 
-      this.screenSize = { width: image.bitmap.width, height: image.bitmap.height };
+      // Use logical screen size for automation coordinates to handle DPI scaling correctly.
+      // Gemini's [0, 1000] normalized coordinates will be mapped to these logical dimensions.
+      const primaryDisplay = screen.getPrimaryDisplay();
+      this.screenSize = {
+        width: primaryDisplay.bounds.width,
+        height: primaryDisplay.bounds.height
+      };
 
       let cursorX = 0, cursorY = 0;
       try {
@@ -188,12 +196,18 @@ class ActBackend {
         const color = 0xFF0000FF; // Red
         const radius = 15;
 
+        // Scale logical cursor position to physical pixels for the screenshot marking
+        const scaleX = image.bitmap.width / this.screenSize.width;
+        const scaleY = image.bitmap.height / this.screenSize.height;
+        const physicalX = Math.round(cursorX * scaleX);
+        const physicalY = Math.round(cursorY * scaleY);
+
         for (let i = -radius; i <= radius; i++) {
-          if (cursorX + i >= 0 && cursorX + i < image.bitmap.width) {
-            image.setPixelColor(color, cursorX + i, cursorY);
+          if (physicalX + i >= 0 && physicalX + i < image.bitmap.width) {
+            image.setPixelColor(color, physicalX + i, physicalY);
           }
-          if (cursorY + i >= 0 && cursorY + i < image.bitmap.height) {
-            image.setPixelColor(color, cursorX, cursorY + i);
+          if (physicalY + i >= 0 && physicalY + i < image.bitmap.height) {
+            image.setPixelColor(color, physicalX, physicalY + i);
           }
         }
 
@@ -233,8 +247,9 @@ class ActBackend {
 
         case "click":
           if (params.coordinates) {
-            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
-            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            // Gemini typically outputs [y, x] for points.
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
             await mouse.setPosition(new Point(x, y));
             await mouse.leftClick();
             result.success = true;
@@ -244,8 +259,9 @@ class ActBackend {
 
         case "double_click":
           if (params.coordinates) {
-            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
-            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            // Gemini typically outputs [y, x] for points.
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
             await mouse.setPosition(new Point(x, y));
             await mouse.doubleClick(Button.LEFT);
             result.success = true;
@@ -333,8 +349,8 @@ class ActBackend {
 
         case "mouse_move":
           if (params.coordinates) {
-            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
-            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
             await mouse.setPosition(new Point(x, y));
             result.success = true;
             result.message = `Moved mouse to (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
@@ -343,10 +359,10 @@ class ActBackend {
 
         case "drag":
           if (params.coordinates && params.end_coordinates) {
-            const x1 = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
-            const y1 = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
-            const x2 = Math.round((params.end_coordinates[0] / 1000) * this.screenSize.width);
-            const y2 = Math.round((params.end_coordinates[1] / 1000) * this.screenSize.height);
+            const y1 = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+            const x1 = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            const y2 = Math.round((params.end_coordinates[0] / 1000) * this.screenSize.height);
+            const x2 = Math.round((params.end_coordinates[1] / 1000) * this.screenSize.width);
             await mouse.setPosition(new Point(x1, y1));
             await mouse.drag(straightTo(new Point(x2, y2)));
             result.success = true;
@@ -356,9 +372,10 @@ class ActBackend {
 
         case "scroll":
           if (params.direction) {
+            let x, y;
             if (params.coordinates) {
-              const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
-              const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+              y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
+              x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
               await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
@@ -465,6 +482,9 @@ Respond ONLY with JSON:
     onEvent("task_start", { task: userRequest, show_effects: true });
 
     try {
+      // Small delay to ensure chat window is hidden before taking screenshot
+      await new Promise(r => setTimeout(r, 400));
+
       console.log("[ACT JS] Taking initial screenshot...");
       if (this.stopRequested) return;
       const shot = await this.takeScreenshot();
