@@ -39,18 +39,13 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
   - Navigate OS-specific menus, dialogs, and system settings
   - Use appropriate terminal commands (PowerShell/CMD on Windows, bash on macOS/Linux)
 
-**COORDINATE CALCULATION & VISUAL MAPPING:**
-- You will receive the SCREEN SIZE (width x height) as reference.
-- **VISUALIZATION RULE:** Treat the received screenshot NOT as a mere image, but as the PHYSICAL SCREEN of the user's device.
-- **MAPPING STRATEGY:**
-  1. Mentally map the edges of the image to the forwarded screen resolution (0,0 to Width,Height).
-  2. To find an element, draw IMAGINARY PERPENDICULAR LINES from the X-axis (top) and Y-axis (left) to the target element.
-  3. PINPOINT the exact pixel intersection of these imaginary lines (x,y).
-- **PRECISION CONSENSUS:**
-  1. Calculate the coordinates TWICE independently using this visual mapping.
-  2. If both results match, proceed.
-  3. If they differ, calculate a THIRD time and use the consensus.
-  4. Coordinates must be ABSOLUTE (relative to the global screen 0,0).
+**COORDINATE CALCULATION & SPATIAL UNDERSTANDING:**
+- You perceive the screenshot in a normalized [0, 1000] grid.
+- **FORMAT:** [ymin, xmin, ymax, xmax] for bounding boxes.
+- **ORIGIN:** The top-left corner is [0, 0].
+- **MAPPING:** To target an element, identify its bounding box in the normalized grid.
+- **ACTIONS:** For click, double_click, or mouse_move, provide the target point as [x, y] in the normalized [0, 1000] grid.
+- **SPATIAL GROUNDING:** Before performing an action, describe the target element's location using its [ymin, xmin, ymax, xmax] bounding box in your analysis to ensure maximum precision.
 
 **GENERAL RULES - WORK LIKE A HUMAN:**
 1. Click on input fields BEFORE typing into them
@@ -78,7 +73,7 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 1. **GUI MODE (Mouse & Keyboard):**
    - Use for interacting with visual elements (buttons, sliders, canvas).
-   - Precision is CRITICAL - use the Visual Mapping Consensus strategy.
+   - Precision is CRITICAL - use the Normalized Coordinate strategy.
    - Ideal for: Web browsing, painting, creative apps, complex UI interactions.
 
 2. **TERMINAL MODE (System Operations):**
@@ -113,13 +108,13 @@ Always respond with a JSON object in this format:
 
 **ACTION REFERENCE:**
 - screenshot: Capture current screen
-- click: Single click at coordinates {"coordinates": [x, y]}
-- double_click: Double click at coordinates {"coordinates": [x, y]}
+- click: Single click at normalized [0, 1000] coordinates {"coordinates": [x, y]}
+- double_click: Double click at normalized [0, 1000] coordinates {"coordinates": [x, y]}
 - type: Input text {"text": "content", "clear_first": true/false}
 - key_press: Keyboard shortcut {"keys": ["control", "c"], "combo": true}
-- mouse_move: Move cursor {"coordinates": [x, y]}
-- drag: Drag from start to end {"coordinates": [x1, y1], "end_coordinates": [x2, y2]}
-- scroll: Scroll at position {"coordinates": [x, y], "direction": "up|down", "amount": 3}
+- mouse_move: Move cursor at normalized [0, 1000] coordinates {"coordinates": [x, y]}
+- drag: Drag between normalized [0, 1000] coordinates {"coordinates": [x1, y1], "end_coordinates": [x2, y2]}
+- scroll: Scroll at normalized [0, 1000] position {"coordinates": [x, y], "direction": "up|down", "amount": 3}
 - terminal: Execute OS command {"command": "your_command_here"}
 - wait: Pause execution {"duration": seconds}
 - focus_window: Bring app to focus {"app_name": "AppName", "method": "alt_tab|search|terminal"}
@@ -160,6 +155,12 @@ class ActBackend {
     const modelOptions = {
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
+      generationConfig: {
+        thinkingConfig: {
+          includeIntermediateSteps: true,
+          maxThinkingTokens: 0
+        }
+      }
     };
 
     if (!process.env.DISABLE_SEARCH_TOOL) {
@@ -237,19 +238,23 @@ class ActBackend {
 
         case "click":
           if (params.coordinates) {
-            await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
+            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            await mouse.setPosition(new Point(x, y));
             await mouse.leftClick();
             result.success = true;
-            result.message = `Clicked (${params.coordinates[0]}, ${params.coordinates[1]})`;
+            result.message = `Clicked (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
         case "double_click":
           if (params.coordinates) {
-            await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
+            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            await mouse.setPosition(new Point(x, y));
             await mouse.doubleClick(Button.LEFT);
             result.success = true;
-            result.message = `Double-clicked (${params.coordinates[0]}, ${params.coordinates[1]})`;
+            result.message = `Double-clicked (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
@@ -333,24 +338,33 @@ class ActBackend {
 
         case "mouse_move":
           if (params.coordinates) {
-            await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+            const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
+            const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            await mouse.setPosition(new Point(x, y));
             result.success = true;
+            result.message = `Moved mouse to (${x}, ${y}) [Normalized: ${params.coordinates[0]}, ${params.coordinates[1]}]`;
           }
           break;
 
         case "drag":
           if (params.coordinates && params.end_coordinates) {
-            await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
-            await mouse.drag(straightTo(new Point(params.end_coordinates[0], params.end_coordinates[1])));
+            const x1 = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
+            const y1 = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+            const x2 = Math.round((params.end_coordinates[0] / 1000) * this.screenSize.width);
+            const y2 = Math.round((params.end_coordinates[1] / 1000) * this.screenSize.height);
+            await mouse.setPosition(new Point(x1, y1));
+            await mouse.drag(straightTo(new Point(x2, y2)));
             result.success = true;
-            result.message = `Dragged from (${params.coordinates[0]}, ${params.coordinates[1]}) to (${params.end_coordinates[0]}, ${params.end_coordinates[1]})`;
+            result.message = `Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`;
           }
           break;
 
         case "scroll":
           if (params.direction) {
             if (params.coordinates) {
-              await mouse.setPosition(new Point(params.coordinates[0], params.coordinates[1]));
+              const x = Math.round((params.coordinates[0] / 1000) * this.screenSize.width);
+              const y = Math.round((params.coordinates[1] / 1000) * this.screenSize.height);
+              await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
             if (params.direction === "up") {
@@ -359,7 +373,7 @@ class ActBackend {
               await mouse.scrollDown(amount * 100);
             }
             result.success = true;
-            result.message = `Scrolled ${params.direction} by ${amount}`;
+            result.message = `Scrolled ${params.direction} by ${amount}${params.coordinates ? ` at (${x}, ${y})` : ""}`;
           }
           break;
 
@@ -398,7 +412,7 @@ class ActBackend {
     const prompt = `VERIFICATION TASK:
 Action executed: ${action.action}
 Description: ${action.description}
-Parameters: ${JSON.stringify(action.parameters)}
+Parameters: ${JSON.stringify(action.parameters)} (Note: coordinates are in normalized [0, 1000] grid)
 Expected outcome: ${verificationInfo.expected_outcome}
 Execution result: ${executionResult.message}
 

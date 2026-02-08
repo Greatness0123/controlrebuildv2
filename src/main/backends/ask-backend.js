@@ -84,6 +84,12 @@ You can request information by including these tags in your response:
     const modelOptions = {
       model: modelName,
       systemInstruction: systemPrompt,
+      generationConfig: {
+        thinkingConfig: {
+          includeIntermediateSteps: true,
+          maxThinkingTokens: 0
+        }
+      }
     };
 
     // Only add search tool if not explicitly disabled or if model is known to support it
