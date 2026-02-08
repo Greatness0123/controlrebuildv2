@@ -155,12 +155,7 @@ class ActBackend {
     const modelOptions = {
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
-      generationConfig: {
-        thinkingConfig: {
-          includeIntermediateSteps: true,
-          maxThinkingTokens: 0
-        }
-      }
+      generationConfig: {}
     };
 
     if (!process.env.DISABLE_SEARCH_TOOL) {
