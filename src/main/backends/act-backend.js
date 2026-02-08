@@ -146,8 +146,7 @@ class ActBackend {
     this.setupGeminiAPI();
 
     this.stopRequested = false;
-    this.physicalScreenSize = { width: 1920, height: 1080 };
-    this.logicalScreenSize = { width: 1920, height: 1080 };
+    this.screenSize = { width: 1920, height: 1080 };
     
     // Conversation history for context memory
     this.conversationHistory = [];
@@ -185,20 +184,20 @@ class ActBackend {
       const imgBuffer = await screenshot({ format: "png" });
       const image = await Jimp.read(imgBuffer);
 
-      // 1. Get Physical dimensions from the actual bitmap
-      this.physicalScreenSize = {
-        width: image.bitmap.width,
-        height: image.bitmap.height
-      };
-
-      // 2. Get Logical dimensions from Electron screen API
+      // Fetch user screen size (logical dimensions)
       const primaryDisplay = screen.getPrimaryDisplay();
-      this.logicalScreenSize = {
+      this.screenSize = {
         width: primaryDisplay.bounds.width,
         height: primaryDisplay.bounds.height
       };
 
-      console.log(`[ACT JS] Screen Dimensions - Physical: ${this.physicalScreenSize.width}x${this.physicalScreenSize.height}, Logical: ${this.logicalScreenSize.width}x${this.logicalScreenSize.height}`);
+      // Also track physical size for cursor marking mapping
+      const physicalSize = {
+        width: image.bitmap.width,
+        height: image.bitmap.height
+      };
+
+      console.log(`[ACT JS] Screen Size (Logical): ${this.screenSize.width}x${this.screenSize.height}, Physical: ${physicalSize.width}x${physicalSize.height}`);
 
       let cursorX = 0, cursorY = 0;
       try {
@@ -211,9 +210,9 @@ class ActBackend {
         const color = 0xFF0000FF; // Red
         const radius = 15;
 
-        // Translate cursor from nut-js (logical) to physical for marking on the bitmap
-        const markX = Math.round(cursorX * (this.physicalScreenSize.width / this.logicalScreenSize.width));
-        const markY = Math.round(cursorY * (this.physicalScreenSize.height / this.logicalScreenSize.height));
+        // Map logical cursor to physical bitmap for marking
+        const markX = Math.round(cursorX * (physicalSize.width / this.screenSize.width));
+        const markY = Math.round(cursorY * (physicalSize.height / this.screenSize.height));
 
         for (let i = -radius; i <= radius; i++) {
           if (markX + i >= 0 && markX + i < image.bitmap.width) {
@@ -232,10 +231,10 @@ class ActBackend {
       return {
         filepath,
         metadata: {
-          screen_width: this.physicalScreenSize.width,
-          screen_height: this.physicalScreenSize.height,
-          logical_width: this.logicalScreenSize.width,
-          logical_height: this.logicalScreenSize.height,
+          screen_width: physicalSize.width,
+          screen_height: physicalSize.height,
+          logical_width: this.screenSize.width,
+          logical_height: this.screenSize.height,
           cursor_x: cursorX,
           cursor_y: cursorY,
           timestamp
@@ -248,7 +247,8 @@ class ActBackend {
   }
 
   /**
-   * Translates normalized [y, x] coordinates to logical screen coordinates for nut-js.
+   * Translates normalized [y, x] coordinates to absolute screen coordinates.
+   * Uses the formula: coordinate = int(norm / 1000 * size)
    * Prioritizes box2d center if available.
    */
   getLogicalCoordinates(params) {
@@ -259,7 +259,7 @@ class ActBackend {
       // Calculate center of bounding box for maximum precision
       normY = (params.box2d[0] + params.box2d[2]) / 2;
       normX = (params.box2d[1] + params.box2d[3]) / 2;
-      console.log(`[ACT JS] Using box2d center: [${normY}, ${normX}] from box ${JSON.stringify(params.box2d)}`);
+      console.log(`[ACT JS] De-normalizing box2d center: [${normY}, ${normX}] from box ${JSON.stringify(params.box2d)}`);
     } else if (params.point && Array.isArray(params.point)) {
       normY = params.point[0];
       normX = params.point[1];
@@ -270,17 +270,11 @@ class ActBackend {
       return null;
     }
 
-    // nut-js on Windows/macOS/Linux generally uses logical pixels for setPosition.
-    // Normalized coordinates are [0, 1000] relative to the physical screenshot dimensions.
-    // First, map normalized to physical pixels:
-    const physicalX = (normX / 1000) * this.physicalScreenSize.width;
-    const physicalY = (normY / 1000) * this.physicalScreenSize.height;
+    // Use absolute conversion logic: (norm / 1000) * size
+    const x = Math.floor((normX / 1000) * this.screenSize.width);
+    const y = Math.floor((normY / 1000) * this.screenSize.height);
 
-    // Then, map physical pixels to logical pixels:
-    const logicalX = Math.round(physicalX * (this.logicalScreenSize.width / this.physicalScreenSize.width));
-    const logicalY = Math.round(physicalY * (this.logicalScreenSize.height / this.physicalScreenSize.height));
-
-    return { x: logicalX, y: logicalY, normX, normY };
+    return { x, y, normX, normY };
   }
 
   async executeAction(action) {
@@ -615,7 +609,7 @@ Respond ONLY with JSON:
       }
 
       const prompt = `User Request: ${userRequest}${attachmentContext}${contextHistory}\n\nAnalyze the screen and any attached documents/media. Provide a step-by-step PLAN to execute this task. Utilize information from attachments if provided. Respond with JSON TASK structure.
-Screen Context: Physical ${this.physicalScreenSize.width}x${this.physicalScreenSize.height}, Logical ${this.logicalScreenSize.width}x${this.logicalScreenSize.height}, OS: ${process.platform}`;
+Screen Context: ${this.screenSize.width}x${this.screenSize.height}, OS: ${process.platform}`;
 
       const content = [
         prompt,
