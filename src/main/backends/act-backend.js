@@ -38,15 +38,15 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - You perceive the screenshot in a normalized 1000x1000 grid.
 - **COORDINATES:** Use x and y values from 0 to 999.
 - **ORIGIN:** The top-left corner is (0, 0).
-- **MAPPING:** To target an element, provide the target point as explicit x and y values.
-- **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100).
+- **MAPPING:** To target an element, provide the target point as explicit x and y values. Target the VISUAL CENTER of the element for maximum precision.
+- **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100). This confidence should reflect how certain you are that the coordinate maps to the intended element.
 
 **TWO MODES OF OPERATION (HYBRID):**
 - You have two powerful hands: GUI (Mouse/Keyboard) and TERMINAL. USE BOTH.
 - Decide between Terminal, GUI, or both while planning. Transition smoothly between them.
 
 **RESPONSE FORMAT:**
-Always respond with a JSON object in this format:
+You can provide free-form markdown commentary BEFORE the JSON block to explain your research or thoughts. Then, always conclude with a JSON object in this format:
 {
   "type": "task",
   "thought": "Your internal reasoning for the current step",
@@ -194,8 +194,12 @@ class ActBackend {
         case "double_click":
         case "mouse_move":
           if (params.x !== undefined && params.y !== undefined) {
-            const y = Math.round((params.y / 1000) * this.screenSize.height);
-            const x = Math.round((params.x / 1000) * this.screenSize.width);
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const logicalWidth = primaryDisplay.bounds.width;
+            const logicalHeight = primaryDisplay.bounds.height;
+            const x = Math.round((params.x / 1000) * logicalWidth);
+            const y = Math.round((params.y / 1000) * logicalHeight);
+
             await mouse.setPosition(new Point(x, y));
             if (actionType === "click") await mouse.leftClick();
             if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
@@ -207,8 +211,12 @@ class ActBackend {
         case "type":
           if (params.text) {
             if (params.x !== undefined && params.y !== undefined) {
-              const y = Math.round((params.y / 1000) * this.screenSize.height);
-              const x = Math.round((params.x / 1000) * this.screenSize.width);
+              const primaryDisplay = screen.getPrimaryDisplay();
+              const logicalWidth = primaryDisplay.bounds.width;
+              const logicalHeight = primaryDisplay.bounds.height;
+              const x = Math.round((params.x / 1000) * logicalWidth);
+              const y = Math.round((params.y / 1000) * logicalHeight);
+
               await mouse.setPosition(new Point(x, y));
               await mouse.leftClick();
               await new Promise(r => setTimeout(r, 200));
@@ -258,10 +266,15 @@ class ActBackend {
 
         case "drag":
           if (params.x !== undefined && params.y !== undefined && params.end_x !== undefined && params.end_y !== undefined) {
-            const x1 = Math.round((params.x / 1000) * this.screenSize.width);
-            const y1 = Math.round((params.y / 1000) * this.screenSize.height);
-            const x2 = Math.round((params.end_x / 1000) * this.screenSize.width);
-            const y2 = Math.round((params.end_y / 1000) * this.screenSize.height);
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const logicalWidth = primaryDisplay.bounds.width;
+            const logicalHeight = primaryDisplay.bounds.height;
+
+            const x1 = Math.round((params.x / 1000) * logicalWidth);
+            const y1 = Math.round((params.y / 1000) * logicalHeight);
+            const x2 = Math.round((params.end_x / 1000) * logicalWidth);
+            const y2 = Math.round((params.end_y / 1000) * logicalHeight);
+
             await mouse.setPosition(new Point(x1, y1));
             await mouse.drag(straightTo(new Point(x2, y2)));
             result.success = true;
@@ -272,8 +285,11 @@ class ActBackend {
         case "scroll":
           if (params.direction) {
             if (params.x !== undefined && params.y !== undefined) {
-              const x = Math.round((params.x / 1000) * this.screenSize.width);
-              const y = Math.round((params.y / 1000) * this.screenSize.height);
+              const primaryDisplay = screen.getPrimaryDisplay();
+              const logicalWidth = primaryDisplay.bounds.width;
+              const logicalHeight = primaryDisplay.bounds.height;
+              const x = Math.round((params.x / 1000) * logicalWidth);
+              const y = Math.round((params.y / 1000) * logicalHeight);
               await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
@@ -379,6 +395,58 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
     }
   }
 
+  formatCitations(response) {
+    try {
+        const metadata = response.candidates?.[0]?.groundingMetadata;
+        if (!metadata || !metadata.groundingChunks) return response.text();
+
+        let text = response.text();
+        const chunks = metadata.groundingChunks;
+        const supports = metadata.groundingSupports || [];
+
+        const sortedSupports = [...supports].sort((a, b) =>
+            (b.segment?.endIndex || 0) - (a.segment?.endIndex || 0)
+        );
+
+        const usedLinks = new Map();
+        let linkCounter = 1;
+
+        for (const support of sortedSupports) {
+            const endIndex = support.segment?.endIndex;
+            if (endIndex === undefined || !support.groundingChunkIndices?.length) continue;
+
+            const links = support.groundingChunkIndices.map(idx => {
+                const chunk = chunks[idx];
+                if (chunk?.web?.uri) {
+                    if (!usedLinks.has(chunk.web.uri)) {
+                        usedLinks.set(chunk.web.uri, linkCounter++);
+                    }
+                    return `[${usedLinks.get(chunk.web.uri)}](${chunk.web.uri})`;
+                }
+                return null;
+            }).filter(Boolean);
+
+            if (links.length > 0) {
+                text = text.slice(0, endIndex) + " " + links.join(", ") + text.slice(endIndex);
+            }
+        }
+
+        if (usedLinks.size > 0) {
+            text += "\n\n**Sources:**\n";
+            const sortedLinks = Array.from(usedLinks.entries()).sort((a, b) => a[1] - b[1]);
+            for (const [uri, id] of sortedLinks) {
+                const domain = new URL(uri).hostname;
+                text += `${id}. [${domain}](${uri})\n`;
+            }
+        }
+
+        return text;
+    } catch (e) {
+        console.error("[ACT JS] Citation formatting error:", e);
+        return response.text();
+    }
+  }
+
   async processRequest(userRequest, attachments = [], onEvent, onError, apiKey) {
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
@@ -418,10 +486,15 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
             for (const att of attachments) {
                 if (att.path && fs.existsSync(att.path)) {
                     const ext = path.extname(att.path).toLowerCase();
-                    if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
-                        content.push({ inlineData: { mimeType: "image/png", data: fs.readFileSync(att.path).toString("base64") } });
-                    } else if (ext === '.pdf') {
-                        content.push({ inlineData: { mimeType: "application/pdf", data: fs.readFileSync(att.path).toString("base64") } });
+                    const mimeMap = {
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.webp': 'image/webp',
+                        '.pdf': 'application/pdf'
+                    };
+                    if (mimeMap[ext]) {
+                        content.push({ inlineData: { mimeType: mimeMap[ext], data: fs.readFileSync(att.path).toString("base64") } });
                     }
                 }
             }
@@ -434,20 +507,26 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
         const response = await result.response;
         if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
 
-        const text = response.text();
-        const jsonMatch = /\{[\s\S]*\}/.exec(text);
+        const fullText = this.formatCitations(response);
+        const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
         if (!jsonMatch) throw new Error("No JSON found in response");
         const plan = JSON.parse(jsonMatch[0]);
+
+        // Remove the JSON block from the text to get the clean markdown commentary
+        const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
 
         this.currentBlueprint = plan.blueprint || this.currentBlueprint;
         onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
 
-        if (plan.thought) onEvent("ai_response", { text: plan.thought, is_action: false });
+        const thoughtToDisplay = plan.thought || cleanMarkdown;
+        if (thoughtToDisplay) onEvent("ai_response", { text: thoughtToDisplay, is_action: false });
 
         const actions = plan.actions || [];
         if (actions.length === 0) {
             onEvent("task_complete", { task: userRequest, success: true });
-            if (plan.after_message) onEvent("after_message", { text: plan.after_message });
+            // For the final message, use the clean markdown if thought is empty
+            const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
+            if (finalMessage) onEvent("after_message", { text: finalMessage });
             break;
         }
 
@@ -483,7 +562,12 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
             const execResult = await this.executeAction(action, onEvent);
             const verification = await this.verifyAction(action, execResult);
             lastResultContext = `Action: ${action.action}, Success: ${verification.verified}, Notes: ${verification.message}`;
-            onEvent("action_complete", { description: action.description, success: verification.verified, details: verification.message });
+            onEvent("action_complete", {
+                description: action.description,
+                success: verification.verified,
+                details: verification.message,
+                confidence: action.parameters?.confidence
+            });
             if (!verification.verified) break;
         }
       }

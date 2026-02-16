@@ -3,12 +3,18 @@ const path = require('path');
 
 class StorageManager {
     constructor() {
+        this.initialized = false;
+    }
+
+    _init() {
+        if (this.initialized) return;
         const { app } = require('electron');
         this.userDataDir = app.getPath('userData');
         this.preferencesFile = path.join(this.userDataDir, 'userPreferences.json');
         this.librariesFile = path.join(this.userDataDir, 'installedLibraries.json');
 
         this._initFiles();
+        this.initialized = true;
     }
 
     _initFiles() {
@@ -38,6 +44,7 @@ class StorageManager {
     }
 
     readPreferences() {
+        this._init();
         try {
             return fs.readJsonSync(this.preferencesFile);
         } catch (err) {
@@ -47,6 +54,7 @@ class StorageManager {
     }
 
     writePreferences(prefs) {
+        this._init();
         try {
             const current = this.readPreferences();
             const updated = { ...current, ...prefs };
@@ -59,6 +67,7 @@ class StorageManager {
     }
 
     readLibraries() {
+        this._init();
         try {
             return fs.readJsonSync(this.librariesFile);
         } catch (err) {
@@ -68,6 +77,7 @@ class StorageManager {
     }
 
     writeLibraries(libraries) {
+        this._init();
         try {
             fs.writeJsonSync(this.librariesFile, libraries, { spaces: 2 });
             return true;
