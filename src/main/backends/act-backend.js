@@ -15,8 +15,6 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - You are an AGENTIC AI that EXECUTES TASKS on the user's computer.
 - You create dynamic plans (BLUEPRINTS) that adapt as you act and learn from changes.
 - You can make plans, make decisions, and adapt strategies to complete tasks to user satisfaction.
-- You DO NOT answer general questions (e.g., "What is the capital of France?").
-- If the request is a task (e.g., "Open Calculator", "Check emails"), EXECUTE IT immediately.
 - If the request is a question, REJECT IT and ask the user to switch to "Ask" mode.
 
 **DYNAMIC PLANNING (BLUEPRINT):**
@@ -34,27 +32,18 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **OS-AWARE NAVIGATION:**
 - You will receive the Operating System (Windows, macOS, Linux) in the screen context.
-- UI elements, shortcuts, and navigation patterns VARY per OS. Use the provided OS to:
-  - Choose correct keyboard shortcuts (e.g., Ctrl on Windows/Linux, Cmd on macOS)
-  - Navigate OS-specific menus, dialogs, and system settings
-  - Use appropriate terminal commands (PowerShell/CMD on Windows, bash on macOS/Linux)
+- UI elements, shortcuts, and navigation patterns VARY per OS. Use correct keyboard shortcuts and terminal commands.
 
 **COORDINATE CALCULATION & SPATIAL UNDERSTANDING:**
-- You perceive the screenshot in a normalized [0, 1000] grid.
-- **FORMAT:** [ymin, xmin, ymax, xmax] for bounding boxes.
-- **ORIGIN:** The top-left corner is [0, 0].
-- **MAPPING:** To target an element, provide the target point as [y, x] in the normalized grid.
+- You perceive the screenshot in a normalized 1000x1000 grid.
+- **COORDINATES:** Use x and y values from 0 to 999.
+- **ORIGIN:** The top-left corner is (0, 0).
+- **MAPPING:** To target an element, provide the target point as explicit x and y values.
 - **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100).
 
 **TWO MODES OF OPERATION (HYBRID):**
 - You have two powerful hands: GUI (Mouse/Keyboard) and TERMINAL. USE BOTH.
-- **Terminal is NOT just for checking.** It is a full-fledged OPERATIONAL MODE.
 - Decide between Terminal, GUI, or both while planning. Transition smoothly between them.
-
-**PREFERENCES & LIBRARIES:**
-- You have access to userPreferences.json and installedLibraries.json.
-- Use them to know user app preferences (e.g., "Spotify" for music) and track what you've installed.
-- Suggest viable options if a conflict occurs.
 
 **RESPONSE FORMAT:**
 Always respond with a JSON object in this format:
@@ -69,7 +58,9 @@ Always respond with a JSON object in this format:
       "description": "Action description",
       "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package",
       "parameters": {
-        "confidence": 95 // Required for spatial actions
+        "x": 500, // Normalized 0-999
+        "y": 500, // Normalized 0-999
+        "confidence": 95
       },
       "verification": {
         "expected_outcome": "Outcome",
@@ -81,15 +72,15 @@ Always respond with a JSON object in this format:
 }
 
 **ACTION REFERENCE:**
-- click/double_click/mouse_move/drag/scroll: Include {"coordinates": [y, x], "confidence": 95}
+- click/double_click/mouse_move/scroll: Include {"x": val, "y": val, "confidence": 95}
+- drag: {"x": x1, "y": y1, "end_x": x2, "end_y": y2, "confidence": 95}
+- type: {"text": "...", "x": optional_x, "y": optional_y, "clear_first": true, "confidence": 100}
 - terminal: {"command": "...", "confidence": 100}
-- type: {"text": "...", "clear_first": true, "confidence": 100}
-- key_press: {"keys": ["ctrl", "c"], "combo": true, "confidence": 100}
 - research_package: {"name": "package-name", "type": "python|node", "query": "..."}
 - focus_window: {"app_name": "...", "confidence": 100}
 
 **HUMAN-IN-THE-LOOP:**
-- If "proceedWithoutConfirmation" is FALSE in preferences, ask for confirmation before high-risk actions.
+- For high-risk actions (terminal, system changes), if "proceedWithoutConfirmation" is FALSE, request confirmation.
 `;
 
 class ActBackend {
@@ -202,9 +193,9 @@ class ActBackend {
         case "click":
         case "double_click":
         case "mouse_move":
-          if (params.coordinates) {
-            const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
-            const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+          if (params.x !== undefined && params.y !== undefined) {
+            const y = Math.round((params.y / 1000) * this.screenSize.height);
+            const x = Math.round((params.x / 1000) * this.screenSize.width);
             await mouse.setPosition(new Point(x, y));
             if (actionType === "click") await mouse.leftClick();
             if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
@@ -215,6 +206,13 @@ class ActBackend {
 
         case "type":
           if (params.text) {
+            if (params.x !== undefined && params.y !== undefined) {
+              const y = Math.round((params.y / 1000) * this.screenSize.height);
+              const x = Math.round((params.x / 1000) * this.screenSize.width);
+              await mouse.setPosition(new Point(x, y));
+              await mouse.leftClick();
+              await new Promise(r => setTimeout(r, 200));
+            }
             if (params.clear_first) {
               const modifier = process.platform === 'darwin' ? Key.LeftCmd : Key.LeftControl;
               await keyboard.pressKey(modifier, Key.A);
@@ -259,11 +257,11 @@ class ActBackend {
           break;
 
         case "drag":
-          if (params.coordinates && params.end_coordinates) {
-            const y1 = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
-            const x1 = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
-            const y2 = Math.round((params.end_coordinates[0] / 1000) * this.screenSize.height);
-            const x2 = Math.round((params.end_coordinates[1] / 1000) * this.screenSize.width);
+          if (params.x !== undefined && params.y !== undefined && params.end_x !== undefined && params.end_y !== undefined) {
+            const x1 = Math.round((params.x / 1000) * this.screenSize.width);
+            const y1 = Math.round((params.y / 1000) * this.screenSize.height);
+            const x2 = Math.round((params.end_x / 1000) * this.screenSize.width);
+            const y2 = Math.round((params.end_y / 1000) * this.screenSize.height);
             await mouse.setPosition(new Point(x1, y1));
             await mouse.drag(straightTo(new Point(x2, y2)));
             result.success = true;
@@ -273,9 +271,9 @@ class ActBackend {
 
         case "scroll":
           if (params.direction) {
-            if (params.coordinates) {
-              const y = Math.round((params.coordinates[0] / 1000) * this.screenSize.height);
-              const x = Math.round((params.coordinates[1] / 1000) * this.screenSize.width);
+            if (params.x !== undefined && params.y !== undefined) {
+              const x = Math.round((params.x / 1000) * this.screenSize.width);
+              const y = Math.round((params.y / 1000) * this.screenSize.height);
               await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
@@ -365,7 +363,10 @@ Execution result: ${executionResult.message}
 
 Analyze the screenshot and determine if the action was successful. Respond ONLY with JSON: {"verification_status": "success|failure", "observations": "..."}`;
 
-    const content = [prompt, { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }];
+    const content = [
+      { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } },
+      prompt
+    ];
     try {
       const result = await this.model.generateContent(content);
       const text = (await result.response).text();
@@ -409,9 +410,10 @@ OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.heig
 
 Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
 
-        const content = [prompt, { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }];
+        const content = [
+          { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }
+        ];
 
-        // Handle attachments...
         if (attachments && attachments.length > 0) {
             for (const att of attachments) {
                 if (att.path && fs.existsSync(att.path)) {
@@ -420,12 +422,13 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
                         content.push({ inlineData: { mimeType: "image/png", data: fs.readFileSync(att.path).toString("base64") } });
                     } else if (ext === '.pdf') {
                         content.push({ inlineData: { mimeType: "application/pdf", data: fs.readFileSync(att.path).toString("base64") } });
-                    } else {
-                        content.push(`Attachment ${att.name}: ${fs.readFileSync(att.path, 'utf8')}`);
                     }
                 }
             }
         }
+
+        // Place text prompt after images as per best practices
+        content.push(prompt);
 
         const result = await this.model.generateContent(content);
         const response = await result.response;
@@ -435,6 +438,7 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
         const jsonMatch = /\{[\s\S]*\}/.exec(text);
         if (!jsonMatch) throw new Error("No JSON found in response");
         const plan = JSON.parse(jsonMatch[0]);
+
         this.currentBlueprint = plan.blueprint || this.currentBlueprint;
         onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
 
@@ -450,7 +454,6 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
         for (const action of actions) {
             if (this.stopRequested) break;
 
-            // Handle confirmation for high-risk actions if proceedWithoutConfirmation is false
             const isHighRisk = ["terminal", "write_preferences", "write_libraries"].includes(action.action.toLowerCase());
             if (!prefs.proceedWithoutConfirmation && isHighRisk) {
                 onEvent("request_confirmation", {
@@ -459,10 +462,8 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
                     parameters: action.parameters
                 });
 
-                // Wait for confirmation from the main process
                 const confirmed = await new Promise((resolve) => {
                     this.confirmationResolver = resolve;
-                    // Timeout after 60 seconds if no user response
                     setTimeout(() => {
                         if (this.confirmationResolver === resolve) {
                             this.confirmationResolver = null;
@@ -491,7 +492,6 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
       const errorStr = err.message.toLowerCase();
       let userMessage = err.message;
 
-      // Check for quota or 429 errors and rotate key for next time
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
         userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
         firebaseService.rotateGeminiKey();
