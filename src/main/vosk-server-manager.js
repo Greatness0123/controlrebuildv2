@@ -116,30 +116,70 @@ class VoskServerManager {
     }
 
     /**
-     * Check if server is ready
+     * Check if server is ready by attempting a connection
      */
-    async waitForServer(maxAttempts = 30, delayMs = 1000) {
-        // Simple socket check or wait for log output
-        // For v2, we can just wait a bit as it starts fast
-        return new Promise(resolve => setTimeout(() => resolve(true), 2000));
+    async waitForServer(maxAttempts = 5, delayMs = 1000) {
+        const net = require('net');
+        for (let i = 0; i < maxAttempts; i++) {
+            try {
+                await new Promise((resolve, reject) => {
+                    const socket = net.createConnection(this.port, this.host);
+                    socket.on('connect', () => {
+                        socket.destroy();
+                        resolve();
+                    });
+                    socket.on('error', reject);
+                    setTimeout(() => {
+                        socket.destroy();
+                        reject(new Error('Timeout'));
+                    }, 500);
+                });
+                console.log(`[Vosk] Server is responding on port ${this.port}`);
+                return true;
+            } catch (err) {
+                console.log(`[Vosk] Waiting for server... (attempt ${i + 1}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            }
+        }
+        return false;
     }
 
     /**
-     * Check if port is in use (simple check)
+     * Check if port is in use and try to kill the process if it is
      */
-    async isPortInUse(port) {
-        return new Promise((resolve) => {
-            const net = require('net');
-            const server = net.createServer();
-            server.once('error', (err) => {
-                if (err.code === 'EADDRINUSE') resolve(true);
-                else resolve(false);
+    async ensurePortAvailable(port) {
+        return new Promise(async (resolve) => {
+            const isUsed = await new Promise((res) => {
+                const net = require('net');
+                const server = net.createServer();
+                server.once('error', (err) => {
+                    if (err.code === 'EADDRINUSE') res(true);
+                    else res(false);
+                });
+                server.once('listening', () => {
+                    server.close();
+                    res(false);
+                });
+                server.listen(port, this.host);
             });
-            server.once('listening', () => {
-                server.close();
-                resolve(false);
-            });
-            server.listen(port, '127.0.0.1');
+
+            if (isUsed) {
+                console.log(`[Vosk] Port ${port} is in use. Attempting to clear it...`);
+                try {
+                    if (process.platform === 'win32') {
+                        execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore' });
+                    } else {
+                        execSync(`lsof -t -i:${port} | xargs kill -9`, { stdio: 'ignore' });
+                    }
+                    console.log(`[Vosk] Port ${port} cleared.`);
+                    resolve(true);
+                } catch (e) {
+                    console.error(`[Vosk] Failed to clear port ${port}:`, e.message);
+                    resolve(false);
+                }
+            } else {
+                resolve(true);
+            }
         });
     }
 
@@ -153,12 +193,8 @@ class VoskServerManager {
                 return true;
             }
 
-            // Check if port 2700 is already in use
-            if (await this.isPortInUse(this.port)) {
-                console.log(`[Vosk] Port ${this.port} is already in use, assuming server is already running externally or lingering.`);
-                this.isRunning = true;
-                return true;
-            }
+            // Ensure port is available
+            await this.ensurePortAvailable(this.port);
 
             if (!fs.existsSync(this.modelPath)) {
                 console.error('[Vosk] ERROR: Vosk model not found at:', this.modelPath);
