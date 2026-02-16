@@ -32,7 +32,8 @@ class BackendManager extends EventEmitter {
 
     setupMessageHandlers() {
         this.messageHandlers.set('ai_response', (data, source) => {
-            this.broadcastToWindows('ai-response', data);
+            // Remove broadcastToWindows here to prevent duplicate messages in renderer.
+            // Main.js listens to this.emit('ai-response') and handles forwarding to chat + TTS.
             this.emit('ai-response', data);
 
             // Defensive: if edge glow is disabled in settings, ensure overlays are hidden immediately
@@ -83,7 +84,7 @@ class BackendManager extends EventEmitter {
 
         // After-message (ACT only): user-facing message that is not part of task logs
         this.messageHandlers.set('after_message', (data, source) => {
-            this.broadcastToWindows('after-message', data);
+            // Forward via emit so Main.js can handle broadcasting to chat window + TTS
             this.emit('after-message', data);
             console.log('[BackendManager] after_message received:', { data, source });
             // Do not force-show chat for ACT to avoid disrupting user's window state; let renderer decide
@@ -164,7 +165,7 @@ class BackendManager extends EventEmitter {
         }
     }
 
-    async executeTask(task, mode = 'act') {
+    async executeTask(task, mode = 'act', settings = {}) {
         if (this.currentTask) {
             console.log('[BackendManager] A task is already running, stopping it before starting new one');
             this.stopTask();
@@ -236,7 +237,7 @@ class BackendManager extends EventEmitter {
                 } else {
                     onResponse(typeOrData);
                 }
-            }, onError, task.api_key);
+            }, onError, task.api_key, settings);
 
             this.currentTask = null;
             return { success: true, task };

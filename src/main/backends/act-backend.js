@@ -61,7 +61,8 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
       },
       "verification": {
         "expected_outcome": "Outcome",
-        "verification_method": "visual|terminal_output|window_check"
+        "verification_method": "visual|terminal_output|window_check",
+        "verification_command": "ls | grep file (Required if method is terminal_output)"
       }
     }
   ],
@@ -367,14 +368,32 @@ class ActBackend {
     const verificationInfo = action.verification || {};
     if (!verificationInfo.expected_outcome) return { verified: true, message: "No verification needed" };
 
+    const method = verificationInfo.verification_method || "visual";
+    let terminalContext = "";
+
+    if (method === "terminal_output" && verificationInfo.verification_command) {
+      try {
+        const output = await new Promise(resolve => {
+          exec(verificationInfo.verification_command, (err, stdout, stderr) => {
+            resolve({ success: !err, out: stdout || stderr });
+          });
+        });
+        terminalContext = `Terminal verification output: ${output.out}`;
+      } catch (e) {
+        terminalContext = `Terminal verification failed to run: ${e.message}`;
+      }
+    }
+
     const shot = await this.takeScreenshot();
     const prompt = `VERIFICATION TASK:
 Action executed: ${action.action}
 Description: ${action.description}
 Expected outcome: ${verificationInfo.expected_outcome}
 Execution result: ${executionResult.message}
+Verification method: ${method}
+${terminalContext ? terminalContext : ""}
 
-Analyze the screenshot and determine if the action was successful. Respond ONLY with JSON: {"verification_status": "success|failure", "observations": "..."}`;
+Analyze the state and determine if the action was successful. Respond ONLY with JSON: {"verification_status": "success|failure", "observations": "..."}`;
 
     const content = [
       { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } },
@@ -459,7 +478,7 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
     }
   }
 
-  async processRequest(userRequest, attachments = [], onEvent, onError, apiKey) {
+  async processRequest(userRequest, attachments = [], onEvent, onError, apiKey, settings = {}) {
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
     const firebaseService = require('../firebase-service');
@@ -558,7 +577,9 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             if (this.stopRequested) break;
 
             const isHighRisk = ["terminal", "write_preferences", "write_libraries"].includes(action.action.toLowerCase());
-            if (!prefs.proceedWithoutConfirmation && isHighRisk) {
+            const proceedWithoutConfirmation = settings.proceedWithoutConfirmation || prefs.proceedWithoutConfirmation;
+
+            if (!proceedWithoutConfirmation && isHighRisk) {
                 onEvent("request_confirmation", {
                     description: action.description,
                     action: action.action,

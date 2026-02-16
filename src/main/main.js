@@ -973,7 +973,7 @@ class ComputerUseAgent {
             task.api_key = apiKey;
 
             try {
-                const result = await this.backendManager.executeTask(task, mode);
+                const result = await this.backendManager.executeTask(task, mode, this.getSettings());
                 await firebaseService.incrementTaskCount(currentUser.id, mode);
 
                 // Re-fetch and broadcast updated user data
