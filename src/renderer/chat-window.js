@@ -327,17 +327,19 @@ class ChatWindow {
                 // Force-clear ALL thinking indicators
                 this.forceStopThinking();
 
-                // Log the response data for debugging
-                if (!data.text && !data.message) {
-                    console.warn('[ChatWindow] AI Response has no text content:', data);
-                }
-
                 if (data.type === 'rejection' || data.type === 'error') {
                     console.log('[ChatWindow] Adding error message:', data.message);
-                    this.addMessage(data.message, 'ai', false);
+                    this.addMessage(data.message || 'An error occurred.', 'ai', false);
                 } else {
-                    const content = data.text || data.message;
-                    console.log('[ChatWindow] Adding AI message (length:', content?.length, ')', content?.substring(0, 100));
+                    let content = data.text || data.message;
+
+                    // Fallback for empty responses
+                    if (!content || !content.trim()) {
+                        console.warn('[ChatWindow] AI Response is empty, using fallback.');
+                        content = 'I processed your request but have no further information to display.';
+                    }
+
+                    console.log('[ChatWindow] Adding AI message (length:', content.length, ')', content.substring(0, 100));
                     this.addMessage(content, 'ai', data.is_action);
                 }
             });
@@ -1252,23 +1254,26 @@ class ChatWindow {
     }
 
     addMessage(text, sender, isAction = false, attachments = null) {
-        if (this.lastAddedMessage === text && this.lastAddedSender === sender && !attachments) {
-            console.log('[ChatWindow] Skipping duplicate message:', text);
+        // Defensive check for undefined/null text
+        const safeText = text || '';
+
+        if (this.lastAddedMessage === safeText && this.lastAddedSender === sender && !attachments) {
+            console.log('[ChatWindow] Skipping duplicate message:', safeText);
             return;
         }
-        this.lastAddedMessage = text;
+        this.lastAddedMessage = safeText;
         this.lastAddedSender = sender;
 
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
             const div = document.createElement('div');
 
-            if (text.length < 200 && !text.includes('\n')) {
+            if (safeText.length < 200 && !safeText.includes('\n')) {
                 div.className = 'thought-block';
-                div.innerHTML = this.parseMarkdown(text);
+                div.innerHTML = this.parseMarkdown(safeText);
             } else {
                 div.className = 'text-block';
-                div.innerHTML = this.parseMarkdown(text);
+                div.innerHTML = this.parseMarkdown(safeText);
             }
 
             container.appendChild(div);
@@ -1280,7 +1285,7 @@ class ChatWindow {
         messageDiv.className = `message ${sender}`;
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-        contentDiv.innerHTML = this.parseMarkdown(text || '');
+        contentDiv.innerHTML = this.parseMarkdown(safeText);
 
         if (attachments && attachments.length > 0) {
             const attachmentContainer = document.createElement('div');

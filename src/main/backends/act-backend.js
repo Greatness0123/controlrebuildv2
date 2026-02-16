@@ -32,8 +32,9 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **COORDINATE PRECISION & SPATIAL REASONING:**
 - You perceive the screenshot in a normalized 1000x1000 grid.
-- **COORDINATES:** Use x and y values from 0 to 999.
-- **IMPORTANT:** The OS resolution you receive (e.g. 1920x1080) is the *actual* logical size. You must mentally map your 1000-unit grid to this resolution with extreme care. If the UI looks small, it might be a High-DPI display; target element centers precisely.
+- **COORDINATES:** Use x and y values from 0 to 999 (normalized grid).
+- **IMPORTANT:** You MUST map your 1000x1000 mental grid to the ACTUAL OS resolution provided in the context (e.g. 1920x1080).
+- **SCALING LOGIC:** For a screen of WxH, a coordinate (x,y) in your 1000-unit grid will be executed at (x/1000 * W, y/1000 * H).
 - **ANCHORING:** Look for distinct UI anchors (text, icons, borders) and use them to triangulate your coordinates.
 - **CENTERING:** Always target the EXACT VISUAL CENTER of an element.
 - **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100). If confidence is low, consider using keyboard shortcuts or terminal instead.
@@ -394,9 +395,14 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
   formatCitations(response) {
     try {
         const metadata = response.candidates?.[0]?.groundingMetadata;
-        if (!metadata || !metadata.groundingChunks) return response.text();
+        let text = "";
+        try {
+            text = response.text();
+        } catch (e) {
+            console.warn("[ACT JS] No text in response, checking metadata");
+        }
 
-        let text = response.text();
+        if (!metadata || !metadata.groundingChunks) return text;
         const chunks = metadata.groundingChunks;
         const supports = metadata.groundingSupports || [];
 
@@ -426,6 +432,11 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
             if (citations.length > 0) {
                 text = text.slice(0, endIndex) + " " + citations.join(", ") + text.slice(endIndex);
             }
+        }
+
+        // If text is empty but we have metadata, use a placeholder
+        if (!text.trim() && usedLinks.size > 0) {
+            text = "I researched the following sources for your task:";
         }
 
         if (usedLinks.size > 0) {
@@ -509,7 +520,20 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         const fullText = this.formatCitations(response);
         const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
-        if (!jsonMatch) throw new Error("No JSON found in response");
+
+        // If no JSON found, it might be a pure research response or grounding metadata
+        if (!jsonMatch) {
+            const cleanMarkdown = fullText.trim();
+            if (cleanMarkdown) {
+                onEvent("ai_response", { text: cleanMarkdown, is_action: false });
+            }
+            // If it's the last loop or no content, we should probably stop
+            if (loopCount >= maxLoops) break;
+            // Otherwise, we continue to the next loop which will re-take screenshot and re-prompt
+            // This allows the model to "think" via search before acting
+            continue;
+        }
+
         const plan = JSON.parse(jsonMatch[0]);
 
         // Remove the JSON block from the text to get the clean markdown commentary
