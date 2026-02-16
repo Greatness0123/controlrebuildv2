@@ -115,29 +115,34 @@ class AskBackend {
             const endIndex = support.segment?.endIndex;
             if (endIndex === undefined || !support.groundingChunkIndices?.length) continue;
 
-            const links = support.groundingChunkIndices.map(idx => {
+            const citations = support.groundingChunkIndices.map(idx => {
                 const chunk = chunks[idx];
                 if (chunk?.web?.uri) {
                     if (!usedLinks.has(chunk.web.uri)) {
                         usedLinks.set(chunk.web.uri, linkCounter++);
                     }
-                    return `[${usedLinks.get(chunk.web.uri)}](${chunk.web.uri})`;
+                    // Return plain text citation without Markdown link
+                    return `[${usedLinks.get(chunk.web.uri)}]`;
                 }
                 return null;
             }).filter(Boolean);
 
-            if (links.length > 0) {
-                text = text.slice(0, endIndex) + " " + links.join(", ") + text.slice(endIndex);
+            if (citations.length > 0) {
+                text = text.slice(0, endIndex) + " " + citations.join(", ") + text.slice(endIndex);
             }
         }
 
-        // Add a "Sources" section at the end if links were used
+        // Add a "Sources" section at the end with plain text domains
         if (usedLinks.size > 0) {
             text += "\n\n**Sources:**\n";
             const sortedLinks = Array.from(usedLinks.entries()).sort((a, b) => a[1] - b[1]);
             for (const [uri, id] of sortedLinks) {
-                const domain = new URL(uri).hostname;
-                text += `${id}. [${domain}](${uri})\n`;
+                try {
+                    const domain = new URL(uri).hostname;
+                    text += `${id}. ${domain}\n`;
+                } catch (e) {
+                    text += `${id}. Source [${id}]\n`;
+                }
             }
         }
 
