@@ -491,6 +491,7 @@ class ChatWindow {
     }
 
     handleConfirmationRequest(data) {
+        this.hideWelcomeScreen();
         const message = `The AI wants to perform a high-risk action:\n\n**${data.description}**\n\nAction: ${data.action}\nParameters: ${JSON.stringify(data.parameters)}\n\nDo you want to proceed?`;
 
         const confirmationDiv = document.createElement('div');
@@ -1238,6 +1239,8 @@ class ChatWindow {
             return this.currentAIResponseContainer;
         }
 
+        this.hideWelcomeScreen();
+
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message ai';
         const contentDiv = document.createElement('div');
@@ -1261,6 +1264,10 @@ class ChatWindow {
             console.log('[ChatWindow] Skipping duplicate message:', safeText);
             return;
         }
+
+        // Immediately hide welcome screen when adding any message
+        this.hideWelcomeScreen();
+
         this.lastAddedMessage = safeText;
         this.lastAddedSender = sender;
 
