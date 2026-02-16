@@ -122,9 +122,7 @@ class ActBackend {
     const modelOptions = {
       model: modelName,
       systemInstruction: SYSTEM_PROMPT,
-      generationConfig: {
-          responseMimeType: "application/json"
-      }
+      generationConfig: {}
     };
 
     if (!process.env.DISABLE_SEARCH_TOOL) {
@@ -370,7 +368,10 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
     const content = [prompt, { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }];
     try {
       const result = await this.model.generateContent(content);
-      const data = JSON.parse((await result.response).text());
+      const text = (await result.response).text();
+      const jsonMatch = /\{[\s\S]*\}/.exec(text);
+      if (!jsonMatch) throw new Error("No JSON found in verification response");
+      const data = JSON.parse(jsonMatch[0]);
       return { verified: data.verification_status === "success", message: data.observations };
     } catch (err) {
       return { verified: false, message: "Verification error: " + err.message };
@@ -430,7 +431,10 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
         const response = await result.response;
         if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
 
-        const plan = JSON.parse(response.text());
+        const text = response.text();
+        const jsonMatch = /\{[\s\S]*\}/.exec(text);
+        if (!jsonMatch) throw new Error("No JSON found in response");
+        const plan = JSON.parse(jsonMatch[0]);
         this.currentBlueprint = plan.blueprint || this.currentBlueprint;
         onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
 

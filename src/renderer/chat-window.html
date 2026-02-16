@@ -90,7 +90,9 @@
 
         .blueprint-sidebar.open {
             transform: translateX(0);
-            position: relative;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.2);
+            backdrop-filter: blur(15px);
+            background: rgba(15, 23, 42, 0.95);
         }
 
         .blueprint-header {
@@ -246,33 +248,35 @@
         }
 
         .message.ai .message-content {
-            background: var(--ai-bubble);
+            background: #ffffff;
             color: var(--ai-text);
             border-radius: 18px 18px 18px 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            width: 90%;
+        }
+
+        .ai-response-inner {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         /* Thought Block */
         .thought-block {
-            background: #f1f5f9;
-            border-left: 3px solid #cbd5e1;
-            padding: 10px 14px;
-            margin-bottom: 12px;
-            border-radius: 0 8px 8px 0;
-            font-style: italic;
             color: #475569;
-            font-size: 13px;
+            font-size: 14px;
+            line-height: 1.6;
+            padding-bottom: 4px;
         }
 
         /* Action Card */
         .action-card {
             background: var(--action-bg);
-            border: 1px solid var(--action-border);
             border-radius: 12px;
-            padding: 12px;
-            margin-top: 8px;
+            padding: 14px;
             width: 100%;
-            max-width: 400px;
         }
 
         .action-header {
@@ -351,12 +355,14 @@
             background: transparent;
             border: none;
             color: var(--text-primary);
-            font-size: 14px;
+            font-size: 15px;
+            font-weight: 500;
             outline: none;
             padding: 8px;
             resize: none;
             max-height: 150px;
             min-height: 36px;
+            font-family: 'Inter', sans-serif;
         }
 
         .input-btn {
