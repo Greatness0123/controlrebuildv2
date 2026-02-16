@@ -26,8 +26,8 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 **CRITICAL: TERMINAL-FIRST APPROACH**
 - For tasks involving third-party applications or system control, ALWAYS PREFER TERMINAL COMMANDS and lightweight packages over GUI automation.
 - Terminal is more reliable and faster than GUI clicking.
-- If a package (Python/Node) exists to perform the task (e.g. `pyatspi`, `nut-js`, `robotjs`, or app-specific CLI tools like `spotify-cli`), USE IT.
-- Before installing any new package, PERFORM SUFFICIENT RESEARCH to ensure it exists, is maintained, and fits the task. Use `googleSearch` if needed.
+- If a package (Python/Node) exists to perform the task (e.g. \`pyatspi\`, \`nut-js\`, \`robotjs\`, or app-specific CLI tools like \`spotify-cli\`), USE IT.
+- Before installing any new package, PERFORM SUFFICIENT RESEARCH to ensure it exists, is maintained, and fits the task. Use \`googleSearch\` if needed.
 - If you must use GUI, explain WHY the terminal method was not chosen.
 
 **COORDINATE PRECISION & SPATIAL REASONING:**
@@ -41,7 +41,7 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **OS-AWARE NAVIGATION:**
 - You will receive the Operating System (Windows, macOS, Linux).
-- UI elements, shortcuts, and navigation patterns VARY per OS. Use correct keyboard shortcuts (e.g. Cmd vs Ctrl) and terminal commands (e.g. `ls` vs `dir`).
+- UI elements, shortcuts, and navigation patterns VARY per OS. Use correct keyboard shortcuts (e.g. Cmd vs Ctrl) and terminal commands (e.g. \`ls\` vs \`dir\`).
 
 **RESPONSE FORMAT:**
 You can provide free-form markdown commentary BEFORE the JSON block to explain your research or thoughts. Then, always conclude with a JSON object in this format:
@@ -413,68 +413,11 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
   formatCitations(response) {
     try {
-        const metadata = response.candidates?.[0]?.groundingMetadata;
-        let text = "";
-        try {
-            text = response.text();
-        } catch (e) {
-            console.warn("[ACT JS] No text in response, checking metadata");
-        }
-
-        if (!metadata || !metadata.groundingChunks) return text;
-        const chunks = metadata.groundingChunks;
-        const supports = metadata.groundingSupports || [];
-
-        const sortedSupports = [...supports].sort((a, b) =>
-            (b.segment?.endIndex || 0) - (a.segment?.endIndex || 0)
-        );
-
-        const usedLinks = new Map();
-        let linkCounter = 1;
-
-        for (const support of sortedSupports) {
-            const endIndex = support.segment?.endIndex;
-            if (endIndex === undefined || !support.groundingChunkIndices?.length) continue;
-
-            const citations = support.groundingChunkIndices.map(idx => {
-                const chunk = chunks[idx];
-                if (chunk?.web?.uri) {
-                    if (!usedLinks.has(chunk.web.uri)) {
-                        usedLinks.set(chunk.web.uri, linkCounter++);
-                    }
-                    // Return plain text citation without Markdown link
-                    return `[${usedLinks.get(chunk.web.uri)}]`;
-                }
-                return null;
-            }).filter(Boolean);
-
-            if (citations.length > 0) {
-                text = text.slice(0, endIndex) + " " + citations.join(", ") + text.slice(endIndex);
-            }
-        }
-
-        // If text is empty but we have metadata, use a placeholder
-        if (!text.trim() && usedLinks.size > 0) {
-            text = "I researched the following sources for your task:";
-        }
-
-        if (usedLinks.size > 0) {
-            text += "\n\n**Sources:**\n";
-            const sortedLinks = Array.from(usedLinks.entries()).sort((a, b) => a[1] - b[1]);
-            for (const [uri, id] of sortedLinks) {
-                try {
-                    const domain = new URL(uri).hostname;
-                    text += `${id}. ${domain}\n`;
-                } catch (e) {
-                    text += `${id}. Source [${id}]\n`;
-                }
-            }
-        }
-
-        return text;
-    } catch (e) {
-        console.error("[ACT JS] Citation formatting error:", e);
+        // Citations disabled per user request to minimize space and remove unclickable links
         return response.text();
+    } catch (e) {
+        console.error("[ACT JS] Error getting text from response:", e);
+        return "";
     }
   }
 

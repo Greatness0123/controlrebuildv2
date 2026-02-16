@@ -340,7 +340,11 @@ class ChatWindow {
                     }
 
                     console.log('[ChatWindow] Adding AI message (length:', content.length, ')', content.substring(0, 100));
-                    this.addMessage(content, 'ai', data.is_action);
+
+                    // In ASK mode, AI responses are usually final answers.
+                    // In ACT mode, they are usually intermediate thoughts.
+                    const isAskMode = this.currentMode === 'ask';
+                    this.addMessage(content, 'ai', data.is_action, null, isAskMode);
                 }
             });
 
@@ -349,8 +353,8 @@ class ChatWindow {
                 console.log('[ChatWindow] After-message received:', data);
                 // Do not clear thinking indicators here - they may have been cleared already
                 if (data && data.text) {
-                    // Use an 'ai' bubble but mark as 'after' via meta if needed
-                    this.addMessage(data.text, 'ai', false);
+                    // Mark as final to show outside collapsible sections
+                    this.addMessage(data.text, 'ai', false, null, true);
                 } else {
                     console.warn('[ChatWindow] After-message has no text:', data);
                 }
@@ -492,37 +496,46 @@ class ChatWindow {
 
     handleConfirmationRequest(data) {
         this.hideWelcomeScreen();
-        const message = `The AI wants to perform a high-risk action:\n\n**${data.description}**\n\nAction: ${data.action}\nParameters: ${JSON.stringify(data.parameters)}\n\nDo you want to proceed?`;
 
-        const confirmationDiv = document.createElement('div');
-        confirmationDiv.className = 'message ai action confirmation-request';
-        confirmationDiv.innerHTML = `
-            <div class="message-content">
-                <div class="thought-block">User confirmation required for high-risk action.</div>
-                <div class="action-card">
-                    <div class="action-header">
-                        <div class="action-icon"><i class="fas fa-exclamation-triangle" style="color: #f59e0b"></i></div>
-                        <div class="action-title">${data.description}</div>
-                    </div>
-                    <div style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button class="button button-primary confirm-yes" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Proceed</button>
-                        <button class="button button-secondary confirm-no" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancel Task</button>
-                    </div>
-                </div>
+        // Use unified turn container for confirmation requests
+        const container = this.getOrCreateAIResponseContainer();
+        const thinkingSection = this.getSectionContent(container, 'thinking');
+        const actionsSection = this.getSectionContent(container, 'actions');
+
+        const thoughtDiv = document.createElement('div');
+        thoughtDiv.className = 'thought-block';
+        thoughtDiv.textContent = 'User confirmation required for high-risk action.';
+        thinkingSection.appendChild(thoughtDiv);
+
+        const confirmationCard = document.createElement('div');
+        confirmationCard.className = 'action-card confirmation-request';
+        confirmationCard.innerHTML = `
+            <div class="action-header">
+                <div class="action-icon"><i class="fas fa-exclamation-triangle" style="color: #f59e0b"></i></div>
+                <div class="action-title">${data.description}</div>
+            </div>
+            <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="button button-primary confirm-yes" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Proceed</button>
+                <button class="button button-secondary confirm-no" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancel Task</button>
             </div>
         `;
 
-        confirmationDiv.querySelector('.confirm-yes').onclick = () => {
+        thinkingSection.style.display = 'block';
+        actionsSection.style.display = 'block';
+        actionsSection.appendChild(confirmationCard);
+
+        confirmationCard.querySelector('.confirm-yes').onclick = () => {
             window.chatAPI.confirmAction(true);
-            confirmationDiv.remove();
+            confirmationCard.remove();
+            thoughtDiv.remove();
         };
 
-        confirmationDiv.querySelector('.confirm-no').onclick = () => {
+        confirmationCard.querySelector('.confirm-no').onclick = () => {
             window.chatAPI.confirmAction(false);
-            confirmationDiv.remove();
+            confirmationCard.remove();
+            thoughtDiv.remove();
         };
 
-        this.messagesContainer.appendChild(confirmationDiv);
         this.scrollToBottom();
 
         // Bring app to focus so user sees the request
@@ -1248,6 +1261,39 @@ class ChatWindow {
         const innerDiv = document.createElement('div');
         innerDiv.className = 'ai-response-inner';
 
+        // Helper to create collapsible section
+        const createSection = (title, id, collapsed = true) => {
+            const section = document.createElement('div');
+            section.className = `ai-turn-section section-${id}`;
+            section.style.display = 'none'; // Hidden until content added
+
+            const header = document.createElement('div');
+            header.className = 'section-header' + (collapsed ? ' collapsed' : '');
+            header.innerHTML = `
+                <span>${title}</span>
+                <i class="fas fa-chevron-down section-icon"></i>
+            `;
+
+            const content = document.createElement('div');
+            content.className = 'section-content' + (collapsed ? ' collapsed' : '');
+            content.id = `section-content-${id}-${Date.now()}`;
+
+            header.onclick = () => {
+                header.classList.toggle('collapsed');
+                content.classList.toggle('collapsed');
+            };
+
+            section.appendChild(header);
+            section.appendChild(content);
+            return { section, content };
+        };
+
+        const thinking = createSection('Thinking', 'thinking', true);
+        const actions = createSection('Actions', 'actions', false); // Keep actions expanded initially for visibility
+
+        innerDiv.appendChild(thinking.section);
+        innerDiv.appendChild(actions.section);
+
         contentDiv.appendChild(innerDiv);
         messageDiv.appendChild(contentDiv);
         this.messagesContainer.appendChild(messageDiv);
@@ -1256,9 +1302,45 @@ class ChatWindow {
         return innerDiv;
     }
 
-    addMessage(text, sender, isAction = false, attachments = null) {
+    getSectionContent(container, type) {
+        const section = container.querySelector(`.section-${type}`);
+        if (section) {
+            section.style.display = 'block';
+            const content = section.querySelector('.section-content');
+
+            // Auto-expand if content is being added and it's the current active container
+            if (content.classList.contains('collapsed') && this.currentAIResponseContainer === container) {
+                // For actions, we almost always want them visible if they are new
+                if (type === 'actions') {
+                    section.querySelector('.section-header').classList.remove('collapsed');
+                    content.classList.remove('collapsed');
+                }
+            }
+
+            return content;
+        }
+        return container;
+    }
+
+    addMessage(text, sender, isAction = false, attachments = null, isFinal = false) {
         // Defensive check for undefined/null text
-        const safeText = text || '';
+        let safeText = text || '';
+
+        // Strip citations [n] and clean up remnants from AI messages
+        if (sender === 'ai') {
+            // Remove entire citation sequences like [1], [2], [3]
+            safeText = safeText.replace(/\[\d+\](\s*,\s*\[\d+\])*/g, '');
+            // Remove remaining single citations
+            safeText = safeText.replace(/\[\d+\]/g, '');
+            // Clean up punctuation remnants
+            safeText = safeText.replace(/\s+([.,!?;:])/g, '$1');
+            safeText = safeText.replace(/,\s*([.!?;:])/g, '$1');
+            safeText = safeText.replace(/[,]{2,}/g, ',');
+            // Ensure proper spacing after commas
+            safeText = safeText.replace(/,\s*/g, ', ');
+            // Remove leading/trailing junk
+            safeText = safeText.replace(/^[\s,.]+/, '').trim();
+        }
 
         if (this.lastAddedMessage === safeText && this.lastAddedSender === sender && !attachments) {
             console.log('[ChatWindow] Skipping duplicate message:', safeText);
@@ -1273,6 +1355,18 @@ class ChatWindow {
 
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
+
+            // If it's a final message, append it to the main container outside collapsible sections
+            if (isFinal) {
+                const div = document.createElement('div');
+                div.className = 'text-block final-response';
+                div.innerHTML = this.parseMarkdown(safeText);
+                container.appendChild(div);
+                this.scrollToBottom();
+                return div;
+            }
+
+            const sectionContent = this.getSectionContent(container, 'thinking');
             const div = document.createElement('div');
 
             const isShort = safeText.length < 200 && !safeText.includes('\n');
@@ -1307,7 +1401,7 @@ class ChatWindow {
                 }
             }
 
-            container.appendChild(div);
+            sectionContent.appendChild(div);
             this.scrollToBottom();
             return div;
         }
@@ -1355,6 +1449,7 @@ class ChatWindow {
     addActionMessage(text, status) {
         const actionId = Date.now().toString();
         const container = this.getOrCreateAIResponseContainer();
+        const sectionContent = this.getSectionContent(container, 'actions');
 
         const actionCard = document.createElement('div');
         actionCard.className = 'action-card';
@@ -1380,7 +1475,7 @@ class ChatWindow {
             });
         }
 
-        container.appendChild(actionCard);
+        sectionContent.appendChild(actionCard);
         this.scrollToBottom();
         this.actionStatuses.set(actionId, { element: actionCard, text, task: this.currentTask || '' });
         this.lastActionId = actionId;
