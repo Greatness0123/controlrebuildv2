@@ -27,6 +27,7 @@ class ChatWindow {
         this.currentMode = 'act'; // Default, will override from settings
         this.actionStatuses = new Map();
         this.attachments = [];
+        this.currentAIResponseContainer = null;
 
         // Vosk V2 Streaming
         this.mediaRecorder = null;
@@ -538,6 +539,10 @@ class ChatWindow {
             // this.blueprintSidebar.classList.add('open');
             // this.blueprintToggle.classList.add('active');
         }
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     setupInputHandlers() {
@@ -634,6 +639,7 @@ class ChatWindow {
         const mode = this.currentMode;
 
         this.hideWelcomeScreen();
+        this.currentAIResponseContainer = null; // Reset for new AI response
 
         if (message || this.attachments.length > 0) {
             this.addMessage(message, 'user', false, this.attachments.length > 0 ? [...this.attachments] : null);
@@ -764,6 +770,7 @@ class ChatWindow {
         this.updateSendButton();
         this.actionStatuses.clear();
         this.lastActionId = null;
+        this.currentAIResponseContainer = null;
 
         // Show welcome screen and ensure it's visible
         if (showWelcome !== false) {
@@ -1220,6 +1227,26 @@ class ChatWindow {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    getOrCreateAIResponseContainer() {
+        if (this.currentAIResponseContainer && this.currentAIResponseContainer.closest('.message').parentElement === this.messagesContainer) {
+            return this.currentAIResponseContainer;
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message ai';
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        const innerDiv = document.createElement('div');
+        innerDiv.className = 'ai-response-inner';
+
+        contentDiv.appendChild(innerDiv);
+        messageDiv.appendChild(contentDiv);
+        this.messagesContainer.appendChild(messageDiv);
+
+        this.currentAIResponseContainer = innerDiv;
+        return innerDiv;
+    }
+
     addMessage(text, sender, isAction = false, attachments = null) {
         if (this.lastAddedMessage === text && this.lastAddedSender === sender && !attachments) {
             console.log('[ChatWindow] Skipping duplicate message:', text);
@@ -1228,32 +1255,28 @@ class ChatWindow {
         this.lastAddedMessage = text;
         this.lastAddedSender = sender;
 
+        if (sender === 'ai') {
+            const container = this.getOrCreateAIResponseContainer();
+            const div = document.createElement('div');
+
+            if (text.length < 200 && !text.includes('\n')) {
+                div.className = 'thought-block';
+                div.innerHTML = this.parseMarkdown(text);
+            } else {
+                div.className = 'text-block';
+                div.innerHTML = this.parseMarkdown(text);
+            }
+
+            container.appendChild(div);
+            this.scrollToBottom();
+            return div;
+        }
+
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}`;
-
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
-
-        // Check if message is a "thought" (for AI)
-        if (sender === 'ai' && !isAction && text.length > 0) {
-            // If it's a long message, it might be the final response
-            // If it's short, it might be a thought
-            // For now, we'll just parse markdown normally
-            contentDiv.innerHTML = this.parseMarkdown(text || '');
-        } else if (isAction) {
-            // Handled by addActionMessage usually, but fallback here
-            messageDiv.classList.add('action');
-            contentDiv.innerHTML = `
-                <div class="action-card">
-                    <div class="action-header">
-                        <div class="action-icon"><div class="action-spinner"></div></div>
-                        <span>${text}</span>
-                    </div>
-                </div>
-            `;
-        } else {
-            contentDiv.innerHTML = this.parseMarkdown(text || '');
-        }
+        contentDiv.innerHTML = this.parseMarkdown(text || '');
 
         if (attachments && attachments.length > 0) {
             const attachmentContainer = document.createElement('div');
@@ -1271,15 +1294,11 @@ class ChatWindow {
                         img.onload = () => URL.revokeObjectURL(img.src);
                         attDiv.appendChild(img);
                     } catch (e) {
-                        console.error('Error displaying image attachment:', e);
                         attDiv.textContent = att.name;
                     }
                 } else {
                     attDiv.className = 'message-attachment-file';
-                    attDiv.innerHTML = `
-                        <i class="fas fa-file"></i>
-                        <span>${att.name} (${this.formatFileSize(att.size)})</span>
-                    `;
+                    attDiv.innerHTML = `<i class="fas fa-file"></i><span>${att.name} (${this.formatFileSize(att.size)})</span>`;
                 }
                 attachmentContainer.appendChild(attDiv);
             });
@@ -1289,37 +1308,30 @@ class ChatWindow {
         messageDiv.appendChild(contentDiv);
         this.messagesContainer.appendChild(messageDiv);
         this.scrollToBottom();
-
         this.checkAndShowWelcomeScreen();
-
         return messageDiv;
     }
 
     addActionMessage(text, status) {
         const actionId = Date.now().toString();
+        const container = this.getOrCreateAIResponseContainer();
 
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'message ai action';
-        messageDiv.dataset.actionId = actionId;
-        messageDiv.dataset.task = this.currentTask || '';
-
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        contentDiv.innerHTML = `
-            <div class="action-card">
-                <div class="action-header">
-                    <div class="action-icon"><div class="action-spinner"></div></div>
-                    <div class="action-title" style="flex:1">${text}</div>
-                    <button class="header-btn" style="width:20px; height:20px; font-size:10px" title="Logs">
-                        <i class="fas fa-terminal"></i>
-                    </button>
-                </div>
-                <div class="action-details" style="display:none; max-height: 200px; overflow-y:auto; margin-top:8px"></div>
+        const actionCard = document.createElement('div');
+        actionCard.className = 'action-card';
+        actionCard.dataset.actionId = actionId;
+        actionCard.innerHTML = `
+            <div class="action-header">
+                <div class="action-icon"><div class="action-spinner"></div></div>
+                <div class="action-title" style="flex:1">${text}</div>
+                <button class="header-btn" style="width:20px; height:20px; font-size:10px" title="Logs">
+                    <i class="fas fa-terminal"></i>
+                </button>
             </div>
+            <div class="action-details" style="display:none; max-height: 200px; overflow-y:auto; margin-top:8px"></div>
         `;
 
-        const logBtn = contentDiv.querySelector('.header-btn');
-        const detailsDiv = contentDiv.querySelector('.action-details');
+        const logBtn = actionCard.querySelector('.header-btn');
+        const detailsDiv = actionCard.querySelector('.action-details');
         if (logBtn && detailsDiv) {
             logBtn.addEventListener('click', () => {
                 const isHidden = detailsDiv.style.display === 'none';
@@ -1328,13 +1340,10 @@ class ChatWindow {
             });
         }
 
-        messageDiv.appendChild(contentDiv);
-        this.messagesContainer.appendChild(messageDiv);
+        container.appendChild(actionCard);
         this.scrollToBottom();
-        this.actionStatuses.set(actionId, { element: messageDiv, text, task: this.currentTask || '' });
+        this.actionStatuses.set(actionId, { element: actionCard, text, task: this.currentTask || '' });
         this.lastActionId = actionId;
-
-        this.hideWelcomeScreen();
     }
 
     updateActionStatus(actionText, success, details) {
