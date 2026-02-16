@@ -996,6 +996,14 @@ class ComputerUseAgent {
             return this.backendManager.stopTask();
         });
 
+        ipcMain.handle('confirm-action', (event, confirmed) => {
+            console.log('[Main] Action confirmation received:', confirmed);
+            if (this.backendManager.actBackend) {
+                this.backendManager.actBackend.handleConfirmation(confirmed);
+            }
+            return { success: true };
+        });
+
         ipcMain.on('log-to-terminal', (event, message) => {
             console.log('[Terminal Log]', message);
         });

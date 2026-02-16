@@ -70,6 +70,17 @@ class BackendManager extends EventEmitter {
             this.broadcastToWindows('action-complete', data);
         });
 
+        this.messageHandlers.set('plan_update', (data) => {
+            this.broadcastToWindows('plan-update', data);
+        });
+
+        this.messageHandlers.set('request_confirmation', (data) => {
+            this.broadcastToWindows('request-confirmation', data);
+            if (global.windowManager) {
+                global.windowManager.showWindow('chat');
+            }
+        });
+
         // After-message (ACT only): user-facing message that is not part of task logs
         this.messageHandlers.set('after_message', (data, source) => {
             this.broadcastToWindows('after-message', data);

@@ -68,6 +68,7 @@ class SettingsManager {
             muteNotifications: false,
             greetingTTS: false,
             autoSendAfterWakeWord: false,
+            proceedWithoutConfirmation: false,
             lastMode: 'act',
             windowVisibility: false,  // Default: hide window during actions
             openAtLogin: false,
