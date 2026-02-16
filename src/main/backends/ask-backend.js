@@ -97,9 +97,14 @@ class AskBackend {
   formatCitations(response) {
     try {
         const metadata = response.candidates?.[0]?.groundingMetadata;
-        if (!metadata || !metadata.groundingChunks) return response.text();
+        let text = "";
+        try {
+            text = response.text();
+        } catch (e) {
+            console.warn("[ASK JS] No text in response, checking metadata");
+        }
 
-        let text = response.text();
+        if (!metadata || !metadata.groundingChunks) return text;
         const chunks = metadata.groundingChunks;
         const supports = metadata.groundingSupports || [];
 
@@ -130,6 +135,11 @@ class AskBackend {
             if (citations.length > 0) {
                 text = text.slice(0, endIndex) + " " + citations.join(", ") + text.slice(endIndex);
             }
+        }
+
+        // If text is still empty but we have metadata, provide a default lead
+        if (!text.trim() && usedLinks.size > 0) {
+            text = "I found some information from the following sources:";
         }
 
         // Add a "Sources" section at the end with plain text domains
