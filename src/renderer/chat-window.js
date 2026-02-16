@@ -13,6 +13,9 @@ class ChatWindow {
         this.voiceIndicator = document.getElementById('voiceIndicator');
         this.welcomeScreen = document.getElementById('welcomeScreen');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
+        this.blueprintSidebar = document.getElementById('blueprintSidebar');
+        this.blueprintContent = document.getElementById('blueprintContent');
+        this.blueprintToggle = document.getElementById('blueprintToggle');
 
         // Mode toggle elements
         this.modeAct = document.getElementById('modeAct');
@@ -185,6 +188,14 @@ class ChatWindow {
         this.attachButton.addEventListener('click', () => {
             this.handleFileAttachment();
         });
+
+        // Blueprint toggle
+        if (this.blueprintToggle) {
+            this.blueprintToggle.addEventListener('click', () => {
+                this.blueprintSidebar.classList.toggle('open');
+                this.blueprintToggle.classList.toggle('active');
+            });
+        }
 
         // Settings button
         this.settingsButton.addEventListener('click', () => {
@@ -461,6 +472,71 @@ class ChatWindow {
             window.chatAPI.onAudioStopped((event, data) => {
                 this.setAudioPlayingState(false);
             });
+
+            window.chatAPI.onPlanUpdate((event, data) => {
+                this.updateBlueprint(data.blueprint);
+            });
+
+            window.chatAPI.onRequestConfirmation((event, data) => {
+                this.handleConfirmationRequest(data);
+            });
+        }
+    }
+
+    handleConfirmationRequest(data) {
+        const message = `The AI wants to perform a high-risk action:\n\n**${data.description}**\n\nAction: ${data.action}\nParameters: ${JSON.stringify(data.parameters)}\n\nDo you want to proceed?`;
+
+        const confirmationDiv = document.createElement('div');
+        confirmationDiv.className = 'message ai action confirmation-request';
+        confirmationDiv.innerHTML = `
+            <div class="message-content">
+                <div class="thought-block">User confirmation required for high-risk action.</div>
+                <div class="action-card">
+                    <div class="action-header">
+                        <div class="action-icon"><i class="fas fa-exclamation-triangle" style="color: #f59e0b"></i></div>
+                        <div class="action-title">${data.description}</div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button class="button button-primary confirm-yes" style="background: #10b981; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Proceed</button>
+                        <button class="button button-secondary confirm-no" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancel Task</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        confirmationDiv.querySelector('.confirm-yes').onclick = () => {
+            window.chatAPI.confirmAction(true);
+            confirmationDiv.remove();
+        };
+
+        confirmationDiv.querySelector('.confirm-no').onclick = () => {
+            window.chatAPI.confirmAction(false);
+            confirmationDiv.remove();
+        };
+
+        this.messagesContainer.appendChild(confirmationDiv);
+        this.scrollToBottom();
+
+        // Bring app to focus so user sees the request
+        if (window.chatAPI && window.chatAPI.showChat) {
+            window.chatAPI.showChat();
+        }
+    }
+
+    updateBlueprint(blueprint) {
+        if (!this.blueprintContent || !blueprint) return;
+        this.blueprintContent.innerHTML = '';
+        blueprint.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'blueprint-item' + (item.includes('(current)') ? ' active' : '');
+            div.innerHTML = `<i class="fas ${item.includes('done') ? 'fa-check-circle' : 'fa-circle'}"></i> <span>${item}</span>`;
+            this.blueprintContent.appendChild(div);
+        });
+
+        // Auto-open sidebar on first update if it's a new task
+        if (blueprint.length > 0 && !this.blueprintSidebar.classList.contains('open')) {
+            // this.blueprintSidebar.classList.add('open');
+            // this.blueprintToggle.classList.add('active');
         }
     }
 
@@ -1154,15 +1230,26 @@ class ChatWindow {
 
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${sender}`;
-        if (isAction) messageDiv.classList.add('action');
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
 
-        if (isAction) {
+        // Check if message is a "thought" (for AI)
+        if (sender === 'ai' && !isAction && text.length > 0) {
+            // If it's a long message, it might be the final response
+            // If it's short, it might be a thought
+            // For now, we'll just parse markdown normally
+            contentDiv.innerHTML = this.parseMarkdown(text || '');
+        } else if (isAction) {
+            // Handled by addActionMessage usually, but fallback here
+            messageDiv.classList.add('action');
             contentDiv.innerHTML = `
-                <div class="action-icon"><div class="action-spinner"></div></div>
-                <span>${text}</span>
+                <div class="action-card">
+                    <div class="action-header">
+                        <div class="action-icon"><div class="action-spinner"></div></div>
+                        <span>${text}</span>
+                    </div>
+                </div>
             `;
         } else {
             contentDiv.innerHTML = this.parseMarkdown(text || '');
@@ -1214,28 +1301,30 @@ class ChatWindow {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message ai action';
         messageDiv.dataset.actionId = actionId;
-        // Attach the current task to this action element for correct grouping
         messageDiv.dataset.task = this.currentTask || '';
 
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         contentDiv.innerHTML = `
-            <div class="action-header">
-                <div class="action-icon"><div class="action-spinner"></div></div>
-                <div class="action-title">${text}</div>
-                <button class="action-toggle" title="Toggle logs">
-                    <i class="fas fa-chevron-down"></i>
-                </button>
+            <div class="action-card">
+                <div class="action-header">
+                    <div class="action-icon"><div class="action-spinner"></div></div>
+                    <div class="action-title" style="flex:1">${text}</div>
+                    <button class="header-btn" style="width:20px; height:20px; font-size:10px" title="Logs">
+                        <i class="fas fa-terminal"></i>
+                    </button>
+                </div>
+                <div class="action-details" style="display:none; max-height: 200px; overflow-y:auto; margin-top:8px"></div>
             </div>
-            <div class="action-details" id="actionDetails-${actionId}"></div>
         `;
 
-        const toggleBtn = contentDiv.querySelector('.action-toggle');
+        const logBtn = contentDiv.querySelector('.header-btn');
         const detailsDiv = contentDiv.querySelector('.action-details');
-        if (toggleBtn && detailsDiv) {
-            toggleBtn.addEventListener('click', () => {
-                detailsDiv.classList.toggle('expanded');
-                toggleBtn.classList.toggle('expanded');
+        if (logBtn && detailsDiv) {
+            logBtn.addEventListener('click', () => {
+                const isHidden = detailsDiv.style.display === 'none';
+                detailsDiv.style.display = isHidden ? 'block' : 'none';
+                logBtn.classList.toggle('active');
             });
         }
 

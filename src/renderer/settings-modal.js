@@ -94,6 +94,10 @@ class SettingsModal {
             this.toggleEdgeGlow();
         });
 
+        document.getElementById('proceedWithoutConfirmationToggle')?.addEventListener('click', () => {
+            this.toggleProceedWithoutConfirmation();
+        });
+
         // Buttons
         document.getElementById('changePinButton')?.addEventListener('click', () => {
             this.showChangePinModal();
@@ -607,6 +611,16 @@ class SettingsModal {
                 autoStartToggle.classList.remove('active');
             }
         }
+
+        // Update proceed without confirmation toggle
+        const proceedToggle = document.getElementById('proceedWithoutConfirmationToggle');
+        if (proceedToggle) {
+            if (this.settings.proceedWithoutConfirmation) {
+                proceedToggle.classList.add('active');
+            } else {
+                proceedToggle.classList.remove('active');
+            }
+        }
     }
 
     async toggleAutoStart() {
@@ -626,6 +640,17 @@ class SettingsModal {
 
         this.showToast(
             this.settings.openAtLogin ? 'App will start when your computer starts' : 'App will not auto-start',
+            'success'
+        );
+    }
+
+    async toggleProceedWithoutConfirmation() {
+        this.settings.proceedWithoutConfirmation = !this.settings.proceedWithoutConfirmation;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.proceedWithoutConfirmation ? 'AI will proceed without confirmation' : 'AI will ask for confirmation for high-risk tasks',
             'success'
         );
     }

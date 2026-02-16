@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     executeTask: (task, mode) => ipcRenderer.invoke('execute-task', task, mode),
     stopTask: () => ipcRenderer.invoke('stop-task'),
     stopAction: () => ipcRenderer.invoke('stop-action'),
+    confirmAction: (confirmed) => ipcRenderer.invoke('confirm-action', confirmed),
 
     // Audio control
     stopAudio: () => ipcRenderer.invoke('stop-audio'),
@@ -23,6 +24,8 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onTaskStopped: (callback) => ipcRenderer.on('task-stopped', callback),
     onBackendError: (callback) => ipcRenderer.on('backend-error', callback),
     onAfterMessage: (callback) => ipcRenderer.on('after-message', callback),
+    onPlanUpdate: (callback) => ipcRenderer.on('plan-update', callback),
+    onRequestConfirmation: (callback) => ipcRenderer.on('request-confirmation', callback),
 
     // Audio state events
     onAudioStarted: (callback) => ipcRenderer.on('audio-started', callback),
