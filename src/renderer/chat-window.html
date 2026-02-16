@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control - Chat</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -73,26 +73,28 @@
 
         /* Sidebar for Blueprint */
         .blueprint-sidebar {
-            width: 260px;
+            width: 280px;
             background: var(--blueprint-bg);
             color: var(--blueprint-text);
             display: flex;
             flex-direction: column;
             border-left: 1px solid rgba(255,255,255,0.1);
-            transition: transform 0.3s ease;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: absolute;
             right: 0;
             top: 0;
             bottom: 0;
-            z-index: 200;
+            z-index: 500;
             transform: translateX(100%);
+            pointer-events: none;
         }
 
         .blueprint-sidebar.open {
             transform: translateX(0);
-            box-shadow: -10px 0 30px rgba(0,0,0,0.2);
-            backdrop-filter: blur(15px);
-            background: rgba(15, 23, 42, 0.95);
+            box-shadow: -10px 0 40px rgba(0,0,0,0.4);
+            backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.92);
+            pointer-events: auto;
         }
 
         .blueprint-header {
@@ -260,15 +262,16 @@
         .ai-response-inner {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
         }
 
         /* Thought Block */
         .thought-block {
-            color: #475569;
-            font-size: 14px;
-            line-height: 1.6;
-            padding-bottom: 4px;
+            color: #64748b;
+            font-size: 13.5px;
+            line-height: 1.5;
+            font-style: italic;
+            opacity: 0.8;
         }
 
         /* Action Card */
@@ -356,7 +359,7 @@
             border: none;
             color: var(--text-primary);
             font-size: 15px;
-            font-weight: 500;
+            font-weight: 600;
             outline: none;
             padding: 8px;
             resize: none;
