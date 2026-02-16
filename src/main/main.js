@@ -324,10 +324,15 @@ class ComputerUseAgent {
             });
 
             this.edgeTTS.on('stopped', () => {
-                console.log('[Main] Audio stopped');
+                console.log('[Main] Audio segment stopped');
+                // We don't send audio-stopped here to prevent button flickering between sentences
+            });
+
+            this.edgeTTS.on('queue-empty', () => {
+                console.log('[Main] Audio queue empty');
                 const chatWin = this.windowManager.getWindow('chat');
                 if (chatWin && !chatWin.isDestroyed()) {
-                    chatWin.webContents.send('audio-stopped', {});
+                    chatWin.webContents.send('audio-stopped', { queueEmpty: true });
                 }
             });
 
@@ -403,7 +408,7 @@ class ComputerUseAgent {
                 this.edgeTTS.stop();
                 const chatWin = this.windowManager.getWindow('chat');
                 if (chatWin && !chatWin.isDestroyed()) {
-                    chatWin.webContents.send('audio-stopped', {});
+                    chatWin.webContents.send('audio-stopped', { manualStop: true });
                 }
                 return { success: true };
             });

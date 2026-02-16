@@ -384,7 +384,11 @@ class ChatWindow {
             window.chatAPI.onActionComplete((event, data) => {
                 if (!this.currentTask) return;
                 console.log('[ChatWindow] Action complete:', data);
-                this.updateActionStatus((data && data.description), (data && data.success), (data && data.details));
+                if (data.confidence !== undefined) {
+                    console.log(`%c[CONFIDENCE] ${data.description}: ${data.confidence}%`, data.confidence < 80 ? 'color: #ef4444; font-weight: bold;' : 'color: #10b981; font-weight: bold;');
+                }
+                const details = data.confidence ? `${data.details || ''} (Confidence: ${data.confidence}%)` : data.details;
+                this.updateActionStatus((data && data.description), (data && data.success), details);
             });
 
             // Task updates
