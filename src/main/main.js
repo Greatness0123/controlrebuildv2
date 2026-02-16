@@ -242,7 +242,14 @@ class ComputerUseAgent {
             await this.backendManager.startBackend();
 
             // Start Vosk Server
-            await this.voskServerManager.start();
+            const voskStarted = await this.voskServerManager.start();
+            if (!voskStarted) {
+                console.warn('[Main] Vosk STT server failed to start. Voice recognition may be unavailable.');
+                const logData = this.voskServerManager.getLogs();
+                if (logData.errors) {
+                    console.error('[Main] Vosk error logs:', logData.errors.substring(0, 500));
+                }
+            }
 
             // Log loaded settings
             console.log('[Main] Loaded app settings:', this.appSettings);
