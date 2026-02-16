@@ -163,7 +163,7 @@ class AskBackend {
     }
   }
 
-  async processRequest(userRequest, attachments = [], onResponse, onError, apiKey) {
+  async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
     this.stopRequested = false;
     this.setupGeminiAPI(apiKey);
     const firebaseService = require('../firebase-service');

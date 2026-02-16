@@ -226,6 +226,13 @@
             animation: edge-glow-pulse 2.5s ease-in-out infinite;
         }
 
+        /* Immediate hide class to bypass transition */
+        .edge-glow.immediate-hide {
+            opacity: 0 !important;
+            transition: none !important;
+            animation: none !important;
+        }
+
         @keyframes edge-glow-pulse {
             0%, 100% {
                 box-shadow:
@@ -512,6 +519,7 @@
                 this.flashOverlay = document.getElementById('flashOverlay');
                 this.visualEffects = document.getElementById('visualEffects');
 
+                this.isGlowIntended = false;
                 this.isDragging = false;
                 this.dragStartX = 0;
                 this.dragStartY = 0;
@@ -677,14 +685,14 @@
                     // Action status listeners
                     window.electronAPI.onActionStart(async (event, data) => {
                         console.log('[Overlay] action-start received:', data);
+                        this.isGlowIntended = true;
                         // Only show if not already showing from task-start AND edge glow is enabled
                         if (!this.edgeGlow.classList.contains('active')) {
                             this.showActionStatus(data || 'Executing action');
                             if (await this.isEdgeGlowEnabled()) {
+                                if (!this.isGlowIntended) return;
                                 this.showFlashOverlay();
                                 this.showEdgeGlow();
-                            } else {
-                                console.log('[Overlay] Edge glow disabled - skipping flash/edge glow on action-start');
                             }
                         }
                     });
@@ -708,13 +716,13 @@
 
                     window.electronAPI.onTaskStart(async (event, data) => {
                         console.log('[Overlay] task-start received:', data);
+                        this.isGlowIntended = true;
                         this.showActionStatus((data && data.task) || 'Starting task');
                         this.showControlWorking();
                         if (await this.isEdgeGlowEnabled()) {
+                            if (!this.isGlowIntended) return;
                             this.showFlashOverlay();
                             this.showEdgeGlow();
-                        } else {
-                            console.log('[Overlay] Edge glow disabled - skipping flash/edge glow on task-start');
                         }
                     });
 
@@ -1044,19 +1052,19 @@
             }
 
             async showVisualEffect(effectType) {
-                console.trace('[Overlay] showVisualEffect called with effectType:', effectType);
+                console.log('[Overlay] showVisualEffect called with effectType:', effectType);
                 switch (effectType) {
                     case 'task-active':
+                        this.isGlowIntended = true;
                         this.showControlWorking();
                         if (await this.isEdgeGlowEnabled()) {
-                            console.log('[Overlay] showVisualEffect: edgeGlow enabled - showing flash and glow');
+                            if (!this.isGlowIntended) return; // Check again after async
                             this.showFlashOverlay();
                             this.showEdgeGlow();
-                        } else {
-                            console.log('[Overlay] showVisualEffect skipped edge glow (disabled in settings)');
                         }
                         break;
                     case 'task-inactive':
+                        this.isGlowIntended = false;
                         this.hideControlWorking();
                         this.hideEdgeGlow();
                         break;
@@ -1094,43 +1102,41 @@
             }
 
             async showFlashOverlay() {
-                // Trace to help debug unexpected calls
-                console.trace('[Overlay] showFlashOverlay called');
-                // Check if edge glow is enabled in settings
+                if (!this.isGlowIntended) return;
                 if (!await this.isEdgeGlowEnabled()) {
-                    console.log('[Overlay] Edge glow disabled in settings, not showing flash overlay');
-                    // Ensure it's hidden just in case
                     this.flashOverlay.classList.remove('active');
                     return;
                 }
+                if (!this.isGlowIntended) return;
 
-                console.log('[Overlay] Showing flash overlay');
-                // Show flash overlay for 1 second
                 this.flashOverlay.classList.add('active');
-                // Remove after animation completes
                 setTimeout(() => {
                     this.flashOverlay.classList.remove('active');
                 }, 1000);
             }
 
             async showEdgeGlow() {
-                // Trace to help debug unexpected calls
-                console.trace('[Overlay] showEdgeGlow called');
-                // Check if edge glow is enabled in settings
+                if (!this.isGlowIntended) return;
                 if (!await this.isEdgeGlowEnabled()) {
-                    console.log('[Overlay] Edge glow disabled in settings, not showing');
-                    // Ensure it's hidden just in case
-                    this.edgeGlow.classList.remove('active');
+                    this.hideEdgeGlow();
                     return;
                 }
+                if (!this.isGlowIntended) return;
 
                 console.log('[Overlay] Showing edge glow');
+                this.edgeGlow.classList.remove('immediate-hide');
                 this.edgeGlow.classList.add('active');
             }
 
             hideEdgeGlow() {
                 console.log('[Overlay] Hiding edge glow');
+                this.isGlowIntended = false;
                 this.edgeGlow.classList.remove('active');
+                this.edgeGlow.classList.add('immediate-hide');
+                // Remove immediate-hide after a short delay to allow future glows
+                setTimeout(() => {
+                    this.edgeGlow.classList.remove('immediate-hide');
+                }, 100);
             }
 
             async isEdgeGlowEnabled() {

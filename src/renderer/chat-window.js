@@ -1275,12 +1275,36 @@ class ChatWindow {
             const container = this.getOrCreateAIResponseContainer();
             const div = document.createElement('div');
 
-            if (safeText.length < 200 && !safeText.includes('\n')) {
+            const isShort = safeText.length < 200 && !safeText.includes('\n');
+            const isVeryLong = safeText.length > 800;
+
+            if (isShort) {
                 div.className = 'thought-block';
                 div.innerHTML = this.parseMarkdown(safeText);
             } else {
                 div.className = 'text-block';
-                div.innerHTML = this.parseMarkdown(safeText);
+                if (isVeryLong) {
+                    const collapsibleWrapper = document.createElement('div');
+                    collapsibleWrapper.className = 'collapsible-text';
+                    collapsibleWrapper.innerHTML = this.parseMarkdown(safeText);
+
+                    const readMoreBtn = document.createElement('button');
+                    readMoreBtn.className = 'read-more-btn';
+                    readMoreBtn.innerHTML = '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
+
+                    readMoreBtn.onclick = () => {
+                        const isExpanded = collapsibleWrapper.classList.toggle('expanded');
+                        readMoreBtn.innerHTML = isExpanded ?
+                            '<span>Show Less</span> <i class="fas fa-chevron-up"></i>' :
+                            '<span>Read More</span> <i class="fas fa-chevron-down"></i>';
+                        this.scrollToBottom();
+                    };
+
+                    div.appendChild(collapsibleWrapper);
+                    div.appendChild(readMoreBtn);
+                } else {
+                    div.innerHTML = this.parseMarkdown(safeText);
+                }
             }
 
             container.appendChild(div);
