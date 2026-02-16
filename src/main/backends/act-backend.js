@@ -17,40 +17,36 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - You can make plans, make decisions, and adapt strategies to complete tasks to user satisfaction.
 - If the request is a question, REJECT IT and ask the user to switch to "Ask" mode.
 
-**DYNAMIC PLANNING (BLUEPRINT):**
-- Your plan is a blueprint that you keep in context and can change over time.
-- After each set of actions, re-evaluate your blueprint based on the new screen state.
-- Always include your current "blueprint" in your response.
+**DYNAMIC PLANNING:**
+- Create a clear internal plan for how to achieve the user's goal.
+- After each set of actions, re-evaluate your plan based on the new screen state.
 
 **FULL UNDERSTANDING:** READ the user request CAREFULLY. Understand the GOAL before acting.
 
-**CRITICAL: THIRD-PARTY APPLICATION INTERACTIONS**
-- Tasks involving third-party applications require UTMOST PRECISION and ABSOLUTE ACCURACY.
-- Research how to use terminal-based packages if available for the task.
-- Before installing any new package (Python or Node.js), PERFORM SUFFICIENT RESEARCH to ensure it exists, is maintained, and fits the task.
-- Prefer LIGHTWEIGHT packages. If a package is large/heavy, you MUST inform the user and wait for confirmation.
+**CRITICAL: TERMINAL-FIRST APPROACH**
+- For tasks involving third-party applications or system control, ALWAYS PREFER TERMINAL COMMANDS and lightweight packages over GUI automation.
+- Terminal is more reliable and faster than GUI clicking.
+- If a package (Python/Node) exists to perform the task (e.g. `pyatspi`, `nut-js`, `robotjs`, or app-specific CLI tools like `spotify-cli`), USE IT.
+- Before installing any new package, PERFORM SUFFICIENT RESEARCH to ensure it exists, is maintained, and fits the task. Use `googleSearch` if needed.
+- If you must use GUI, explain WHY the terminal method was not chosen.
 
-**OS-AWARE NAVIGATION:**
-- You will receive the Operating System (Windows, macOS, Linux) in the screen context.
-- UI elements, shortcuts, and navigation patterns VARY per OS. Use correct keyboard shortcuts and terminal commands.
-
-**COORDINATE CALCULATION & SPATIAL UNDERSTANDING:**
+**COORDINATE PRECISION & SPATIAL REASONING:**
 - You perceive the screenshot in a normalized 1000x1000 grid.
 - **COORDINATES:** Use x and y values from 0 to 999.
-- **ORIGIN:** The top-left corner is (0, 0).
-- **MAPPING:** To target an element, provide the target point as explicit x and y values. Target the VISUAL CENTER of the element for maximum precision.
-- **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100). This confidence should reflect how certain you are that the coordinate maps to the intended element.
+- **IMPORTANT:** The OS resolution you receive (e.g. 1920x1080) is the *actual* logical size. You must mentally map your 1000-unit grid to this resolution with extreme care. If the UI looks small, it might be a High-DPI display; target element centers precisely.
+- **ANCHORING:** Look for distinct UI anchors (text, icons, borders) and use them to triangulate your coordinates.
+- **CENTERING:** Always target the EXACT VISUAL CENTER of an element.
+- **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100). If confidence is low, consider using keyboard shortcuts or terminal instead.
 
-**TWO MODES OF OPERATION (HYBRID):**
-- You have two powerful hands: GUI (Mouse/Keyboard) and TERMINAL. USE BOTH.
-- Decide between Terminal, GUI, or both while planning. Transition smoothly between them.
+**OS-AWARE NAVIGATION:**
+- You will receive the Operating System (Windows, macOS, Linux).
+- UI elements, shortcuts, and navigation patterns VARY per OS. Use correct keyboard shortcuts (e.g. Cmd vs Ctrl) and terminal commands (e.g. `ls` vs `dir`).
 
 **RESPONSE FORMAT:**
 You can provide free-form markdown commentary BEFORE the JSON block to explain your research or thoughts. Then, always conclude with a JSON object in this format:
 {
   "type": "task",
   "thought": "Your internal reasoning for the current step",
-  "blueprint": ["Step 1: ...", "Step 2: ...", "(current) Step 3: ..."],
   "analysis": "Current UI state analysis",
   "actions": [
     {
@@ -130,12 +126,25 @@ class ActBackend {
       const filename = `screenshot_${timestamp}.png`;
       const filepath = path.join(this.screenshotDir, filename);
 
-      const imgBuffer = await screenshot({ format: "png" });
+      // Attempt to capture primary display specifically to match coordinate scaling
+      let imgBuffer;
+      try {
+        const displays = await screenshot.listDisplays();
+        const primary = displays.find(d => d.id === 0) || displays[0];
+        imgBuffer = await screenshot({ format: "png", screen: primary.id });
+      } catch (e) {
+        imgBuffer = await screenshot({ format: "png" });
+      }
+
       const image = await Jimp.read(imgBuffer);
 
+      // Important: Use primary display bounds for perceived screen size to match executeAction scaling
+      const primaryDisplay = screen.getPrimaryDisplay();
       this.screenSize = { 
-        width: image.bitmap.width, 
-        height: image.bitmap.height 
+        width: primaryDisplay.bounds.width,
+        height: primaryDisplay.bounds.height,
+        pixelWidth: image.bitmap.width,
+        pixelHeight: image.bitmap.height
       };
 
       let cursorX = 0, cursorY = 0;
@@ -194,11 +203,8 @@ class ActBackend {
         case "double_click":
         case "mouse_move":
           if (params.x !== undefined && params.y !== undefined) {
-            const primaryDisplay = screen.getPrimaryDisplay();
-            const logicalWidth = primaryDisplay.bounds.width;
-            const logicalHeight = primaryDisplay.bounds.height;
-            const x = Math.round((params.x / 1000) * logicalWidth);
-            const y = Math.round((params.y / 1000) * logicalHeight);
+            const x = Math.round((params.x / 1000) * this.screenSize.width);
+            const y = Math.round((params.y / 1000) * this.screenSize.height);
 
             await mouse.setPosition(new Point(x, y));
             if (actionType === "click") await mouse.leftClick();
@@ -211,11 +217,8 @@ class ActBackend {
         case "type":
           if (params.text) {
             if (params.x !== undefined && params.y !== undefined) {
-              const primaryDisplay = screen.getPrimaryDisplay();
-              const logicalWidth = primaryDisplay.bounds.width;
-              const logicalHeight = primaryDisplay.bounds.height;
-              const x = Math.round((params.x / 1000) * logicalWidth);
-              const y = Math.round((params.y / 1000) * logicalHeight);
+              const x = Math.round((params.x / 1000) * this.screenSize.width);
+              const y = Math.round((params.y / 1000) * this.screenSize.height);
 
               await mouse.setPosition(new Point(x, y));
               await mouse.leftClick();
@@ -266,14 +269,10 @@ class ActBackend {
 
         case "drag":
           if (params.x !== undefined && params.y !== undefined && params.end_x !== undefined && params.end_y !== undefined) {
-            const primaryDisplay = screen.getPrimaryDisplay();
-            const logicalWidth = primaryDisplay.bounds.width;
-            const logicalHeight = primaryDisplay.bounds.height;
-
-            const x1 = Math.round((params.x / 1000) * logicalWidth);
-            const y1 = Math.round((params.y / 1000) * logicalHeight);
-            const x2 = Math.round((params.end_x / 1000) * logicalWidth);
-            const y2 = Math.round((params.end_y / 1000) * logicalHeight);
+            const x1 = Math.round((params.x / 1000) * this.screenSize.width);
+            const y1 = Math.round((params.y / 1000) * this.screenSize.height);
+            const x2 = Math.round((params.end_x / 1000) * this.screenSize.width);
+            const y2 = Math.round((params.end_y / 1000) * this.screenSize.height);
 
             await mouse.setPosition(new Point(x1, y1));
             await mouse.drag(straightTo(new Point(x2, y2)));
@@ -285,11 +284,8 @@ class ActBackend {
         case "scroll":
           if (params.direction) {
             if (params.x !== undefined && params.y !== undefined) {
-              const primaryDisplay = screen.getPrimaryDisplay();
-              const logicalWidth = primaryDisplay.bounds.width;
-              const logicalHeight = primaryDisplay.bounds.height;
-              const x = Math.round((params.x / 1000) * logicalWidth);
-              const y = Math.round((params.y / 1000) * logicalHeight);
+              const x = Math.round((params.x / 1000) * this.screenSize.width);
+              const y = Math.round((params.y / 1000) * this.screenSize.height);
               await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
@@ -470,13 +466,12 @@ Analyze the screenshot and determine if the action was successful. Respond ONLY 
         const libs = storageManager.readLibraries();
 
         const prompt = `User Request: ${userRequest}
-Current Blueprint: ${JSON.stringify(this.currentBlueprint)}
 User Preferences: ${JSON.stringify(prefs)}
 Installed Libraries: ${JSON.stringify(libs)}
 Last Action Result: ${lastResultContext}
 OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.height}
 
-Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
+Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         const content = [
           { inlineData: { mimeType: "image/png", data: fs.readFileSync(shot.filepath).toString("base64") } }
@@ -515,8 +510,8 @@ Analyze screen and provide BLUEPRINT and IMMEDIATE ACTIONS. Respond with JSON.`;
         // Remove the JSON block from the text to get the clean markdown commentary
         const cleanMarkdown = fullText.replace(/\{[\s\S]*\}/, "").trim();
 
-        this.currentBlueprint = plan.blueprint || this.currentBlueprint;
-        onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
+        // this.currentBlueprint = plan.blueprint || this.currentBlueprint;
+        // onEvent("plan_update", { blueprint: this.currentBlueprint, thought: plan.thought });
 
         const thoughtToDisplay = plan.thought || cleanMarkdown;
         if (thoughtToDisplay) onEvent("ai_response", { text: thoughtToDisplay, is_action: false });

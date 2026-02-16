@@ -13,9 +13,9 @@ class ChatWindow {
         this.voiceIndicator = document.getElementById('voiceIndicator');
         this.welcomeScreen = document.getElementById('welcomeScreen');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
-        this.blueprintSidebar = document.getElementById('blueprintSidebar');
-        this.blueprintContent = document.getElementById('blueprintContent');
-        this.blueprintToggle = document.getElementById('blueprintToggle');
+        // this.blueprintSidebar = document.getElementById('blueprintSidebar');
+        // this.blueprintContent = document.getElementById('blueprintContent');
+        // this.blueprintToggle = document.getElementById('blueprintToggle');
 
         // Mode toggle elements
         this.modeAct = document.getElementById('modeAct');
@@ -191,12 +191,12 @@ class ChatWindow {
         });
 
         // Blueprint toggle
-        if (this.blueprintToggle) {
-            this.blueprintToggle.addEventListener('click', () => {
-                this.blueprintSidebar.classList.toggle('open');
-                this.blueprintToggle.classList.toggle('active');
-            });
-        }
+        // if (this.blueprintToggle) {
+        //     this.blueprintToggle.addEventListener('click', () => {
+        //         this.blueprintSidebar.classList.toggle('open');
+        //         this.blueprintToggle.classList.toggle('active');
+        //     });
+        // }
 
         // Settings button
         this.settingsButton.addEventListener('click', () => {
@@ -478,9 +478,9 @@ class ChatWindow {
                 this.setAudioPlayingState(false);
             });
 
-            window.chatAPI.onPlanUpdate((event, data) => {
-                this.updateBlueprint(data.blueprint);
-            });
+            // window.chatAPI.onPlanUpdate((event, data) => {
+            //     this.updateBlueprint(data.blueprint);
+            // });
 
             window.chatAPI.onRequestConfirmation((event, data) => {
                 this.handleConfirmationRequest(data);
@@ -528,26 +528,26 @@ class ChatWindow {
         }
     }
 
-    updateBlueprint(blueprint) {
-        if (!this.blueprintContent || !blueprint) return;
-        this.blueprintContent.innerHTML = '';
-        blueprint.forEach((item, idx) => {
-            const div = document.createElement('div');
-            div.className = 'blueprint-item' + (item.includes('(current)') ? ' active' : '');
-            div.innerHTML = `<i class="fas ${item.includes('done') ? 'fa-check-circle' : 'fa-circle'}"></i> <span>${item}</span>`;
-            this.blueprintContent.appendChild(div);
-        });
-
-        // Auto-open sidebar on first update if it's a new task
-        if (blueprint.length > 0 && !this.blueprintSidebar.classList.contains('open')) {
-            // this.blueprintSidebar.classList.add('open');
-            // this.blueprintToggle.classList.add('active');
-        }
-
-        if (typeof lucide !== 'undefined') {
-            lucide.createIcons();
-        }
-    }
+    // updateBlueprint(blueprint) {
+    //     if (!this.blueprintContent || !blueprint) return;
+    //     this.blueprintContent.innerHTML = '';
+    //     blueprint.forEach((item, idx) => {
+    //         const div = document.createElement('div');
+    //         div.className = 'blueprint-item' + (item.includes('(current)') ? ' active' : '');
+    //         div.innerHTML = `<i class="fas ${item.includes('done') ? 'fa-check-circle' : 'fa-circle'}"></i> <span>${item}</span>`;
+    //         this.blueprintContent.appendChild(div);
+    //     });
+    //
+    //     // Auto-open sidebar on first update if it's a new task
+    //     if (blueprint.length > 0 && !this.blueprintSidebar.classList.contains('open')) {
+    //         // this.blueprintSidebar.classList.add('open');
+    //         // this.blueprintToggle.classList.add('active');
+    //     }
+    //
+    //     if (typeof lucide !== 'undefined') {
+    //         lucide.createIcons();
+    //     }
+    // }
 
     setupInputHandlers() {
         this.chatInput.style.height = 'auto';
