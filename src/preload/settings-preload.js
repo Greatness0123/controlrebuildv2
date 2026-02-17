@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     updateHotkeys: (hotkeys) => ipcRenderer.invoke('update-hotkeys', hotkeys),
 
     closeSettings: () => ipcRenderer.send('close-settings'),
+    dragWindow: (delta) => ipcRenderer.send('window-drag', delta),
 
     // External links
     openWebsite: () => ipcRenderer.invoke('open-website'),

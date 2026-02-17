@@ -77,6 +77,7 @@ class ChatWindow {
         this.setupIPCListeners();
         this.setupInputHandlers();
         this.setupKeyboardShortcuts();
+        this.setupDragging();
         this.initializeLucideIcons();
         this.updateSendButton();
         await this.loadSettings();
@@ -255,6 +256,53 @@ class ChatWindow {
                     window.chatAPI.stopAction();
                 }
             }
+        });
+    }
+
+    setupDragging() {
+        const header = document.querySelector('.chat-header');
+        if (!header) return;
+
+        let isDragging = false;
+        let startX, startY;
+
+        header.addEventListener('mousedown', (e) => {
+            // Only drag on left click and not on children with no-drag
+            if (e.button !== 0) return;
+
+            // Check if the click target or its parents have no-drag
+            if (e.target.closest('.header-left') || e.target.closest('.header-actions')) {
+                return;
+            }
+
+            isDragging = true;
+            startX = e.screenX;
+            startY = e.screenY;
+
+            // Prevent text selection during drag
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.screenX - startX;
+            const deltaY = e.screenY - startY;
+
+            startX = e.screenX;
+            startY = e.screenY;
+
+            if (window.chatAPI && window.chatAPI.dragWindow) {
+                window.chatAPI.dragWindow({ deltaX, deltaY });
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        window.addEventListener('blur', () => {
+            isDragging = false;
         });
     }
 

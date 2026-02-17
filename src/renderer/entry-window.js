@@ -68,28 +68,37 @@ class EntryWindow {
 
     setupDragging() {
         let isDragging = false;
-        let startPos = { x: 0, y: 0 };
+        let startX, startY;
 
         const leftSection = document.querySelector('.left-section');
         if (!leftSection) return;
 
         leftSection.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
             if (e.target.closest('.tip-item, .feature-item, .version-info, button, input')) return;
             isDragging = true;
-            startPos = { x: e.clientX, y: e.clientY };
+            startX = e.screenX;
+            startY = e.screenY;
             e.preventDefault();
         });
 
         document.addEventListener('mousemove', (e) => {
             if (isDragging && window.entryAPI && window.entryAPI.dragWindow) {
-                const deltaX = e.clientX - startPos.x;
-                const deltaY = e.clientY - startPos.y;
+                const deltaX = e.screenX - startX;
+                const deltaY = e.screenY - startY;
+
+                startX = e.screenX;
+                startY = e.screenY;
+
                 window.entryAPI.dragWindow({ deltaX, deltaY });
-                startPos = { x: e.clientX, y: e.clientY };
             }
         });
 
         document.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        window.addEventListener('blur', () => {
             isDragging = false;
         });
     }
