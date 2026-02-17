@@ -96,70 +96,11 @@ class AskBackend {
 
   formatCitations(response) {
     try {
-        const metadata = response.candidates?.[0]?.groundingMetadata;
-        let text = "";
-        try {
-            text = response.text();
-        } catch (e) {
-            console.warn("[ASK JS] No text in response, checking metadata");
-        }
-
-        if (!metadata || !metadata.groundingChunks) return text;
-        const chunks = metadata.groundingChunks;
-        const supports = metadata.groundingSupports || [];
-
-        // Sort supports in reverse to avoid index shifts
-        const sortedSupports = [...supports].sort((a, b) =>
-            (b.segment?.endIndex || 0) - (a.segment?.endIndex || 0)
-        );
-
-        const usedLinks = new Map();
-        let linkCounter = 1;
-
-        for (const support of sortedSupports) {
-            const endIndex = support.segment?.endIndex;
-            if (endIndex === undefined || !support.groundingChunkIndices?.length) continue;
-
-            const citations = support.groundingChunkIndices.map(idx => {
-                const chunk = chunks[idx];
-                if (chunk?.web?.uri) {
-                    if (!usedLinks.has(chunk.web.uri)) {
-                        usedLinks.set(chunk.web.uri, linkCounter++);
-                    }
-                    // Return plain text citation without Markdown link
-                    return `[${usedLinks.get(chunk.web.uri)}]`;
-                }
-                return null;
-            }).filter(Boolean);
-
-            if (citations.length > 0) {
-                text = text.slice(0, endIndex) + " " + citations.join(", ") + text.slice(endIndex);
-            }
-        }
-
-        // If text is still empty but we have metadata, provide a default lead
-        if (!text.trim() && usedLinks.size > 0) {
-            text = "I found some information from the following sources:";
-        }
-
-        // Add a "Sources" section at the end with plain text domains
-        if (usedLinks.size > 0) {
-            text += "\n\n**Sources:**\n";
-            const sortedLinks = Array.from(usedLinks.entries()).sort((a, b) => a[1] - b[1]);
-            for (const [uri, id] of sortedLinks) {
-                try {
-                    const domain = new URL(uri).hostname;
-                    text += `${id}. ${domain}\n`;
-                } catch (e) {
-                    text += `${id}. Source [${id}]\n`;
-                }
-            }
-        }
-
-        return text;
-    } catch (e) {
-        console.error("[ASK JS] Citation formatting error:", e);
+        // Citations disabled per user request to minimize space and remove unclickable links
         return response.text();
+    } catch (e) {
+        console.error("[ASK JS] Error getting text from response:", e);
+        return "";
     }
   }
 
