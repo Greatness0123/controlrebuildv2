@@ -198,6 +198,9 @@ class WindowManager {
 
         this.windows.set('settings', settingsWindow);
 
+        // Make settings window draggable
+        this.setupDraggableWindow(settingsWindow);
+
         // Close settings when it loses focus (click outside closes it).
         // Use a short debounce to avoid hiding during transient focus shifts (e.g., scrolling or touch interactions).
         settingsWindow.on('blur', () => {

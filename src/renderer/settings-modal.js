@@ -29,6 +29,7 @@ class SettingsModal {
     async init() {
         this.setupEventListeners();
         this.setupIPCListeners();
+        this.setupDragging();
         await this.loadUserStatus();
         await this.loadSettings();
         // Load whether a per-user Picovoice/Porcupine key exists
@@ -1229,6 +1230,53 @@ class SettingsModal {
         } else {
             window.close();
         }
+    }
+
+    setupDragging() {
+        const header = document.querySelector('.settings-header');
+        if (!header) return;
+
+        let isDragging = false;
+        let startX, startY;
+
+        header.addEventListener('mousedown', (e) => {
+            // Only drag on left click and not on children with no-drag
+            if (e.button !== 0) return;
+
+            // Check if the click target or its parents have no-drag
+            if (e.target.closest('.user-profile') || e.target.closest('.close-button') || e.target.closest('button')) {
+                return;
+            }
+
+            isDragging = true;
+            startX = e.screenX;
+            startY = e.screenY;
+
+            // Prevent text selection during drag
+            e.preventDefault();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.screenX - startX;
+            const deltaY = e.screenY - startY;
+
+            startX = e.screenX;
+            startY = e.screenY;
+
+            if (window.settingsAPI && window.settingsAPI.dragWindow) {
+                window.settingsAPI.dragWindow({ deltaX, deltaY });
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        window.addEventListener('blur', () => {
+            isDragging = false;
+        });
     }
 
     showToast(message, type = 'success') {
