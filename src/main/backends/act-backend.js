@@ -421,9 +421,33 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     }
   }
 
+  async ollamaGenerate(prompt, systemPrompt, settings, images = []) {
+    const url = `${settings.ollamaUrl || 'http://localhost:11434'}/api/generate`;
+    const body = {
+      model: settings.ollamaModel || 'llama3',
+      prompt: prompt,
+      system: systemPrompt,
+      stream: false,
+      format: 'json'
+    };
+    if (images.length > 0) {
+      body.images = images;
+    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(`Ollama error: ${response.statusText}`);
+    const data = await response.json();
+    return data.response;
+  }
+
   async processRequest(userRequest, attachments = [], onEvent, onError, apiKey, settings = {}) {
     this.stopRequested = false;
-    this.setupGeminiAPI(apiKey);
+    if (!settings.ollamaEnabled) {
+      this.setupGeminiAPI(apiKey);
+    }
     const firebaseService = require('../firebase-service');
     const cachedUser = firebaseService.checkCachedUser();
 
@@ -476,11 +500,16 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         // Place text prompt after images as per best practices
         content.push(prompt);
 
-        const result = await this.model.generateContent(content);
-        const response = await result.response;
-        if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
-
-        const fullText = this.formatCitations(response);
+        let fullText = "";
+        if (settings.ollamaEnabled) {
+          const images = [fs.readFileSync(shot.filepath).toString("base64")];
+          fullText = await this.ollamaGenerate(prompt, SYSTEM_PROMPT, settings, images);
+        } else {
+          const result = await this.model.generateContent(content);
+          const response = await result.response;
+          if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'act', response.usageMetadata);
+          fullText = this.formatCitations(response);
+        }
         const jsonMatch = /\{[\s\S]*\}/.exec(fullText);
 
         // If no JSON found, it might be a pure research response or grounding metadata

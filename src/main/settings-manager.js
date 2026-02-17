@@ -75,6 +75,9 @@ class SettingsManager {
             wakeWordToggleChat: false,
             floatingButtonVisible: true,
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
+            ollamaEnabled: false,
+            ollamaUrl: 'http://localhost:11434',
+            ollamaModel: 'llama3',
             userAuthenticated: false,
             hotkeys: {
                 toggleChat: process.platform === 'darwin' ? 'Command+.' : 'CommandOrControl+Space',
