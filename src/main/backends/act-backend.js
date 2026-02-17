@@ -30,14 +30,14 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - Before installing any new package, PERFORM SUFFICIENT RESEARCH to ensure it exists, is maintained, and fits the task. Use \`googleSearch\` if needed.
 - If you must use GUI, explain WHY the terminal method was not chosen.
 
-**COORDINATE PRECISION & SPATIAL REASONING:**
+**COORDINATE PRECISION & NATIVE OBJECT DETECTION:**
 - You perceive the screenshot in a normalized 1000x1000 grid.
-- **COORDINATES:** Use x and y values from 0 to 999 (normalized grid).
-- **IMPORTANT:** You MUST map your 1000x1000 mental grid to the ACTUAL OS resolution provided in the context (e.g. 1920x1080).
-- **SCALING LOGIC:** For a screen of WxH, a coordinate (x,y) in your 1000-unit grid will be executed at (x/1000 * W, y/1000 * H).
+- **OBJECT DETECTION:** Use your native object detection capabilities. When identifying elements to interact with, you MUST provide the "box2d" parameter.
+- **BOX2D FORMAT:** Use [ymin, xmin, ymax, xmax] normalized to 0-1000.
+- **IMPORTANT:** Always target the EXACT VISUAL CENTER of the identified element for maximum precision.
+- **COORDINATES:** We will map your normalized [0, 1000] coordinates to the actual display dimensions.
 - **ANCHORING:** Look for distinct UI anchors (text, icons, borders) and use them to triangulate your coordinates.
-- **CENTERING:** Always target the EXACT VISUAL CENTER of an element.
-- **CONFIDENCE:** For every coordinate-based action, you MUST provide a "confidence" percentage (0-100). If confidence is low, consider using keyboard shortcuts or terminal instead.
+- **CONFIDENCE:** For every spatial action, provide a "confidence" percentage (0-100). If confidence is low, consider using keyboard shortcuts or terminal instead.
 
 **OS-AWARE NAVIGATION:**
 - You will receive the Operating System (Windows, macOS, Linux).
@@ -55,8 +55,8 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
       "description": "Action description",
       "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package",
       "parameters": {
-        "x": 500, // Normalized 0-999
-        "y": 500, // Normalized 0-999
+        "box2d": [ymin, xmin, ymax, xmax], // Normalized [0, 1000]
+        "label": "button name",
         "confidence": 95
       },
       "verification": {
@@ -70,9 +70,9 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 }
 
 **ACTION REFERENCE:**
-- click/double_click/mouse_move/scroll: Include {"x": val, "y": val, "confidence": 95}
-- drag: {"x": x1, "y": y1, "end_x": x2, "end_y": y2, "confidence": 95}
-- type: {"text": "...", "x": optional_x, "y": optional_y, "clear_first": true, "confidence": 100}
+- click/double_click/mouse_move/scroll: Include {"box2d": [ymin, xmin, ymax, xmax], "confidence": 95}
+- drag: {"box2d": [ymin, xmin, ymax, xmax], "end_box2d": [ymin, xmin, ymax, xmax], "confidence": 95}
+- type: {"text": "...", "box2d": [ymin, xmin, ymax, xmax], "clear_first": true, "confidence": 100}
 - terminal: {"command": "...", "confidence": 100}
 - research_package: {"name": "package-name", "type": "python|node", "query": "..."}
 - focus_window: {"app_name": "...", "confidence": 100}
@@ -145,6 +145,8 @@ class ActBackend {
       this.screenSize = { 
         width: primaryDisplay.bounds.width,
         height: primaryDisplay.bounds.height,
+        x: primaryDisplay.bounds.x,
+        y: primaryDisplay.bounds.y,
         pixelWidth: image.bitmap.width,
         pixelHeight: image.bitmap.height
       };
@@ -204,9 +206,24 @@ class ActBackend {
         case "click":
         case "double_click":
         case "mouse_move":
-          if (params.x !== undefined && params.y !== undefined) {
-            const x = Math.round((params.x / 1000) * this.screenSize.width);
-            const y = Math.round((params.y / 1000) * this.screenSize.height);
+          if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
+            const [ymin, xmin, ymax, xmax] = params.box2d;
+            const centerX = xmin + (xmax - xmin) / 2;
+            const centerY = ymin + (ymax - ymin) / 2;
+
+            const x = Math.round((centerX / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y = Math.round((centerY / 1000) * this.screenSize.height) + this.screenSize.y;
+
+            console.log(`[ACT JS] Action: ${actionType}, Normalized Box: [${params.box2d}], Target: (${x}, ${y}) [${params.label || 'unlabeled'}]`);
+
+            await mouse.setPosition(new Point(x, y));
+            if (actionType === "click") await mouse.leftClick();
+            if (actionType === "double_click") await mouse.doubleClick(Button.LEFT);
+            result.success = true;
+            result.message = `${actionType} at (${x}, ${y}) [${params.label || 'unlabeled'}] with ${params.confidence}% confidence`;
+          } else if (params.x !== undefined && params.y !== undefined) {
+            const x = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
 
             await mouse.setPosition(new Point(x, y));
             if (actionType === "click") await mouse.leftClick();
@@ -218,9 +235,20 @@ class ActBackend {
 
         case "type":
           if (params.text) {
-            if (params.x !== undefined && params.y !== undefined) {
-              const x = Math.round((params.x / 1000) * this.screenSize.width);
-              const y = Math.round((params.y / 1000) * this.screenSize.height);
+            if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
+              const [ymin, xmin, ymax, xmax] = params.box2d;
+              const centerX = xmin + (xmax - xmin) / 2;
+              const centerY = ymin + (ymax - ymin) / 2;
+
+              const x = Math.round((centerX / 1000) * this.screenSize.width) + this.screenSize.x;
+              const y = Math.round((centerY / 1000) * this.screenSize.height) + this.screenSize.y;
+
+              await mouse.setPosition(new Point(x, y));
+              await mouse.leftClick();
+              await new Promise(r => setTimeout(r, 200));
+            } else if (params.x !== undefined && params.y !== undefined) {
+              const x = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+              const y = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
 
               await mouse.setPosition(new Point(x, y));
               await mouse.leftClick();
@@ -270,11 +298,24 @@ class ActBackend {
           break;
 
         case "drag":
-          if (params.x !== undefined && params.y !== undefined && params.end_x !== undefined && params.end_y !== undefined) {
-            const x1 = Math.round((params.x / 1000) * this.screenSize.width);
-            const y1 = Math.round((params.y / 1000) * this.screenSize.height);
-            const x2 = Math.round((params.end_x / 1000) * this.screenSize.width);
-            const y2 = Math.round((params.end_y / 1000) * this.screenSize.height);
+          if (params.box2d && params.end_box2d) {
+            const [y1_n, x1_n, y1_m, x1_m] = params.box2d;
+            const [y2_n, x2_n, y2_m, x2_m] = params.end_box2d;
+
+            const x1 = Math.round(((x1_n + (x1_m - x1_n) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y1 = Math.round(((y1_n + (y1_m - y1_n) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
+            const x2 = Math.round(((x2_n + (x2_m - x2_n) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y2 = Math.round(((y2_n + (y2_m - y2_n) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
+
+            await mouse.setPosition(new Point(x1, y1));
+            await mouse.drag(straightTo(new Point(x2, y2)));
+            result.success = true;
+            result.message = `Dragged from (${x1}, ${y1}) to (${x2}, ${y2})`;
+          } else if (params.x !== undefined && params.y !== undefined && params.end_x !== undefined && params.end_y !== undefined) {
+            const x1 = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y1 = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
+            const x2 = Math.round((params.end_x / 1000) * this.screenSize.width) + this.screenSize.x;
+            const y2 = Math.round((params.end_y / 1000) * this.screenSize.height) + this.screenSize.y;
 
             await mouse.setPosition(new Point(x1, y1));
             await mouse.drag(straightTo(new Point(x2, y2)));
@@ -285,9 +326,14 @@ class ActBackend {
 
         case "scroll":
           if (params.direction) {
-            if (params.x !== undefined && params.y !== undefined) {
-              const x = Math.round((params.x / 1000) * this.screenSize.width);
-              const y = Math.round((params.y / 1000) * this.screenSize.height);
+            if (params.box2d) {
+               const [ymin, xmin, ymax, xmax] = params.box2d;
+               const x = Math.round(((xmin + (xmax - xmin) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
+               const y = Math.round(((ymin + (ymax - ymin) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
+               await mouse.setPosition(new Point(x, y));
+            } else if (params.x !== undefined && params.y !== undefined) {
+              const x = Math.round((params.x / 1000) * this.screenSize.width) + this.screenSize.x;
+              const y = Math.round((params.y / 1000) * this.screenSize.height) + this.screenSize.y;
               await mouse.setPosition(new Point(x, y));
             }
             const amount = params.amount || 3;
