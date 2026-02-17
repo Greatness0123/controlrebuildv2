@@ -704,6 +704,49 @@
                 </div>
             </div>
 
+            <!-- Ollama Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="cpu" style="width: 16px; height: 16px;"></i>
+                    Local AI (Ollama)
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="zap" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Enable Ollama</div>
+                            <div class="setting-description">Use local Ollama models instead of Gemini</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="ollamaToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="link" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Ollama URL</div>
+                            <div class="setting-description">Local API endpoint</div>
+                        </div>
+                    </div>
+                    <input type="text" id="ollamaUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="http://localhost:11434">
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="box" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Ollama Model</div>
+                            <div class="setting-description">Model name (e.g. llama3)</div>
+                        </div>
+                    </div>
+                    <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="llama3">
+                </div>
+            </div>
+
             <!-- Shortcuts Section -->
             <div class="settings-section">
                 <div class="section-title">

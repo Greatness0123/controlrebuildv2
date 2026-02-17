@@ -113,7 +113,7 @@ class BackendManager extends EventEmitter {
         this.messageHandlers.set('error', (data, source) => {
             this.broadcastToWindows('backend-error', data);
             if (source === 'ACT' && this.currentTask) {
-                this.stopTask();
+                this.stopTask('error');
             }
         });
     }
@@ -247,8 +247,8 @@ class BackendManager extends EventEmitter {
         }
     }
 
-    stopTask() {
-        console.log('[BackendManager] stopTask() called. currentTask:', this.currentTask);
+    stopTask(reason = 'user') {
+        console.log(`[BackendManager] stopTask() called with reason: ${reason}. currentTask:`, this.currentTask);
         let taskStopped = false;
 
         if (this.actBackend) {
@@ -266,7 +266,7 @@ class BackendManager extends EventEmitter {
         const task = this.currentTask || 'Current Task';
         this.currentTask = null;
 
-        this.broadcastToWindows('task-stopped', { task });
+        this.broadcastToWindows('task-stopped', { task, reason });
         this.hideVisualEffects();
 
         if (global.windowManager) {

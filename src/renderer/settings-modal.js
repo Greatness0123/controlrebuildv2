@@ -14,6 +14,9 @@ class SettingsModal {
             windowVisibility: false,
             windowVisibility: false,
             wakeWordToggleChat: false,
+            ollamaEnabled: false,
+            ollamaUrl: 'http://localhost:11434',
+            ollamaModel: 'llama3',
             hotkeys: {
                 toggleChat: 'CommandOrControl+Space',
                 stopAction: 'Alt+Z'
@@ -96,6 +99,20 @@ class SettingsModal {
 
         document.getElementById('proceedWithoutConfirmationToggle')?.addEventListener('click', () => {
             this.toggleProceedWithoutConfirmation();
+        });
+
+        document.getElementById('ollamaToggle')?.addEventListener('click', () => {
+            this.toggleOllama();
+        });
+
+        document.getElementById('ollamaUrl')?.addEventListener('change', (e) => {
+            this.settings.ollamaUrl = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ollamaModel')?.addEventListener('change', (e) => {
+            this.settings.ollamaModel = e.target.value;
+            this.saveSettings();
         });
 
         // Buttons
@@ -440,6 +457,18 @@ class SettingsModal {
     }
 
     updateToggleStates() {
+        // Update Ollama inputs
+        const ollamaUrlInput = document.getElementById('ollamaUrl');
+        if (ollamaUrlInput) ollamaUrlInput.value = this.settings.ollamaUrl || 'http://localhost:11434';
+        const ollamaModelInput = document.getElementById('ollamaModel');
+        if (ollamaModelInput) ollamaModelInput.value = this.settings.ollamaModel || 'llama3';
+
+        const ollamaToggle = document.getElementById('ollamaToggle');
+        if (ollamaToggle) {
+            if (this.settings.ollamaEnabled) ollamaToggle.classList.add('active');
+            else ollamaToggle.classList.remove('active');
+        }
+
         // Determine plan-level restrictions (normalized plan string)
         const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
         const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
@@ -640,6 +669,17 @@ class SettingsModal {
 
         this.showToast(
             this.settings.openAtLogin ? 'App will start when your computer starts' : 'App will not auto-start',
+            'success'
+        );
+    }
+
+    async toggleOllama() {
+        this.settings.ollamaEnabled = !this.settings.ollamaEnabled;
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.ollamaEnabled ? 'Local AI (Ollama) enabled' : 'Ollama disabled, using Gemini',
             'success'
         );
     }

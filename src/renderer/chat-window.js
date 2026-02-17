@@ -423,20 +423,21 @@ class ChatWindow {
             window.chatAPI.onTaskStopped((event, data) => {
                 console.log('[ChatWindow] Task stopped:', data);
                 this.currentTask = null;
+                const reasonText = data.reason === 'error' ? "Task stopped due to error" : "Task stopped by user";
 
                 // Clear all thinking states
                 this.forceStopThinking();
 
                 // CRITICAL: Stop ALL spinners and show an 'x' for all active actions
                 this.actionStatuses.forEach((actionData, actionId) => {
-                    this.updateActionStatus(actionData.text, false, "Task stopped by user");
+                    this.updateActionStatus(actionData.text, false, reasonText);
                 });
 
                 // Ensure no more spinners remain
                 const allSpinners = this.messagesContainer.querySelectorAll('.action-spinner');
                 allSpinners.forEach(s => s.remove());
 
-                this.addMessage(`Task stopped: ${data.task || ''}`, 'ai', false);
+                this.addMessage(`${reasonText}: ${data.task || ''}`, 'ai', false);
                 this.updateStatus('Ready', 'ready');
                 this.updateSendButton();
             });
@@ -1288,11 +1289,14 @@ class ChatWindow {
             return { section, content };
         };
 
-        const thinking = createSection('Thinking', 'thinking', true);
-        const actions = createSection('Actions', 'actions', false); // Keep actions expanded initially for visibility
+        // Only create collapsible sections for ACT mode
+        if (this.currentMode === 'act') {
+            const thinking = createSection('Thinking', 'thinking', true);
+            const actions = createSection('Actions', 'actions', false); // Keep actions expanded initially for visibility
 
-        innerDiv.appendChild(thinking.section);
-        innerDiv.appendChild(actions.section);
+            innerDiv.appendChild(thinking.section);
+            innerDiv.appendChild(actions.section);
+        }
 
         contentDiv.appendChild(innerDiv);
         messageDiv.appendChild(contentDiv);
@@ -1359,7 +1363,9 @@ class ChatWindow {
             // If it's a final message, append it to the main container outside collapsible sections
             if (isFinal) {
                 const div = document.createElement('div');
-                div.className = 'text-block final-response';
+                // Only add final-response class (which adds a top border) if there's already content
+                const hasExistingContent = Array.from(container.children).some(c => c.style.display !== 'none');
+                div.className = 'text-block' + (hasExistingContent ? ' final-response' : '');
                 div.innerHTML = this.parseMarkdown(safeText);
                 container.appendChild(div);
                 this.scrollToBottom();

@@ -104,9 +104,32 @@ class AskBackend {
     }
   }
 
+  async ollamaGenerate(prompt, systemPrompt, settings, images = []) {
+    const url = `${settings.ollamaUrl || 'http://localhost:11434'}/api/generate`;
+    const body = {
+      model: settings.ollamaModel || 'llama3',
+      prompt: prompt,
+      system: systemPrompt,
+      stream: false
+    };
+    if (images.length > 0) {
+      body.images = images;
+    }
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(`Ollama error: ${response.statusText}`);
+    const data = await response.json();
+    return data.response;
+  }
+
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
     this.stopRequested = false;
-    this.setupGeminiAPI(apiKey);
+    if (!settings.ollamaEnabled) {
+      this.setupGeminiAPI(apiKey);
+    }
     const firebaseService = require('../firebase-service');
     const cachedUser = firebaseService.checkCachedUser();
 
@@ -134,11 +157,22 @@ class AskBackend {
       let iteration = 0;
       while (iteration < this.maxLoopIterations && !this.stopRequested) {
         iteration++;
-        const result = await this.model.generateContent(conversationParts);
-        const response = await result.response;
-        if (response.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'ask', response.usageMetadata);
 
-        const responseText = response.text().trim();
+        let responseText = "";
+        let responseObj = null;
+
+        if (settings.ollamaEnabled) {
+          // Flatten conversationParts for Ollama
+          const prompt = conversationParts.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join('\n');
+          const images = []; // Extract images from conversationParts if any
+          responseText = await this.ollamaGenerate(prompt, "You are Control (Ask Mode), an intelligent AI assistant.", settings, images);
+        } else {
+          const result = await this.model.generateContent(conversationParts);
+          responseObj = await result.response;
+          if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'ask', responseObj.usageMetadata);
+          responseText = responseObj.text().trim();
+        }
+
         const { requestType, requestData, cleanText } = this.parseAIResponse(responseText);
 
         if (requestType === "screenshot") {
@@ -152,7 +186,7 @@ class AskBackend {
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
         } else {
-          const finalPromptText = this.formatCitations(response);
+          const finalPromptText = settings.ollamaEnabled ? responseText : this.formatCitations(responseObj);
           this.conversationHistory.push({ user: userRequest, ai: finalPromptText.substring(0, 1000) });
           onResponse({ text: finalPromptText, is_action: false });
           return;
