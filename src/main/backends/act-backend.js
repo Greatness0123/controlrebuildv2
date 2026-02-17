@@ -32,7 +32,7 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 
 **COORDINATE PRECISION & SPATIAL REASONING:**
 - You perceive the screenshot in a normalized 1000x1000 grid.
-- **COORDINATES:** Use x and y values from 0 to 999 (normalized grid).
+- **COORDINATES:** Use x and y values from 0 to 1000 (normalized grid).
 - **IMPORTANT:** You MUST map your 1000x1000 mental grid to the ACTUAL OS resolution provided in the context (e.g. 1920x1080).
 - **SCALING LOGIC:** For a screen of WxH, a coordinate (x,y) in your 1000-unit grid will be executed at (x/1000 * W, y/1000 * H).
 - **ANCHORING:** Look for distinct UI anchors (text, icons, borders) and use them to triangulate your coordinates.
