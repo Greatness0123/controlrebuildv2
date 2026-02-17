@@ -61,7 +61,15 @@ class AskBackend {
 
   async takeScreenshot() {
     try {
-      return await screenshot({ format: "png" });
+      let imgBuffer;
+      try {
+        const displays = await screenshot.listDisplays();
+        const primary = displays.find(d => d.id === 0) || displays[0];
+        imgBuffer = await screenshot({ format: "png", screen: primary.id });
+      } catch (e) {
+        imgBuffer = await screenshot({ format: "png" });
+      }
+      return imgBuffer;
     } catch (err) {
       console.error("[ASK JS] Screenshot failed:", err);
       return null;

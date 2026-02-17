@@ -32,3 +32,10 @@ This update introduces significant enhancements to the AI's agentic capabilities
 - Updated `src/main/backend-manager-fixed.js` and `src/preload/chat-preload.js` to support plan updates.
 - Refined `src/renderer/chat-window.html` and `chat-window.js` for the new UI components.
 - Added `proceedWithoutConfirmation` to `SettingsManager`.
+
+### 5. Enhanced Spatial Awareness & Coordinate Calibration
+- **Native Object Detection**: Integrated Gemini's native object detection syntax (`box2d`) for superior element identification.
+- **Centric Targeting**: The system now automatically calculates and targets the exact visual center of detected elements from bounding box data.
+- **Multi-Monitor Calibration**: Fixed a critical coordinate mapping bug by incorporating global display offsets (`x`, `y`) into the normalized scaling logic.
+- **Standardized Capture**: Both `Act` and `Ask` modes now consistently target the primary display for screen captures, ensuring perfectly aligned coordinate translations.
+- **Detailed Calibration Logs**: Added transparency to the coordinate conversion process with detailed console logs showing normalized boxes, logical center points, and final OS target coordinates.

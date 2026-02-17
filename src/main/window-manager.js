@@ -258,12 +258,7 @@ class WindowManager {
     }
 
     setupDraggableWindow(window) {
-        window.webContents.on('ipc-message', (event, channel, data) => {
-            if (channel === 'window-drag') {
-                const bounds = window.getBounds();
-                window.setPosition(bounds.x + data.deltaX, bounds.y + data.deltaY);
-            }
-        });
+        // Redundant with main.js IPC listener but kept as hook for future window-specific drag logic
     }
 
     setupWindowManagement() {
