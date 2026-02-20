@@ -53,7 +53,7 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
     {
       "step": 1,
       "description": "Action description",
-      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package",
+      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package|display_code",
       "parameters": {
         "box2d": [ymin, xmin, ymax, xmax], // Normalized [0, 1000]
         "label": "button name",
@@ -76,6 +76,7 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 - terminal: {"command": "...", "confidence": 100}
 - research_package: {"name": "package-name", "type": "python|node", "query": "..."}
 - focus_window: {"app_name": "...", "confidence": 100}
+- display_code: {"code": "...", "language": "python|javascript|html|..."} (Use this to show code blocks clearly to the user with a copy button)
 
 **HUMAN-IN-THE-LOOP:**
 - For high-risk actions (terminal, system changes), if "proceedWithoutConfirmation" is FALSE, request confirmation.
@@ -401,6 +402,13 @@ class ActBackend {
           result.success = true;
           break;
 
+        case "display_code":
+          result.success = true;
+          result.code = params.code;
+          result.language = params.language;
+          result.message = "Code displayed";
+          break;
+
         default:
           result.message = `Unknown action: ${actionType}`;
       }
@@ -698,7 +706,9 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
                 description: action.description,
                 success: verification.verified,
                 details: verification.message,
-                confidence: action.parameters?.confidence
+                confidence: action.parameters?.confidence,
+                code: execResult.code,
+                language: execResult.language
             });
             if (!verification.verified) break;
         }

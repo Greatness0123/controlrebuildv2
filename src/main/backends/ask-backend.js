@@ -39,6 +39,7 @@ class AskBackend {
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
+- \`[DISPLAY_CODE: <language>\n<code>]\`: Display a formatted code block with a copy button
 
 **WORKFLOW:**
 1. Request info tools automatically if needed.
@@ -89,6 +90,7 @@ class AskBackend {
   parseAIResponse(responseText) {
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
+    const codeMatch = /\[DISPLAY_CODE:\s*([\s\S]+?)\]/.exec(responseText);
 
     let requestType = null;
     let requestData = null;
@@ -97,9 +99,16 @@ class AskBackend {
     else if (commandMatch) {
       requestType = "command";
       requestData = commandMatch[1].trim();
+    } else if (codeMatch) {
+      requestType = "display_code";
+      requestData = codeMatch[1].trim();
     }
 
-    let cleanText = responseText.replace(/\[REQUEST_SCREENSHOT\]/g, "").replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "").trim();
+    let cleanText = responseText
+        .replace(/\[REQUEST_SCREENSHOT\]/g, "")
+        .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
+        .replace(/\[DISPLAY_CODE:\s*[\s\S]+?\]/g, "")
+        .trim();
     return { requestType, requestData, cleanText };
   }
 
@@ -264,6 +273,16 @@ class AskBackend {
           const output = await this.runSystemCommand(requestData);
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
+        } else if (requestType === "display_code") {
+            const parts = requestData.split('\n');
+            const language = parts[0].trim();
+            const code = parts.slice(1).join('\n').trim();
+            const markdownCode = `\`\`\`${language}\n${code}\n\`\`\``;
+
+            // Send the code block as the final response part
+            this.conversationHistory.push({ user: userRequest, ai: cleanText + "\n" + markdownCode });
+            onResponse({ text: cleanText + "\n" + markdownCode, is_action: false });
+            return;
         } else {
           const finalPromptText = (effectiveProvider === 'ollama' || effectiveProvider === 'openrouter') ? responseText : this.formatCitations(responseObj);
           this.conversationHistory.push({ user: userRequest, ai: finalPromptText.substring(0, 1000) });

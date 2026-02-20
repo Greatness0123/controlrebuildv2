@@ -458,6 +458,10 @@ class ChatWindow {
                 }
                 const details = data.confidence ? `${data.details || ''} (Confidence: ${data.confidence}%)` : data.details;
                 this.updateActionStatus((data && data.description), (data && data.success), details);
+
+                if (data.code) {
+                    this.addCodeMessage(data.code, data.language || 'code');
+                }
             });
 
             // Task updates
@@ -1766,7 +1770,7 @@ class ChatWindow {
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <pre><code class="language-${language}">${safeCode}</code></pre>
+                            <pre><code class="language-${lang}">${escapedForDisplay}</code></pre>
                         </div>
                     `;
                 };
@@ -2143,6 +2147,11 @@ class ChatWindow {
             this.chatInput.value = this.lastUserMessage;
             this.sendMessage();
         }
+    }
+
+    addCodeMessage(code, language) {
+        const markdown = "```" + language + "\n" + code + "\n```";
+        this.addMessage(markdown, 'ai', false, null, true);
     }
 
     restoreSession(sessionId) {
