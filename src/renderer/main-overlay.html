@@ -520,6 +520,7 @@
                 this.visualEffects = document.getElementById('visualEffects');
 
                 this.isGlowIntended = false;
+                this.chatVisible = false;
                 this.isDragging = false;
                 this.dragStartX = 0;
                 this.dragStartY = 0;
@@ -542,17 +543,25 @@
                     if (window.settingsAPI && window.settingsAPI.getSettings) {
                         const settings = await window.settingsAPI.getSettings();
                         console.log('[MainOverlay] Loading floating button visibility. Settings:', settings.floatingButtonVisible);
-                        if (settings && settings.floatingButtonVisible === false) {
-                            this.hideFloatingButton();
-                        } else {
-                            this.showFloatingButton();
+                        if (settings.chatVisible !== undefined) {
+                            this.chatVisible = settings.chatVisible;
                         }
+                        this.updateFloatingButtonState();
                     } else {
                         this.showFloatingButton();
                     }
                 } catch (error) {
                     console.error('[MainOverlay] Error loading floating button visibility:', error);
                     this.showFloatingButton();
+                }
+            }
+
+            async updateFloatingButtonState() {
+                const enabled = await this.isFloatingButtonEnabled();
+                if (enabled && !this.chatVisible) {
+                    this.showFloatingButton();
+                } else {
+                    this.hideFloatingButton();
                 }
             }
 
@@ -615,30 +624,26 @@
                 if (window.electronAPI) {
                     window.electronAPI.onShowFloatingButton(async () => {
                         console.log('[Overlay] onShowFloatingButton received');
-                        if (await this.isFloatingButtonEnabled()) {
-                            this.showFloatingButton();
-                        } else {
-                            console.log('[Overlay] onShowFloatingButton ignored: floating button disabled');
-                        }
+                        this.chatVisible = false;
+                        this.updateFloatingButtonState();
                     });
                     window.electronAPI.onHideFloatingButton(() => {
                         console.log('[Overlay] onHideFloatingButton received - hiding');
-                        this.hideFloatingButton();
+                        this.chatVisible = true;
+                        this.updateFloatingButtonState();
                     });
                     
                     // Conditional show/hide - respects user toggle setting
                     window.electronAPI.onShowFloatingButtonIfEnabled(async () => {
                         console.log('[Overlay] onShowFloatingButtonIfEnabled received');
-                        if (await this.isFloatingButtonEnabled()) {
-                            this.showFloatingButton();
-                        } else {
-                            console.log('[Overlay] onShowFloatingButtonIfEnabled ignored: floating button disabled');
-                        }
+                        this.chatVisible = false;
+                        this.updateFloatingButtonState();
                     });
                     // Always hide when asked to hide-if-enabled (prevents race where a show event might make it visible)
                     window.electronAPI.onHideFloatingButtonIfEnabled(async () => {
                         console.log('[Overlay] onHideFloatingButtonIfEnabled received - hiding');
-                        this.hideFloatingButton();
+                        this.chatVisible = true;
+                        this.updateFloatingButtonState();
                     });
                     
                     window.electronAPI.onVisualEffect((event, data) => this.showVisualEffect(data && data.type));
@@ -660,33 +665,19 @@
 
                     window.electronAPI.onFloatingButtonToggle((event, visible) => {
                         console.log('[Overlay] Floating button toggle:', visible);
-                        // ALWAYS enforce the toggle state, regardless of chat/window state
-                        if (visible) {
-                            this.showFloatingButton();
-                        } else {
-                            // Force hide - it should be invisible regardless of any other state
-                            this.hideFloatingButton();
-                        }
+                        this.updateFloatingButtonState();
                     });
 
                     // React to global settings updates so we can immediately enforce toggles
                     window.electronAPI.onSettingsUpdated?.((event, settings) => {
                         console.log('[Overlay] Settings updated:', settings);
+                        if (settings.chatVisible !== undefined) {
+                            this.chatVisible = settings.chatVisible;
+                        }
                         if (settings.edgeGlowEnabled === false) {
                             this.hideEdgeGlow();
                         }
-
-                        // Enforce floating button visibility
-                        if (settings.floatingButtonVisible === false) {
-                            this.hideFloatingButton();
-                        } else if (settings.floatingButtonVisible === true) {
-                            // Only show if chat is NOT visible
-                            if (settings.chatVisible === false) {
-                                this.showFloatingButton();
-                            } else {
-                                this.hideFloatingButton();
-                            }
-                        }
+                        this.updateFloatingButtonState();
                     });
 
                     // Action status listeners

@@ -2,6 +2,7 @@ class SettingsModal {
     constructor() {
         this.currentUser = null;
         this.isAuthenticated = false;
+        this.isFreePlan = false;
         this.freeDefaultsApplied = false; // <- guard to avoid repeated auto-save loops for free users
         this.settings = {
             pinEnabled: false,
@@ -11,7 +12,6 @@ class SettingsModal {
             autoSendAfterWakeWord: false,
             floatingButtonVisible: true,
             greetingTTS: false,
-            windowVisibility: false,
             windowVisibility: false,
             wakeWordToggleChat: false,
             modelProvider: 'gemini',
@@ -488,17 +488,17 @@ class SettingsModal {
 
     async updateToggleStates() {
         // Determine plan-level restrictions (normalized plan string)
-        const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
-        const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
-        const isFreePlan = !!(normalizedPlan === 'free' || this.isFreePlan);
+        const isFreePlan = this.isUserFreePlan();
 
         // Update Gemini Model Description from database
-        if (window.settingsAPI && window.settingsAPI.getSettings) {
+        if (window.settingsAPI && window.settingsAPI.getKeys) {
             try {
                 const keys = await window.settingsAPI.getKeys();
                 const modelDesc = document.getElementById('geminiModelDescription');
                 if (modelDesc && keys && keys.gemini_model) {
                     modelDesc.textContent = `Default native model: ${keys.gemini_model}`;
+                } else if (modelDesc) {
+                    modelDesc.textContent = `Default native model: gemini-1.5-flash`;
                 }
             } catch (e) {
                 console.warn('Failed to fetch gemini_model for UI:', e);
