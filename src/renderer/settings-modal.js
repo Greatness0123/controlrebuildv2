@@ -486,11 +486,24 @@ class SettingsModal {
         }
     }
 
-    updateToggleStates() {
+    async updateToggleStates() {
         // Determine plan-level restrictions (normalized plan string)
         const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
         const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
         const isFreePlan = !!(normalizedPlan === 'free' || this.isFreePlan);
+
+        // Update Gemini Model Description from database
+        if (window.settingsAPI && window.settingsAPI.getSettings) {
+            try {
+                const keys = await window.settingsAPI.getKeys();
+                const modelDesc = document.getElementById('geminiModelDescription');
+                if (modelDesc && keys && keys.gemini_model) {
+                    modelDesc.textContent = `Default native model: ${keys.gemini_model}`;
+                }
+            } catch (e) {
+                console.warn('Failed to fetch gemini_model for UI:', e);
+            }
+        }
 
         // Update Provider selection
         const modelProvider = document.getElementById('modelProvider');
