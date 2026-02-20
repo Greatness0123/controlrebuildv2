@@ -39,7 +39,12 @@ class AskBackend {
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
-- \`[DISPLAY_CODE: <language>\n<code>]\`: Display a formatted code block with a copy button
+- `[DISPLAY_CODE: <language>\n<code>]`: Display a formatted code block with a copy button.
+
+**CODE DISPLAY & FORMATTING:**
+- **CRITICAL:** When providing code snippets, scripts, or HTML, you MUST use the `[DISPLAY_CODE: <language>\n<code>]` tool.
+- **NEVER** output raw HTML or code directly in your text response. This ensures code is displayed in a specialized, copyable box and prevents accidental rendering of HTML as actual UI.
+- Example: `[DISPLAY_CODE: python\nprint("Hello World")]`
 
 **WORKFLOW:**
 1. Request info tools automatically if needed.
@@ -90,7 +95,6 @@ class AskBackend {
   parseAIResponse(responseText) {
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
-    const codeMatch = /\[DISPLAY_CODE:\s*([\s\S]+?)\]/.exec(responseText);
 
     let requestType = null;
     let requestData = null;
@@ -99,16 +103,17 @@ class AskBackend {
     else if (commandMatch) {
       requestType = "command";
       requestData = commandMatch[1].trim();
-    } else if (codeMatch) {
-      requestType = "display_code";
-      requestData = codeMatch[1].trim();
     }
 
-    let cleanText = responseText
+    // Process [DISPLAY_CODE] blocks in-place for better flow
+    const cleanText = responseText
+        .replace(/\[DISPLAY_CODE:\s*([\w-]+)\s*\n([\s\S]+?)\]/g, (match, lang, code) => {
+            return `\n\n\`\`\`${lang}\n${code.trim()}\n\`\`\`\n\n`;
+        })
         .replace(/\[REQUEST_SCREENSHOT\]/g, "")
         .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
-        .replace(/\[DISPLAY_CODE:\s*[\s\S]+?\]/g, "")
         .trim();
+
     return { requestType, requestData, cleanText };
   }
 
@@ -273,20 +278,12 @@ class AskBackend {
           const output = await this.runSystemCommand(requestData);
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
-        } else if (requestType === "display_code") {
-            const parts = requestData.split('\n');
-            const language = parts[0].trim();
-            const code = parts.slice(1).join('\n').trim();
-            const markdownCode = `\`\`\`${language}\n${code}\n\`\`\``;
-
-            // Send the code block as the final response part
-            this.conversationHistory.push({ user: userRequest, ai: cleanText + "\n" + markdownCode });
-            onResponse({ text: cleanText + "\n" + markdownCode, is_action: false });
-            return;
         } else {
-          const finalPromptText = (effectiveProvider === 'ollama' || effectiveProvider === 'openrouter') ? responseText : this.formatCitations(responseObj);
-          this.conversationHistory.push({ user: userRequest, ai: finalPromptText.substring(0, 1000) });
-          onResponse({ text: finalPromptText, is_action: false });
+          // Final response turn
+          const finalAIResponse = cleanText || responseText;
+
+          this.conversationHistory.push({ user: userRequest, ai: finalAIResponse });
+          onResponse({ text: finalAIResponse, is_action: false });
           return;
         }
       }

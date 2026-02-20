@@ -1748,6 +1748,15 @@ class ChatWindow {
             if (typeof marked !== 'undefined') {
                 const renderer = new marked.Renderer();
 
+                // Prevent raw HTML from being rendered as UI elements
+                renderer.html = (token) => {
+                    return token.text.replace(/&/g, "&amp;")
+                                     .replace(/</g, "&lt;")
+                                     .replace(/>/g, "&gt;")
+                                     .replace(/"/g, "&quot;")
+                                     .replace(/'/g, "&#039;");
+                };
+
                 // Custom code block renderer with language label and copy button
                 // Supports marked v12+ token signature
                 renderer.code = (token) => {

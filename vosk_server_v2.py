@@ -40,8 +40,12 @@ class VoskServer:
                  sys.exit(1)
 
         logger.info(f"Loading Vosk model from: {self.model_path}")
-        self.model = vosk.Model(str(self.model_path))
-        logger.info("Model loaded.")
+        try:
+            self.model = vosk.Model(str(self.model_path))
+            logger.info("Model loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            sys.exit(1)
 
     async def handle_connection(self, websocket):
         logger.info("Client connected")
@@ -80,7 +84,14 @@ class VoskServer:
             logger.error(f"Error handling connection: {e}")
 
     async def start(self):
-        async with websockets.serve(self.handle_connection, self.host, self.port):
+        # Set ping_timeout and ping_interval to keep connection alive and detect dead ones
+        async with websockets.serve(
+            self.handle_connection,
+            self.host,
+            self.port,
+            ping_timeout=20,
+            ping_interval=20
+        ):
             logger.info(f"Server listening on ws://{self.host}:{self.port}")
             await asyncio.Future()  # Run forever
 
