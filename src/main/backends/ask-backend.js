@@ -133,9 +133,73 @@ class AskBackend {
     return data.response;
   }
 
+  async openrouterGenerate(conversationParts, systemPrompt, settings) {
+    const firebaseService = require('../firebase-service');
+    const cachedKeys = firebaseService.getKeys();
+
+    const apiKey = settings.openrouterApiKey || (cachedKeys && cachedKeys.openrouter);
+    if (!apiKey) throw new Error("OpenRouter API key is missing. Please add one in settings or contact support.");
+
+    const model = settings.openrouterModel === 'custom' ? settings.openrouterCustomModel : settings.openrouterModel;
+
+    // Convert conversation parts to OpenAI format
+    const messages = [{ role: "system", content: systemPrompt }];
+    for (const part of conversationParts) {
+      if (typeof part === 'string') {
+        const role = part.startsWith('User:') ? 'user' : (part.startsWith('Assistant:') ? 'assistant' : 'user');
+        const content = part.replace(/^(User:|Assistant:|System:)\s*/, '');
+        messages.push({ role, content });
+      } else if (part.inlineData) {
+        // Handle images for OpenRouter (multimodal)
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && lastMessage.role === 'user') {
+          if (typeof lastMessage.content === 'string') {
+            lastMessage.content = [
+              { type: "text", text: lastMessage.content },
+              { type: "image_url", image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` } }
+            ];
+          } else {
+            lastMessage.content.push({ type: "image_url", image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` } });
+          }
+        }
+      }
+    }
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://controlrebuild-website.vercel.app",
+        "X-Title": "Control AI",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages
+      })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenRouter error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
     this.stopRequested = false;
-    if (!settings.ollamaEnabled) {
+
+    const provider = settings.modelProvider || 'gemini';
+
+    // Special case: if OpenRouter is selected but the model is Gemini 1.5 Flash (SDK version), switch to gemini provider logic
+    let effectiveProvider = provider;
+    if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+        effectiveProvider = 'gemini';
+    }
+
+    if (effectiveProvider === 'gemini') {
       this.setupGeminiAPI(apiKey);
     }
     const firebaseService = require('../firebase-service');
@@ -169,11 +233,19 @@ class AskBackend {
         let responseText = "";
         let responseObj = null;
 
-        if (settings.ollamaEnabled) {
+        const provider = settings.modelProvider || 'gemini';
+        let effectiveProvider = provider;
+        if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+            effectiveProvider = 'gemini';
+        }
+
+        if (effectiveProvider === 'ollama') {
           // Flatten conversationParts for Ollama
           const prompt = conversationParts.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join('\n');
           const images = []; // Extract images from conversationParts if any
           responseText = await this.ollamaGenerate(prompt, "You are Control (Ask Mode), an intelligent AI assistant.", settings, images);
+        } else if (effectiveProvider === 'openrouter') {
+          responseText = await this.openrouterGenerate(conversationParts, "You are Control (Ask Mode), an intelligent AI assistant.", settings);
         } else {
           const result = await this.model.generateContent(conversationParts);
           responseObj = await result.response;
@@ -194,7 +266,7 @@ class AskBackend {
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
         } else {
-          const finalPromptText = settings.ollamaEnabled ? responseText : this.formatCitations(responseObj);
+          const finalPromptText = (effectiveProvider === 'ollama' || effectiveProvider === 'openrouter') ? responseText : this.formatCitations(responseObj);
           this.conversationHistory.push({ user: userRequest, ai: finalPromptText.substring(0, 1000) });
           onResponse({ text: finalPromptText, is_action: false });
           return;
@@ -202,7 +274,17 @@ class AskBackend {
       }
     } catch (err) {
       console.error("[ASK JS] Error:", err);
-      onError({ message: err.message });
+      const errorStr = err.message.toLowerCase();
+      let userMessage = err.message;
+      const provider = settings.modelProvider || 'gemini';
+
+      if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
+        userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
+        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
+        else firebaseService.rotateGeminiKey();
+      }
+
+      onError({ message: userMessage });
     }
   }
 

@@ -14,6 +14,10 @@ class SettingsModal {
             windowVisibility: false,
             windowVisibility: false,
             wakeWordToggleChat: false,
+            modelProvider: 'gemini',
+            openrouterModel: 'anthropic/claude-3.5-sonnet',
+            openrouterCustomModel: '',
+            openrouterApiKey: '',
             ollamaEnabled: false,
             ollamaUrl: 'http://localhost:11434',
             ollamaModel: 'llama3',
@@ -102,10 +106,6 @@ class SettingsModal {
             this.toggleProceedWithoutConfirmation();
         });
 
-        document.getElementById('ollamaToggle')?.addEventListener('click', () => {
-            this.toggleOllama();
-        });
-
         document.getElementById('ollamaUrl')?.addEventListener('change', (e) => {
             this.settings.ollamaUrl = e.target.value;
             this.saveSettings();
@@ -113,6 +113,35 @@ class SettingsModal {
 
         document.getElementById('ollamaModel')?.addEventListener('change', (e) => {
             this.settings.ollamaModel = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('modelProvider')?.addEventListener('change', (e) => {
+            const provider = e.target.value;
+            if (provider === 'openrouter' && this.isUserFreePlan()) {
+                this.showToast('Upgrade to PRO to use OpenRouter models', 'error');
+                e.target.value = this.settings.modelProvider;
+                return;
+            }
+            this.settings.modelProvider = provider;
+            this.settings.ollamaEnabled = (provider === 'ollama');
+            this.updateUI();
+            this.saveSettings();
+        });
+
+        document.getElementById('openrouterModelList')?.addEventListener('change', (e) => {
+            this.settings.openrouterModel = e.target.value;
+            this.updateUI();
+            this.saveSettings();
+        });
+
+        document.getElementById('openrouterCustomModel')?.addEventListener('change', (e) => {
+            this.settings.openrouterCustomModel = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('openrouterApiKey')?.addEventListener('change', (e) => {
+            this.settings.openrouterApiKey = e.target.value;
             this.saveSettings();
         });
 
@@ -458,22 +487,52 @@ class SettingsModal {
     }
 
     updateToggleStates() {
+        // Determine plan-level restrictions (normalized plan string)
+        const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
+        const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
+        const isFreePlan = !!(normalizedPlan === 'free' || this.isFreePlan);
+
+        // Update Provider selection
+        const modelProvider = document.getElementById('modelProvider');
+        if (modelProvider) {
+            modelProvider.value = this.settings.modelProvider || 'gemini';
+
+            // Show/hide sub-sections
+            document.getElementById('geminiSettings').style.display = (modelProvider.value === 'gemini') ? 'block' : 'none';
+            document.getElementById('openrouterSettings').style.display = (modelProvider.value === 'openrouter') ? 'block' : 'none';
+            document.getElementById('ollamaSettings').style.display = (modelProvider.value === 'ollama') ? 'block' : 'none';
+
+            // Disable OpenRouter for free users in dropdown
+            const openrouterOption = modelProvider.querySelector('option[value="openrouter"]');
+            if (openrouterOption) {
+                if (isFreePlan) {
+                    openrouterOption.disabled = true;
+                    openrouterOption.textContent = 'OpenRouter (PRO Only)';
+                } else {
+                    openrouterOption.disabled = false;
+                    openrouterOption.textContent = 'OpenRouter (Pro/Master)';
+                }
+            }
+        }
+
+        // Update OpenRouter inputs
+        const openrouterModelList = document.getElementById('openrouterModelList');
+        if (openrouterModelList) {
+            openrouterModelList.value = this.settings.openrouterModel || 'anthropic/claude-3.5-sonnet';
+            document.getElementById('customModelContainer').style.display = (this.settings.openrouterModel === 'custom') ? 'block' : 'none';
+        }
+
+        const openrouterCustomModel = document.getElementById('openrouterCustomModel');
+        if (openrouterCustomModel) openrouterCustomModel.value = this.settings.openrouterCustomModel || '';
+
+        const openrouterApiKey = document.getElementById('openrouterApiKey');
+        if (openrouterApiKey) openrouterApiKey.value = this.settings.openrouterApiKey || '';
+
         // Update Ollama inputs
         const ollamaUrlInput = document.getElementById('ollamaUrl');
         if (ollamaUrlInput) ollamaUrlInput.value = this.settings.ollamaUrl || 'http://localhost:11434';
         const ollamaModelInput = document.getElementById('ollamaModel');
         if (ollamaModelInput) ollamaModelInput.value = this.settings.ollamaModel || 'llama3';
-
-        const ollamaToggle = document.getElementById('ollamaToggle');
-        if (ollamaToggle) {
-            if (this.settings.ollamaEnabled) ollamaToggle.classList.add('active');
-            else ollamaToggle.classList.remove('active');
-        }
-
-        // Determine plan-level restrictions (normalized plan string)
-        const planRaw = (this.currentUser && (this.currentUser.plan || '')) ? (this.currentUser.plan || '').toLowerCase() : '';
-        const normalizedPlan = planRaw.replace(/\s*plan\s*/gi, '').trim();
-        const isFreePlan = !!(normalizedPlan === 'free' || this.isFreePlan);
 
         // Update PIN toggle
         const pinToggle = document.getElementById('pinToggle');
@@ -670,17 +729,6 @@ class SettingsModal {
 
         this.showToast(
             this.settings.openAtLogin ? 'App will start when your computer starts' : 'App will not auto-start',
-            'success'
-        );
-    }
-
-    async toggleOllama() {
-        this.settings.ollamaEnabled = !this.settings.ollamaEnabled;
-        this.updateToggleStates();
-        await this.saveSettings();
-
-        this.showToast(
-            this.settings.ollamaEnabled ? 'Local AI (Ollama) enabled' : 'Ollama disabled, using Gemini',
             'success'
         );
     }

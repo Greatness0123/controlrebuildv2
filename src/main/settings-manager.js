@@ -75,6 +75,10 @@ class SettingsManager {
             wakeWordToggleChat: false,
             floatingButtonVisible: true,
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
+            modelProvider: 'gemini',
+            openrouterModel: 'anthropic/claude-3.5-sonnet',
+            openrouterCustomModel: '',
+            openrouterApiKey: '',
             ollamaEnabled: false,
             ollamaUrl: 'http://localhost:11434',
             ollamaModel: 'llama3',

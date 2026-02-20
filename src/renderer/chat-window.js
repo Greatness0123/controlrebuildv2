@@ -55,6 +55,7 @@ class ChatWindow {
         this.lastSpeechTime = null;
         this.baseText = ''; // Track committed text for partial updates
         this.userName = null; // Track user name for personalization
+        this.lastUserMessage = null; // Track last user message for Redo
 
         this.greetings = [
             "Welcome back", "Hello", "Good to see you", "Ready to work?",
@@ -1098,6 +1099,7 @@ class ChatWindow {
         }
 
         this.voiceButton.classList.remove('recording');
+        this.updateStatus('Ready', 'ready');
 
         // Clear any flush intervals
         if (this.voiceRecordingIntervals) {
@@ -1404,6 +1406,9 @@ class ChatWindow {
 
         this.lastAddedMessage = safeText;
         this.lastAddedSender = sender;
+        if (sender === 'user') {
+            this.lastUserMessage = safeText;
+        }
 
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
@@ -1416,6 +1421,11 @@ class ChatWindow {
                 div.className = 'text-block' + (hasExistingContent ? ' final-response' : '');
                 div.innerHTML = this.parseMarkdown(safeText);
                 container.appendChild(div);
+
+                if (this.currentMode === 'ask') {
+                    this.addMessageActions(container.closest('.message'), safeText, 'ai');
+                }
+
                 this.scrollToBottom();
                 return div;
             }
@@ -1456,6 +1466,15 @@ class ChatWindow {
             }
 
             sectionContent.appendChild(div);
+
+            // Add actions only if it's the main response and not just a thought (simplified for Ask mode)
+            if (this.currentMode === 'ask') {
+                const messageEl = container.closest('.message');
+                // Remove existing actions if any to avoid duplication as parts arrive
+                messageEl.querySelector('.message-actions')?.remove();
+                this.addMessageActions(messageEl, safeText, 'ai');
+            }
+
             this.scrollToBottom();
             return div;
         }
@@ -1465,6 +1484,10 @@ class ChatWindow {
         const contentDiv = document.createElement('div');
         contentDiv.className = 'message-content';
         contentDiv.innerHTML = this.parseMarkdown(safeText);
+
+        if (this.currentMode === 'ask') {
+            this.addMessageActions(messageDiv, safeText, sender);
+        }
 
         if (attachments && attachments.length > 0) {
             const attachmentContainer = document.createElement('div');
@@ -1707,7 +1730,28 @@ class ChatWindow {
 
         try {
             if (typeof marked !== 'undefined') {
-                return marked.parse(text);
+                const renderer = new marked.Renderer();
+
+                // Custom code block renderer with language label and copy button
+                renderer.code = (code, language) => {
+                    const lang = language || 'code';
+                    // Escape single quotes and backticks for the onclick handler
+                    const escapedCode = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+
+                    return `
+                        <div class="code-block-wrapper">
+                            <div class="code-header">
+                                <span class="code-lang">${lang}</span>
+                                <button class="copy-code-btn" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedCode}\`, this)">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <pre><code class="language-${lang}">${code}</code></pre>
+                        </div>
+                    `;
+                };
+
+                return marked.parse(text, { renderer });
             }
         } catch (e) {
             console.error('Error parsing markdown with marked:', e);
@@ -1978,6 +2022,73 @@ class ChatWindow {
     deleteSession(sessionId) {
         this.sessions = this.sessions.filter(s => s.id !== sessionId);
         this.saveSessions();
+    }
+
+    addMessageActions(container, text, sender) {
+        if (this.currentMode !== 'ask') return;
+
+        // Remove existing actions to avoid duplicates
+        container.querySelector('.message-actions')?.remove();
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'message-actions';
+
+        // Copy button
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'action-btn';
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        copyBtn.onclick = () => this.copyToClipboard(text, copyBtn);
+        actionsDiv.appendChild(copyBtn);
+
+        // Speak button
+        const speakBtn = document.createElement('button');
+        speakBtn.className = 'action-btn';
+        speakBtn.innerHTML = '<i class="fas fa-volume-up"></i> Speak';
+        speakBtn.onclick = () => {
+            if (window.chatAPI && window.chatAPI.speakGreeting) {
+                window.chatAPI.speakGreeting(text);
+            }
+        };
+        actionsDiv.appendChild(speakBtn);
+
+        if (sender === 'user') {
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+            editBtn.onclick = () => this.editMessage(text, container);
+            actionsDiv.appendChild(editBtn);
+        } else {
+            // Redo button (for AI messages, redo the last user prompt)
+            const redoBtn = document.createElement('button');
+            redoBtn.className = 'action-btn';
+            redoBtn.innerHTML = '<i class="fas fa-redo"></i> Redo';
+            redoBtn.onclick = () => this.redoLastMessage();
+            actionsDiv.appendChild(redoBtn);
+        }
+
+        container.appendChild(actionsDiv);
+    }
+
+    copyToClipboard(text, btn) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            setTimeout(() => btn.innerHTML = originalHTML, 2000);
+        });
+    }
+
+    editMessage(text, messageDiv) {
+        this.chatInput.value = text;
+        this.chatInput.focus();
+        this.autoResizeTextarea();
+    }
+
+    redoLastMessage() {
+        if (this.lastUserMessage) {
+            this.chatInput.value = this.lastUserMessage;
+            this.sendMessage();
+        }
     }
 
     restoreSession(sessionId) {

@@ -184,7 +184,7 @@ class ComputerUseAgent {
             try {
                 // Turn off the voice activation setting to avoid broken state
                 this.settingsManager.updateSettings({ voiceActivation: false });
-                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                this.windowManager.broadcast('settings-updated', this.getSettings());
 
                 // Notify renderers for a user-facing message
                 this.windowManager.broadcast('porcupine-key-invalid', { message: payload && payload.message ? payload.message : 'Invalid Picovoice key' });
@@ -295,7 +295,7 @@ class ComputerUseAgent {
 
                 // Broadcast to all windows
                 this.windowManager.broadcast('user-changed', this.currentUser);
-                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                this.windowManager.broadcast('settings-updated', this.getSettings());
 
                 this.windowManager.showWindow('main');
             } else {
@@ -692,7 +692,7 @@ class ComputerUseAgent {
 
                     // Broadcast user data to all windows
                     this.windowManager.broadcast('user-changed', result.user);
-                    this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                    this.windowManager.broadcast('settings-updated', this.getSettings());
 
                     this.windowManager.showWindow('main');
                 }
@@ -745,7 +745,7 @@ class ComputerUseAgent {
 
                 // Enable voice activation
                 this.settingsManager.updateSettings({ voiceActivation: true });
-                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                this.windowManager.broadcast('settings-updated', this.getSettings());
 
                 return { success: true };
             } catch (e) {
@@ -1075,7 +1075,7 @@ class ComputerUseAgent {
             if (success) {
                 // Update live hotkeys
                 this.hotkeyManager.updateHotkeys(newHotkeys);
-                this.windowManager.broadcast('settings-updated', this.settingsManager.getSettings());
+                this.windowManager.broadcast('settings-updated', this.getSettings());
                 return { success: true };
             }
 
@@ -1154,6 +1154,13 @@ class ComputerUseAgent {
         settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
         settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
         settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
+        settings.chatVisible = this.windowManager.chatVisible;
+        settings.modelProvider = this.appSettings.modelProvider || 'gemini';
+        settings.openrouterModel = this.appSettings.openrouterModel || 'anthropic/claude-3.5-sonnet';
+        settings.openrouterCustomModel = this.appSettings.openrouterCustomModel || '';
+        settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
+        settings.ollamaUrl = this.appSettings.ollamaUrl || 'http://localhost:11434';
+        settings.ollamaModel = this.appSettings.ollamaModel || 'llama3';
         return settings;
     }
 
@@ -1221,6 +1228,24 @@ class ComputerUseAgent {
             if (settings.edgeGlowEnabled !== undefined) {
                 this.appSettings.edgeGlowEnabled = !!settings.edgeGlowEnabled;
             }
+            if (settings.modelProvider !== undefined) {
+                this.appSettings.modelProvider = settings.modelProvider;
+            }
+            if (settings.openrouterModel !== undefined) {
+                this.appSettings.openrouterModel = settings.openrouterModel;
+            }
+            if (settings.openrouterCustomModel !== undefined) {
+                this.appSettings.openrouterCustomModel = settings.openrouterCustomModel;
+            }
+            if (settings.openrouterApiKey !== undefined) {
+                this.appSettings.openrouterApiKey = settings.openrouterApiKey;
+            }
+            if (settings.ollamaUrl !== undefined) {
+                this.appSettings.ollamaUrl = settings.ollamaUrl;
+            }
+            if (settings.ollamaModel !== undefined) {
+                this.appSettings.ollamaModel = settings.ollamaModel;
+            }
 
             // Handle hotkeys if present
             if (settings.hotkeys) {
@@ -1244,7 +1269,13 @@ class ComputerUseAgent {
                 lastMode: this.appSettings.lastMode,
                 windowVisibility: this.appSettings.windowVisibility,
                 wakeWordToggleChat: this.appSettings.wakeWordToggleChat,
-                edgeGlowEnabled: this.appSettings.edgeGlowEnabled
+                edgeGlowEnabled: this.appSettings.edgeGlowEnabled,
+                modelProvider: this.appSettings.modelProvider,
+                openrouterModel: this.appSettings.openrouterModel,
+                openrouterCustomModel: this.appSettings.openrouterCustomModel,
+                openrouterApiKey: this.appSettings.openrouterApiKey,
+                ollamaUrl: this.appSettings.ollamaUrl,
+                ollamaModel: this.appSettings.ollamaModel
             });
 
             // Update local clone to match full state
