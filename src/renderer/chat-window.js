@@ -937,6 +937,9 @@ class ChatWindow {
 
             this.ws.onopen = () => {
                 console.log('[Voice] ✓ Connected to Vosk Server');
+                this.voiceButton.classList.remove('connecting');
+                this.voiceButton.classList.add('recording');
+
                 if (window.chatAPI && window.chatAPI.logToTerminal) {
                     window.chatAPI.logToTerminal('✓ Voice WebSocket Connected');
                 }
@@ -1100,6 +1103,7 @@ class ChatWindow {
         }
 
         this.voiceButton.classList.remove('recording');
+        this.voiceButton.classList.remove('connecting');
         this.updateStatus('Ready', 'ready');
 
         // Clear any flush intervals

@@ -696,7 +696,8 @@ module.exports = {
                 const geminiKeys = remoteKeys.gemini_keys || [remoteKeys.gemini_free || remoteKeys.gemini];
                 const currentIndex = cachedKeys && cachedKeys.rotationIndex !== undefined ? cachedKeys.rotationIndex : 0;
 
-                const openrouterKeys = remoteKeys.openrouter_keys || [];
+                // Handle OpenRouter keys (supports array or single key)
+                const openrouterKeys = remoteKeys.openrouter_keys || (remoteKeys.openrouter ? [remoteKeys.openrouter] : []);
                 const orIndex = cachedKeys && cachedKeys.orRotationIndex !== undefined ? cachedKeys.orRotationIndex : 0;
 
                 const keysToCache = {
@@ -705,7 +706,7 @@ module.exports = {
                     rotationIndex: currentIndex % geminiKeys.length,
                     gemini_model: remoteKeys.gemini_model || "gemini-1.5-flash",
                     openrouter_keys: openrouterKeys,
-                    openrouter: openrouterKeys.length > 0 ? openrouterKeys[orIndex % openrouterKeys.length] : null,
+                    openrouter: openrouterKeys.length > 0 ? openrouterKeys[orIndex % openrouterKeys.length] : (remoteKeys.openrouter || null),
                     orRotationIndex: orIndex % Math.max(1, openrouterKeys.length)
                 };
 
