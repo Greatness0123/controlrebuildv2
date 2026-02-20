@@ -489,9 +489,58 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     return data.response;
   }
 
+  async openrouterGenerate(prompt, systemPrompt, settings, images = []) {
+    const firebaseService = require('../firebase-service');
+    const cachedKeys = firebaseService.getKeys();
+
+    const apiKey = settings.openrouterApiKey || (cachedKeys && cachedKeys.openrouter);
+    if (!apiKey) throw new Error("OpenRouter API key is missing. Please add one in settings or contact support.");
+
+    const model = settings.openrouterModel === 'custom' ? settings.openrouterCustomModel : settings.openrouterModel;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: [
+          { type: "text", text: prompt },
+          ...images.map(img => ({ type: "image_url", image_url: { url: `data:image/png;base64,${img}` } }))
+        ]
+      }
+    ];
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://controlrebuild-website.vercel.app",
+        "X-Title": "Control AI",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: messages,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`OpenRouter error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
   async processRequest(userRequest, attachments = [], onEvent, onError, apiKey, settings = {}) {
     this.stopRequested = false;
-    if (!settings.ollamaEnabled) {
+
+    const provider = settings.modelProvider || 'gemini';
+    let effectiveProvider = provider;
+    if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+        effectiveProvider = 'gemini';
+    }
+
+    if (effectiveProvider === 'gemini') {
       this.setupGeminiAPI(apiKey);
     }
     const firebaseService = require('../firebase-service');
@@ -547,9 +596,29 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         content.push(prompt);
 
         let fullText = "";
-        if (settings.ollamaEnabled) {
+        const provider = settings.modelProvider || 'gemini';
+        let effectiveProvider = provider;
+        if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+            effectiveProvider = 'gemini';
+        }
+
+        if (effectiveProvider === 'ollama') {
           const images = [fs.readFileSync(shot.filepath).toString("base64")];
           fullText = await this.ollamaGenerate(prompt, SYSTEM_PROMPT, settings, images);
+        } else if (effectiveProvider === 'openrouter') {
+          const images = [fs.readFileSync(shot.filepath).toString("base64")];
+          // Handle additional attachments if any are images
+          if (attachments && attachments.length > 0) {
+              for (const att of attachments) {
+                  if (att.path && fs.existsSync(att.path)) {
+                      const ext = path.extname(att.path).toLowerCase();
+                      if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
+                          images.push(fs.readFileSync(att.path).toString("base64"));
+                      }
+                  }
+              }
+          }
+          fullText = await this.openrouterGenerate(prompt, SYSTEM_PROMPT, settings, images);
         } else {
           const result = await this.model.generateContent(content);
           const response = await result.response;
@@ -639,12 +708,15 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
       const errorStr = err.message.toLowerCase();
       let userMessage = err.message;
 
+      const provider = settings.modelProvider || 'gemini';
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
         userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
-        firebaseService.rotateGeminiKey();
+        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
+        else firebaseService.rotateGeminiKey();
       } else if (errorStr.includes("google_search_retrieval")) {
         userMessage = "Search tool configuration error. Rotating key and updating tool settings. Please retry.";
-        firebaseService.rotateGeminiKey();
+        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
+        else firebaseService.rotateGeminiKey();
       }
 
       onError({ message: userMessage });

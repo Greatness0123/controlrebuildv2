@@ -1,21 +1,34 @@
 /**
  * Utility script to update the Gemini model in Firebase config/api_keys
- * Usage: node set-gemini-model.js <model_name>
+ * Interactive version.
  */
 
 const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
+const readline = require('readline');
+
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+function ask(question) {
+    return new Promise((resolve) => {
+        rl.question(question, (answer) => {
+            resolve(answer.trim());
+        });
+    });
+}
 
 async function setModel() {
-    const args = process.argv.slice(2);
-    if (args.length < 1) {
-        console.error('Usage: node set-gemini-model.js <model_name>');
-        console.log('Example: node set-gemini-model.js gemini-2.0-flash');
-        process.exit(1);
-    }
+    console.log('\n--- Control Model Updater ---\n');
 
-    const modelName = args[0];
+    const modelName = await ask('Enter new Gemini Model Name (e.g. gemini-2.0-flash): ');
+    if (!modelName) {
+        console.log('No model name entered. Aborted.');
+        process.exit(0);
+    }
 
     // Initialize Firebase
     try {
@@ -42,7 +55,7 @@ async function setModel() {
         console.log('✓ Gemini model updated successfully!');
         process.exit(0);
     } catch (error) {
-        console.error('✗ Failed to update model:', error.message);
+        console.error('\n✗ Failed to update model:', error.message);
         process.exit(1);
     }
 }

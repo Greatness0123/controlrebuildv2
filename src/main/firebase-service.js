@@ -696,16 +696,23 @@ module.exports = {
                 const geminiKeys = remoteKeys.gemini_keys || [remoteKeys.gemini_free || remoteKeys.gemini];
                 const currentIndex = cachedKeys && cachedKeys.rotationIndex !== undefined ? cachedKeys.rotationIndex : 0;
 
+                const openrouterKeys = remoteKeys.openrouter_keys || [];
+                const orIndex = cachedKeys && cachedKeys.orRotationIndex !== undefined ? cachedKeys.orRotationIndex : 0;
+
                 const keysToCache = {
                     gemini_keys: geminiKeys,
                     gemini: geminiKeys[currentIndex % geminiKeys.length],
                     rotationIndex: currentIndex % geminiKeys.length,
-                    gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash"
+                    gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash",
+                    openrouter_keys: openrouterKeys,
+                    openrouter: openrouterKeys.length > 0 ? openrouterKeys[orIndex % openrouterKeys.length] : null,
+                    orRotationIndex: orIndex % Math.max(1, openrouterKeys.length)
                 };
 
                 if (keysToCache.gemini) {
                     const keysChanged = !cachedKeys ||
                         JSON.stringify(cachedKeys.gemini_keys) !== JSON.stringify(keysToCache.gemini_keys) ||
+                        JSON.stringify(cachedKeys.openrouter_keys) !== JSON.stringify(keysToCache.openrouter_keys) ||
                         cachedKeys.gemini_model !== keysToCache.gemini_model;
 
                     if (keysChanged) {
@@ -760,6 +767,28 @@ module.exports = {
             }
         } catch (e) {
             console.error('Error rotating Gemini key:', e);
+        }
+        return null;
+    },
+
+    /**
+     * Rotate to the next OpenRouter API key in the cached list.
+     */
+    rotateOpenRouterKey() {
+        try {
+            const keys = this.getKeys();
+            if (keys && keys.openrouter_keys && keys.openrouter_keys.length > 1) {
+                const newIndex = (keys.orRotationIndex + 1) % keys.openrouter_keys.length;
+                keys.orRotationIndex = newIndex;
+                keys.openrouter = keys.openrouter_keys[newIndex];
+
+                const keysCacheFile = getKeysCacheFile();
+                fs.writeFileSync(keysCacheFile, JSON.stringify(keys));
+                console.log(`✓ OpenRouter API key rotated to index ${newIndex}`);
+                return keys.openrouter;
+            }
+        } catch (e) {
+            console.error('Error rotating OpenRouter key:', e);
         }
         return null;
     }

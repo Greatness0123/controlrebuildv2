@@ -705,46 +705,133 @@
                 </div>
             </div>
 
-            <!-- Ollama Section -->
+            <!-- AI Model Settings Section -->
             <div class="settings-section">
                 <div class="section-title">
-                    <i data-lucide="cpu" style="width: 16px; height: 16px;"></i>
-                    Local AI (Ollama)
+                    <i data-lucide="brain" style="width: 16px; height: 16px;"></i>
+                    AI Model Settings
                 </div>
 
+                <!-- Provider Selection -->
                 <div class="setting-item">
                     <div class="setting-left">
-                        <i data-lucide="zap" class="setting-icon"></i>
+                        <i data-lucide="server" class="setting-icon"></i>
                         <div class="setting-info">
-                            <div class="setting-name">Enable Ollama</div>
-                            <div class="setting-description">Use local Ollama models instead of Gemini</div>
+                            <div class="setting-name">Model Provider</div>
+                            <div class="setting-description">Choose where to run your AI models</div>
                         </div>
                     </div>
-                    <div class="toggle-switch" id="ollamaToggle">
-                        <div class="toggle-slider"></div>
+                    <select id="modelProvider" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; background: white;">
+                        <option value="gemini">Google Gemini (Native)</option>
+                        <option value="openrouter">OpenRouter (Pro/Master)</option>
+                        <option value="ollama">Ollama (Local)</option>
+                    </select>
+                </div>
+
+                <!-- Gemini Native Settings (Show when Provider is Gemini) -->
+                <div id="geminiSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="sparkle" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Gemini Model</div>
+                                <div class="setting-description">Default native model: Gemini 1.5 Flash</div>
+                            </div>
+                        </div>
+                        <div style="font-size: 12px; font-weight: 600; color: #10b981;">ACTIVE (Google SDK)</div>
                     </div>
                 </div>
 
-                <div class="setting-item">
-                    <div class="setting-left">
-                        <i data-lucide="link" class="setting-icon"></i>
-                        <div class="setting-info">
-                            <div class="setting-name">Ollama URL</div>
-                            <div class="setting-description">Local API endpoint</div>
+                <!-- OpenRouter Settings (Show when Provider is OpenRouter) -->
+                <div id="openrouterSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="list" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Select Model</div>
+                                <div class="setting-description">Vetted multimodal & computer-use models</div>
+                            </div>
+                        </div>
+                        <select id="openrouterModelList" style="width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; background: white;">
+                            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Best Reasoning)</option>
+                            <option value="anthropic/claude-3-opus">Claude 3 Opus (Most Powerful)</option>
+                            <option value="openai/gpt-4o">GPT-4o (Fast Multimodal)</option>
+                            <option value="openai/gpt-4o-mini">GPT-4o mini (Efficient)</option>
+                            <option value="moonshotai/moonshot-v1-8k">Kimi v1 8k (High Performance)</option>
+                            <option value="moonshotai/moonshot-v1-32k">Kimi v1 32k (Large Context)</option>
+                            <option value="google/gemini-pro-1.5">Gemini Pro 1.5 (Capable)</option>
+                            <option value="google/gemini-flash-1.5">Gemini Flash 1.5 (OpenRouter)</option>
+                            <option value="google/gemini-flash-1.5-sdk">Gemini 1.5 Flash (Native SDK)</option>
+                            <option value="custom">Custom Model...</option>
+                        </select>
+                    </div>
+
+                    <div id="customModelContainer" style="display: none; margin-top: 10px; animation: fadeIn 0.3s ease;">
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <i data-lucide="edit-3" class="setting-icon"></i>
+                                <div class="setting-info">
+                                    <div class="setting-name">Custom Model Name</div>
+                                    <div class="setting-description">Enter OpenRouter model identifier</div>
+                                </div>
+                            </div>
+                            <input type="text" id="openrouterCustomModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="e.g. meta-llama/llama-3.1-405b">
                         </div>
                     </div>
-                    <input type="text" id="ollamaUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="http://localhost:11434">
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="key" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">OpenRouter API Key</div>
+                                <div class="setting-description">Your personal key (optional, will use system key if empty)</div>
+                            </div>
+                        </div>
+                        <input type="password" id="openrouterApiKey" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="sk-or-v1-...">
+                    </div>
+
+                    <div style="margin-top: 10px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 10px; border: 1px solid rgba(102, 126, 234, 0.2);">
+                        <div style="display: flex; gap: 8px; align-items: flex-start;">
+                            <i data-lucide="info" style="width: 16px; height: 16px; color: #667eea; margin-top: 2px;"></i>
+                            <div style="font-size: 12px; color: #374151; line-height: 1.4;">
+                                <strong>Note:</strong> For best results with computer use and vision tasks, please ensure the selected model is <strong>multimodal</strong> (supports vision).
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="setting-item">
-                    <div class="setting-left">
-                        <i data-lucide="box" class="setting-icon"></i>
-                        <div class="setting-info">
-                            <div class="setting-name">Ollama Model</div>
-                            <div class="setting-description">Model name (e.g. llama3)</div>
+                <!-- Ollama Settings (Show when Provider is Ollama) -->
+                <div id="ollamaSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="link" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Ollama URL</div>
+                                <div class="setting-description">Local API endpoint</div>
+                            </div>
+                        </div>
+                        <input type="text" id="ollamaUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="http://localhost:11434">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="box" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Ollama Model</div>
+                                <div class="setting-description">Model name (e.g. llama3)</div>
+                            </div>
+                        </div>
+                        <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="llama3">
+                    </div>
+
+                    <div style="margin-top: 10px; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.2);">
+                        <div style="display: flex; gap: 8px; align-items: flex-start;">
+                            <i data-lucide="info" style="width: 16px; height: 16px; color: #f59e0b; margin-top: 2px;"></i>
+                            <div style="font-size: 12px; color: #374151; line-height: 1.4;">
+                                <strong>Note:</strong> For computer use tasks with Ollama, please use a <strong>multimodal</strong> model with vision support (e.g. <code>llama3-vision</code> or <code>llava</code>).
+                            </div>
                         </div>
                     </div>
-                    <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="llama3">
                 </div>
             </div>
 

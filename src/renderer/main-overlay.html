@@ -675,10 +675,17 @@
                         if (settings.edgeGlowEnabled === false) {
                             this.hideEdgeGlow();
                         }
+
+                        // Enforce floating button visibility
                         if (settings.floatingButtonVisible === false) {
                             this.hideFloatingButton();
                         } else if (settings.floatingButtonVisible === true) {
-                            this.showFloatingButton();
+                            // Only show if chat is NOT visible
+                            if (settings.chatVisible === false) {
+                                this.showFloatingButton();
+                            } else {
+                                this.hideFloatingButton();
+                            }
                         }
                     });
 
