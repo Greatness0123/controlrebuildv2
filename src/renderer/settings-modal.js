@@ -15,6 +15,7 @@ class SettingsModal {
             windowVisibility: false,
             borderStreakEnabled: true,
             theme: 'light',
+            geminiModel: 'gemini-1.5-flash',
             wakeWordToggleChat: false,
             modelProvider: 'gemini',
             openrouterModel: 'anthropic/claude-3.5-sonnet',
@@ -527,19 +528,10 @@ class SettingsModal {
         // Determine plan-level restrictions (normalized plan string)
         const isFreePlan = this.isUserFreePlan();
 
-        // Update Gemini Model Description from database
-        if (window.settingsAPI && window.settingsAPI.getKeys) {
-            try {
-                const keys = await window.settingsAPI.getKeys();
-                const modelDesc = document.getElementById('geminiModelDescription');
-                if (modelDesc && keys && keys.gemini_model) {
-                    modelDesc.textContent = `Default native model: ${keys.gemini_model}`;
-                } else if (modelDesc) {
-                    modelDesc.textContent = `Default native model: gemini-1.5-flash`;
-                }
-            } catch (e) {
-                console.warn('Failed to fetch gemini_model for UI:', e);
-            }
+        // Update Gemini Model Description
+        const modelDesc = document.getElementById('geminiModelDescription');
+        if (modelDesc) {
+            modelDesc.textContent = `Default native model: ${this.settings.geminiModel || 'gemini-1.5-flash'}`;
         }
 
         // Update Provider selection

@@ -1163,6 +1163,11 @@ class ComputerUseAgent {
         settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
         settings.ollamaUrl = this.appSettings.ollamaUrl || 'http://localhost:11434';
         settings.ollamaModel = this.appSettings.ollamaModel || 'llama3';
+
+        // Add gemini model from cache
+        const cachedKeys = firebaseService.getKeys();
+        settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
+
         return settings;
     }
 
