@@ -922,7 +922,7 @@ class ChatWindow {
 
             // 5. Connect to Vosk Server
             console.log('[Voice] Connecting to ws://127.0.0.1:2700...');
-            this.voiceButton.classList.add('recording');
+            this.voiceButton.classList.add('connecting');
             this.updateStatus('Connecting to voice server...', 'working');
 
             this.ws = new WebSocket('ws://127.0.0.1:2700');
@@ -938,6 +938,9 @@ class ChatWindow {
 
             this.ws.onopen = () => {
                 console.log('[Voice] ✓ Connected to Vosk Server');
+                this.voiceButton.classList.remove('connecting');
+                this.voiceButton.classList.add('recording');
+
                 if (window.chatAPI && window.chatAPI.logToTerminal) {
                     window.chatAPI.logToTerminal('✓ Voice WebSocket Connected');
                 }
@@ -1100,6 +1103,7 @@ class ChatWindow {
         }
 
         this.voiceButton.classList.remove('recording');
+        this.voiceButton.classList.remove('connecting');
         this.updateStatus('Ready', 'ready');
 
         // Clear any flush intervals
@@ -1734,20 +1738,31 @@ class ChatWindow {
                 const renderer = new marked.Renderer();
 
                 // Custom code block renderer with language label and copy button
-                renderer.code = (code, language) => {
-                    const lang = language || 'code';
-                    // Escape single quotes and backticks for the onclick handler
-                    const escapedCode = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                // In marked v12+, renderer.code receives an object: { text, lang, escaped }
+                renderer.code = (token) => {
+                    const code = token.text;
+                    const lang = token.lang || 'code';
+
+                    // Escape HTML for display to ensure code is shown, not rendered
+                    const escapedForDisplay = code
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;")
+                        .replace(/"/g, "&quot;")
+                        .replace(/'/g, "&#039;");
+
+                    // Escape for the onclick handler (backslashes, backticks, and dollar signs)
+                    const escapedForJS = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
 
                     return `
                         <div class="code-block-wrapper">
                             <div class="code-header">
                                 <span class="code-lang">${lang}</span>
-                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedCode}\`, this)">
+                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedForJS}\`, this)">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <pre><code class="language-${lang}">${code}</code></pre>
+                            <pre><code class="language-${lang}">${escapedForDisplay}</code></pre>
                         </div>
                     `;
                 };
