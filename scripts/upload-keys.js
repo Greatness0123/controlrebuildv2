@@ -48,7 +48,7 @@ async function uploadKeys() {
         const geminiModel = await ask('Enter Gemini Model Name (default: gemini-2.0-flash): ') || 'gemini-2.0-flash';
 
         // 3. Gemini Keys
-        const geminiKeysInput = await ask('Enter Gemini API Keys (comma-separated): ');
+        const geminiKeysInput = await ask('Enter Gemini API Keys (provide multiple keys separated by commas for automatic rotation): ');
         const geminiKeys = geminiKeysInput.split(',').map(k => k.trim()).filter(k => k);
 
         if (geminiKeys.length === 0) {
@@ -56,7 +56,7 @@ async function uploadKeys() {
         }
 
         // 4. OpenRouter Keys
-        const orKeysInput = await ask('Enter OpenRouter API Keys (comma-separated, optional): ');
+        const orKeysInput = await ask('Enter OpenRouter API Keys (provide multiple keys separated by commas for automatic rotation): ');
         const orKeys = orKeysInput.split(',').map(k => k.trim()).filter(k => k);
 
         console.log('\n--- Summary ---');

@@ -385,9 +385,20 @@ class ChatWindow {
                 } else {
                     let content = data.text || data.message;
 
+                    // Ensure content is a string
+                    if (typeof content === 'object' && content !== null) {
+                        try {
+                            content = JSON.stringify(content, null, 2);
+                        } catch (e) {
+                            content = String(content);
+                        }
+                    } else {
+                        content = String(content || '');
+                    }
+
                     // Fallback for empty responses
-                    if (!content || !content.trim()) {
-                        console.warn('[ChatWindow] AI Response is empty, using fallback.');
+                    if (!content || !content.trim() || content === 'undefined' || content === 'null') {
+                        console.warn('[ChatWindow] AI Response is empty or invalid, using fallback.');
                         content = 'I processed your request but have no further information to display.';
                     }
 
@@ -1346,14 +1357,8 @@ class ChatWindow {
             return { section, content };
         };
 
-        // Only create collapsible sections for ACT mode
-        if (this.currentMode === 'act') {
-            const thinking = createSection('Thinking', 'thinking', true);
-            const actions = createSection('Actions', 'actions', false); // Keep actions expanded initially for visibility
-
-            innerDiv.appendChild(thinking.section);
-            innerDiv.appendChild(actions.section);
-        }
+        // ACT Mode sections removed per user request for "just text"
+        // In ASK mode, we just use the innerDiv directly too.
 
         contentDiv.appendChild(innerDiv);
         messageDiv.appendChild(contentDiv);
@@ -1364,22 +1369,7 @@ class ChatWindow {
     }
 
     getSectionContent(container, type) {
-        const section = container.querySelector(`.section-${type}`);
-        if (section) {
-            section.style.display = 'block';
-            const content = section.querySelector('.section-content');
-
-            // Auto-expand if content is being added and it's the current active container
-            if (content.classList.contains('collapsed') && this.currentAIResponseContainer === container) {
-                // For actions, we almost always want them visible if they are new
-                if (type === 'actions') {
-                    section.querySelector('.section-header').classList.remove('collapsed');
-                    content.classList.remove('collapsed');
-                }
-            }
-
-            return content;
-        }
+        // Sections removed per user request, always return container
         return container;
     }
 
@@ -1735,6 +1725,9 @@ class ChatWindow {
     parseMarkdown(text) {
         if (!text) return '';
 
+        // Ensure text is a string
+        const safeText = String(text);
+
         try {
             if (typeof marked !== 'undefined') {
                 const renderer = new marked.Renderer();
@@ -1742,8 +1735,8 @@ class ChatWindow {
                 // Custom code block renderer with language label and copy button
                 // In marked v12+, renderer.code receives an object: { text, lang, escaped }
                 renderer.code = (token) => {
-                    const code = token.text;
-                    const lang = token.lang || 'code';
+                    const code = String(token.text || '');
+                    const lang = String(token.lang || 'code');
 
                     // Escape HTML for display to ensure code is shown, not rendered
                     const escapedForDisplay = code
@@ -1753,14 +1746,11 @@ class ChatWindow {
                         .replace(/"/g, "&quot;")
                         .replace(/'/g, "&#039;");
 
-                    // Escape for the onclick handler (backslashes, backticks, and dollar signs)
-                    const escapedForJS = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
-
                     return `
                         <div class="code-block-wrapper">
                             <div class="code-header">
                                 <span class="code-lang">${lang}</span>
-                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedForJS}\`, this)">
+                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(this.closest('.code-block-wrapper').querySelector('code').innerText, this)">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
@@ -1769,14 +1759,14 @@ class ChatWindow {
                     `;
                 };
 
-                return marked.parse(text, { renderer });
+                return marked.parse(safeText, { renderer });
             }
         } catch (e) {
             console.error('Error parsing markdown with marked:', e);
         }
 
         // Fallback simple parser
-        return text.replace(/\n/g, '<br>');
+        return safeText.replace(/\n/g, '<br>');
     }
 
     scrollToBottom() {
