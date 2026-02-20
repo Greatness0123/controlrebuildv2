@@ -70,6 +70,7 @@ class ChatWindow {
         this.offlineChecked = false;
         this.settings = {};
 
+        window.chatWindowInstance = this;
         this.init();
     }
 
@@ -1742,8 +1743,8 @@ class ChatWindow {
                         <div class="code-block-wrapper">
                             <div class="code-header">
                                 <span class="code-lang">${lang}</span>
-                                <button class="copy-code-btn" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedCode}\`, this)">
-                                    <i class="fas fa-copy"></i> Copy
+                                <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedCode}\`, this)">
+                                    <i class="fas fa-copy"></i>
                                 </button>
                             </div>
                             <pre><code class="language-${lang}">${code}</code></pre>
@@ -2036,35 +2037,41 @@ class ChatWindow {
         // Copy button
         const copyBtn = document.createElement('button');
         copyBtn.className = 'action-btn';
-        copyBtn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+        copyBtn.title = 'Copy';
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
         copyBtn.onclick = () => this.copyToClipboard(text, copyBtn);
         actionsDiv.appendChild(copyBtn);
 
-        // Speak button
-        const speakBtn = document.createElement('button');
-        speakBtn.className = 'action-btn';
-        speakBtn.innerHTML = '<i class="fas fa-volume-up"></i> Speak';
-        speakBtn.onclick = () => {
-            if (window.chatAPI && window.chatAPI.speakGreeting) {
-                window.chatAPI.speakGreeting(text);
-            }
-        };
-        actionsDiv.appendChild(speakBtn);
+        if (sender === 'ai') {
+            // Speak button (AI Only)
+            const speakBtn = document.createElement('button');
+            speakBtn.className = 'action-btn';
+            speakBtn.title = 'Speak';
+            speakBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+            speakBtn.onclick = () => {
+                if (window.chatAPI && window.chatAPI.speakGreeting) {
+                    window.chatAPI.speakGreeting(text);
+                }
+            };
+            actionsDiv.appendChild(speakBtn);
 
-        if (sender === 'user') {
-            // Edit button
-            const editBtn = document.createElement('button');
-            editBtn.className = 'action-btn';
-            editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
-            editBtn.onclick = () => this.editMessage(text, container);
-            actionsDiv.appendChild(editBtn);
-        } else {
-            // Redo button (for AI messages, redo the last user prompt)
+            // Redo button (AI Only)
             const redoBtn = document.createElement('button');
             redoBtn.className = 'action-btn';
-            redoBtn.innerHTML = '<i class="fas fa-redo"></i> Redo';
+            redoBtn.title = 'Redo';
+            redoBtn.innerHTML = '<i class="fas fa-redo"></i>';
             redoBtn.onclick = () => this.redoLastMessage();
             actionsDiv.appendChild(redoBtn);
+        }
+
+        if (sender === 'user') {
+            // Edit button (User Only)
+            const editBtn = document.createElement('button');
+            editBtn.className = 'action-btn';
+            editBtn.title = 'Edit';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.onclick = () => this.editMessage(text, container);
+            actionsDiv.appendChild(editBtn);
         }
 
         container.appendChild(actionsDiv);
@@ -2073,7 +2080,7 @@ class ChatWindow {
     copyToClipboard(text, btn) {
         navigator.clipboard.writeText(text).then(() => {
             const originalHTML = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.innerHTML = '<i class="fas fa-check"></i>';
             setTimeout(() => btn.innerHTML = originalHTML, 2000);
         });
     }

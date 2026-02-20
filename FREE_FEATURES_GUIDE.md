@@ -1,96 +1,40 @@
-# How to Enable Restricted Features for Free Users
+# Developer Guide: Enabling Pro Features for Testing
 
-This guide explains how to enable Pro/Master features for the "Free Plan" in the Control application.
+This application restricts certain features (like OpenRouter integration and Wake Word detection) to Pro and Master plan users. If you are testing the application locally and appear as a "Free" user, you can bypass these restrictions using the following methods.
 
-## Prerequisites
+## Method 1: Modify local User Data
 
-You need access to the source code of the application.
+The application stores user information in the system's `userData` directory. You can manually edit this file to change your plan.
 
-## 1. Enable OpenRouter and Model Selection
+1. Locate the `userData` directory:
+   - **Windows:** `%APPDATA%/control/`
+   - **macOS:** `~/Library/Application Support/control/`
+   - **Linux:** `~/.config/control/`
 
-To allow Free users to use OpenRouter models, modify `src/renderer/settings-modal.js`.
+2. Open `settings.json` (or similar) and find the `userDetails` section.
+3. Change the `"plan"` value from `"free"` to `"pro"` or `"master"`.
 
-**Find this block in `updateToggleStates()`:**
+## Method 2: Use the Backend CLI
+
+You can use the provided scripts to set your plan if you have access to the Firebase service account (for production syncing).
+
+```bash
+# Example (if implemented in your environment)
+npm run set-plan -- --id YOUR_USER_ID --plan pro
+```
+
+## Method 3: Development Bypass
+
+In `src/renderer/settings-modal.js`, the `isUserFreePlan()` method controls the UI restrictions. You can temporarily modify it to always return `false` during development:
 
 ```javascript
-// Disable OpenRouter for free users in dropdown
-const openrouterOption = modelProvider.querySelector('option[value="openrouter"]');
-if (openrouterOption) {
-    if (isFreePlan) { // Change this to 'false'
-        openrouterOption.disabled = true;
-        openrouterOption.textContent = 'OpenRouter (PRO Only)';
-    } else {
-        openrouterOption.disabled = false;
-        openrouterOption.textContent = 'OpenRouter (Pro/Master)';
-    }
+isUserFreePlan() {
+    return false; // Force enable Pro features for testing
 }
 ```
 
-**Change `if (isFreePlan)` to `if (false)` or simply remove the check.**
-
-Also, in the `modelProvider` event listener:
-
-```javascript
-document.getElementById('modelProvider')?.addEventListener('change', (e) => {
-    const provider = e.target.value;
-    if (provider === 'openrouter' && this.isUserFreePlan()) { // Change this condition
-        // ...
-    }
-});
-```
-
-## 2. Enable Floating Button Control
-
-In `src/renderer/settings-modal.js`, find where `floatingButtonToggle` is handled in `updateToggleStates()`:
-
-```javascript
-if (isFreePlan) { // Change to false
-    floatingButtonToggle.style.pointerEvents = 'none';
-    floatingButtonToggle.style.opacity = '0.5';
-    this.addUpgradeNoteToSetting('floatingButtonToggle', 'Upgrade to PRO to control floating button');
-}
-```
-
-## 3. Enable Voice Activation for Free Users
-
-In `src/renderer/settings-modal.js`, find the `voiceToggle` handling in `updateToggleStates()`:
-
-```javascript
-// Disable interaction for free users
-if (isFreePlan) { // Change to false
-    voiceToggle.style.pointerEvents = 'none';
-    voiceToggle.style.opacity = '0.5';
-    this.addUpgradeNoteToSetting('voiceToggle', 'Upgrade to PRO to activate voice activation');
-}
-```
-
-And in `toggleVoiceActivation()`:
-
-```javascript
-async toggleVoiceActivation() {
-    const isFree = this.isUserFreePlan(); // Change to false
-    if (isFree) {
-        // ...
-    }
-}
-```
-
-## 4. General Rule
-
-Most plan-based restrictions are checked using `this.isUserFreePlan()` or the `isFreePlan` variable in `settings-modal.js`. Search for these terms and set them to `false` to bypass the restrictions locally.
-
-For server-side rate limits, you would need to modify the Firebase security rules or the plan definitions in `src/main/firebase-service.js`.
-
-### Firebase Service Limits
-
-In `src/main/firebase-service.js`, the `checkRateLimit` function defines the hard limits:
-
-```javascript
-const limits = {
-    free: { act: 10, ask: 20, tokens: 200000 },
-    pro: { act: 200, ask: 300, tokens: 2000000 },
-    master: { act: Infinity, ask: Infinity, tokens: Infinity }
-};
-```
-
-You can increase the numbers in the `free` object to grant more usage to free users.
+## Features restricted to Pro/Master:
+- **OpenRouter Integration:** Use Claude 3.5 Sonnet, GPT-4o, and other top-tier models.
+- **Voice Activation:** Enable the "Hey Control" wake word.
+- **Edge Glow Effect:** Customize the visual feedback during Act mode.
+- **Floating Button Control:** Toggle the visibility of the persistent overlay button.

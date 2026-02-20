@@ -196,7 +196,7 @@ class AskBackend {
 
     // Special case: if OpenRouter is selected but the model is Gemini 1.5 Flash (SDK version), switch to gemini provider logic
     let effectiveProvider = provider;
-    if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+    if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
         effectiveProvider = 'gemini';
     }
 
@@ -237,12 +237,6 @@ class AskBackend {
 
         let responseText = "";
         let responseObj = null;
-
-        const provider = settings.modelProvider || 'gemini';
-        let effectiveProvider = provider;
-        if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
-            effectiveProvider = 'gemini';
-        }
 
         if (effectiveProvider === 'ollama') {
           // Flatten conversationParts for Ollama

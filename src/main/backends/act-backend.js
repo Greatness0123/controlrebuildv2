@@ -537,7 +537,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
     const provider = settings.modelProvider || 'gemini';
     let effectiveProvider = provider;
-    if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
+    if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
         effectiveProvider = 'gemini';
     }
 
@@ -601,11 +601,6 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         content.push(prompt);
 
         let fullText = "";
-        const provider = settings.modelProvider || 'gemini';
-        let effectiveProvider = provider;
-        if (provider === 'openrouter' && settings.openrouterModel === 'google/gemini-flash-1.5-sdk') {
-            effectiveProvider = 'gemini';
-        }
 
         if (effectiveProvider === 'ollama') {
           const images = [fs.readFileSync(shot.filepath).toString("base64")];
