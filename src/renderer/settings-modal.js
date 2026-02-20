@@ -13,6 +13,8 @@ class SettingsModal {
             floatingButtonVisible: true,
             greetingTTS: false,
             windowVisibility: false,
+            borderStreakEnabled: true,
+            theme: 'light',
             wakeWordToggleChat: false,
             modelProvider: 'gemini',
             openrouterModel: 'anthropic/claude-3.5-sonnet',
@@ -100,6 +102,16 @@ class SettingsModal {
 
         document.getElementById('edgeGlowToggle')?.addEventListener('click', () => {
             this.toggleEdgeGlow();
+        });
+
+        document.getElementById('borderStreakToggle')?.addEventListener('click', () => {
+            this.toggleBorderStreak();
+        });
+
+        document.getElementById('themeSelect')?.addEventListener('change', (e) => {
+            this.settings.theme = e.target.value;
+            this.updateTheme();
+            this.saveSettings();
         });
 
         document.getElementById('proceedWithoutConfirmationToggle')?.addEventListener('click', () => {
@@ -371,6 +383,12 @@ class SettingsModal {
     }
 
     updateUI() {
+        // Update theme class on body
+        this.updateTheme();
+
+        // Update border streak
+        this.updateBorderStreak();
+
         // Update user info
         this.updateUserInfo();
 
@@ -389,6 +407,25 @@ class SettingsModal {
                 lucide.createIcons();
             }
         }, 10);
+    }
+
+    updateTheme() {
+        if (this.settings.theme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+
+    updateBorderStreak() {
+        const container = document.querySelector('.settings-container');
+        if (container) {
+            if (this.settings.borderStreakEnabled !== false) {
+                container.classList.add('streak-active');
+            } else {
+                container.classList.remove('streak-active');
+            }
+        }
     }
 
     updateUserInfo() {
@@ -546,6 +583,20 @@ class SettingsModal {
         if (ollamaUrlInput) ollamaUrlInput.value = this.settings.ollamaUrl || 'http://localhost:11434';
         const ollamaModelInput = document.getElementById('ollamaModel');
         if (ollamaModelInput) ollamaModelInput.value = this.settings.ollamaModel || 'llama3';
+
+        // Update theme select
+        const themeSelect = document.getElementById('themeSelect');
+        if (themeSelect) themeSelect.value = this.settings.theme || 'light';
+
+        // Update border streak toggle
+        const borderStreakToggle = document.getElementById('borderStreakToggle');
+        if (borderStreakToggle) {
+            if (this.settings.borderStreakEnabled !== false) {
+                borderStreakToggle.classList.add('active');
+            } else {
+                borderStreakToggle.classList.remove('active');
+            }
+        }
 
         // Update PIN toggle
         const pinToggle = document.getElementById('pinToggle');
@@ -948,6 +999,17 @@ class SettingsModal {
 
         this.showToast(
             this.settings.windowVisibility ? 'Windows visible in screenshots' : 'Windows hidden in screenshots',
+            'success'
+        );
+    }
+
+    async toggleBorderStreak() {
+        this.settings.borderStreakEnabled = !(this.settings.borderStreakEnabled !== false);
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.borderStreakEnabled ? 'Border streak enabled' : 'Border streak disabled',
             'success'
         );
     }

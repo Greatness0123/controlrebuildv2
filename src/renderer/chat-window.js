@@ -339,6 +339,8 @@ class ChatWindow {
                     // Update UI components that rely on settings
                     this.updateSendButton();
                     this.updateRateLimitDisplay();
+                    this.applyTheme(settings.theme);
+                    this.toggleBorderStreak(settings.borderStreakEnabled);
 
                     // Note: window visibility and wake word settings are handled by main process, 
                     // but visual feedback logic in chat window should be aware of current state.
@@ -1929,6 +1931,25 @@ class ChatWindow {
         }
     }
 
+    applyTheme(theme) {
+        if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
+    }
+
+    toggleBorderStreak(enabled) {
+        const container = document.querySelector('.chat-container');
+        if (container) {
+            if (enabled !== false) {
+                container.classList.add('streak-active');
+            } else {
+                container.classList.remove('streak-active');
+            }
+        }
+    }
+
     ensureChatVisible() {
         const chatContainer = document.querySelector('.chat-container');
         if (chatContainer) {
@@ -1960,6 +1981,13 @@ class ChatWindow {
                     this.userName = settings.userDetails.name;
                 }
 
+                if (settings.theme) {
+                    this.applyTheme(settings.theme);
+                }
+
+                if (settings.borderStreakEnabled !== undefined) {
+                    this.toggleBorderStreak(settings.borderStreakEnabled);
+                }
             }
         } catch (error) {
             console.error('Failed to load settings:', error);
