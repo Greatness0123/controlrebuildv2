@@ -1154,6 +1154,8 @@ class ComputerUseAgent {
         settings.windowVisibility = this.appSettings.windowVisibility !== undefined ? this.appSettings.windowVisibility : true;
         settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
         settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
+        settings.borderStreakEnabled = this.appSettings.borderStreakEnabled !== false;
+        settings.theme = this.appSettings.theme || 'light';
         settings.chatVisible = this.windowManager.chatVisible;
         settings.modelProvider = this.appSettings.modelProvider || 'gemini';
         settings.openrouterModel = this.appSettings.openrouterModel || 'anthropic/claude-3.5-sonnet';
@@ -1228,6 +1230,12 @@ class ComputerUseAgent {
             if (settings.edgeGlowEnabled !== undefined) {
                 this.appSettings.edgeGlowEnabled = !!settings.edgeGlowEnabled;
             }
+            if (settings.borderStreakEnabled !== undefined) {
+                this.appSettings.borderStreakEnabled = !!settings.borderStreakEnabled;
+            }
+            if (settings.theme !== undefined) {
+                this.appSettings.theme = settings.theme;
+            }
             if (settings.modelProvider !== undefined) {
                 this.appSettings.modelProvider = settings.modelProvider;
             }
@@ -1270,6 +1278,8 @@ class ComputerUseAgent {
                 windowVisibility: this.appSettings.windowVisibility,
                 wakeWordToggleChat: this.appSettings.wakeWordToggleChat,
                 edgeGlowEnabled: this.appSettings.edgeGlowEnabled,
+                borderStreakEnabled: this.appSettings.borderStreakEnabled,
+                theme: this.appSettings.theme,
                 modelProvider: this.appSettings.modelProvider,
                 openrouterModel: this.appSettings.openrouterModel,
                 openrouterCustomModel: this.appSettings.openrouterCustomModel,

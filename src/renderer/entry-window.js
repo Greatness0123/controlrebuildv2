@@ -16,7 +16,9 @@ class EntryWindow {
 
     init() {
         this.setupEventListeners();
+        this.setupIPCListeners();
         this.checkAuthentication();
+        this.loadSettings();
         this.animateTips();
         this.setupDragging();
         this.updatePlatformSpecifics();
@@ -101,6 +103,37 @@ class EntryWindow {
         window.addEventListener('blur', () => {
             isDragging = false;
         });
+    }
+
+    setupIPCListeners() {
+        if (window.entryAPI && window.entryAPI.onSettingsUpdated) {
+            window.entryAPI.onSettingsUpdated((event, settings) => {
+                if (settings.theme) {
+                    this.applyTheme(settings.theme);
+                }
+            });
+        }
+    }
+
+    async loadSettings() {
+        try {
+            if (window.entryAPI && window.entryAPI.getSettings) {
+                const settings = await window.entryAPI.getSettings();
+                if (settings.theme) {
+                    this.applyTheme(settings.theme);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+        }
+    }
+
+    applyTheme(theme) {
+        if (theme === 'dark') {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
+        }
     }
 
     setupEventListeners() {

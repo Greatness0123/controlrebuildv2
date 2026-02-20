@@ -75,6 +75,8 @@ class SettingsManager {
             wakeWordToggleChat: false,
             floatingButtonVisible: true,
             edgeGlowEnabled: true,    // New: control purple edge glow during Act mode
+            borderStreakEnabled: true, // New: control purple border streak on windows
+            theme: 'light',           // New: light or dark theme
             modelProvider: 'gemini',
             openrouterModel: 'anthropic/claude-3.5-sonnet',
             openrouterCustomModel: '',

@@ -14,31 +14,57 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #e9ecef;
+            --text-primary: #000000;
+            --text-secondary: #6b7280;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --item-border: rgba(0, 0, 0, 0.06);
+            --section-bg: rgba(255, 255, 255, 0.6);
+            --header-bg: rgba(255, 255, 255, 0.95);
+            --input-bg: rgba(0, 0, 0, 0.03);
+            --toggle-bg: #e5e7eb;
+            --accent-color: #0d0d0d;
+            --streak-color: #a855f7;
+        }
+
+        body.dark-mode {
+            --bg-primary: #121212;
+            --bg-secondary: #1e1e1e;
+            --bg-tertiary: #2d2d2d;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a0a0a0;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --item-border: rgba(255, 255, 255, 0.08);
+            --section-bg: rgba(30, 30, 30, 0.6);
+            --header-bg: rgba(18, 18, 18, 0.95);
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --toggle-bg: #374151;
+            --accent-color: #f5f5f5;
+        }
+
         html,
         body {
             width: 100%;
             height: 100%;
-            /* background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%); */
-            /* backdrop-filter: blur(20px); */
-            /* border-radius: 20px; */
             overflow: hidden;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            color: #000000;
+            color: var(--text-primary);
             -webkit-app-region: no-drag;
             background: transparent !important;
             scroll-behavior: smooth;
         }
 
         .settings-container {
-            /* height: 100%;
-            display: flex;
-            flex-direction: column; */
             border-radius: 12px;
             padding: 20px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #e9ecef 100%);
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
             backdrop-filter: blur(20px);
             border-radius: 20px;
             overflow: hidden;
+            color: var(--text-primary);
         }
 
 
@@ -46,18 +72,17 @@
         /* Header */
         .settings-header {
             padding: 24px;
-            background: rgba(255, 255, 255, 0.95);
-            /* background-color: red; */
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+            background: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
             -webkit-app-region: drag;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .settings-title {
             font-size: 20px;
             font-weight: 600;
             margin-bottom: 16px;
-            color: #000000;
+            color: var(--text-primary);
         }
 
         /* User profile section */
@@ -77,14 +102,14 @@
             min-width: 56px;
             min-height: 56px;
             border-radius: 50%;
-            background: #0d0d0d;
+            background: var(--accent-color);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
             font-size: 20px;
-            color: white;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            color: var(--bg-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .user-info {
@@ -97,12 +122,12 @@
             font-size: 16px;
             font-weight: 600;
             margin-bottom: 4px;
-            color: #000000;
+            color: var(--text-primary);
         }
 
         .user-email {
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-bottom: 6px;
         }
 
@@ -111,7 +136,7 @@
             align-items: center;
             gap: 8px;
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
         }
 
         .status-dot {
@@ -122,15 +147,15 @@
         }
 
         .plan-badge {
-            background: #0d0d0d;
-            color: white;
+            background: var(--accent-color);
+            color: var(--bg-primary);
             padding: 6px 12px;
             border-radius: 16px;
             font-size: 11px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
             white-space: nowrap;
             flex-shrink: 0;
         }
@@ -150,11 +175,11 @@
 
         .settings-section {
             margin-bottom: 32px;
-            background: rgba(255, 255, 255, 0.6);
+            background: var(--section-bg);
             border-radius: 16px;
             padding: 20px;
-            border: 1px solid rgba(0, 0, 0, 0.06);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         .tips-container {
@@ -200,7 +225,7 @@
         .section-title {
             font-size: 13px;
             font-weight: 600;
-            color: #6b7280;
+            color: var(--text-secondary);
             text-transform: uppercase;
             letter-spacing: 1px;
             margin-bottom: 16px;
@@ -214,10 +239,9 @@
             align-items: center;
             justify-content: space-between;
             padding: 16px 0;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            border-bottom: 1px solid var(--item-border);
             flex-wrap: wrap;
             gap: 16px;
-
         }
 
         .setting-item:last-child {
@@ -234,7 +258,7 @@
         .setting-icon {
             width: 24px;
             height: 24px;
-            color: #6b7280;
+            color: var(--text-secondary);
             flex-shrink: 0;
         }
 
@@ -246,12 +270,12 @@
             font-size: 14px;
             font-weight: 500;
             margin-bottom: 4px;
-            color: #374151;
+            color: var(--text-primary);
         }
 
         .setting-description {
             font-size: 12px;
-            color: #6b7280;
+            color: var(--text-secondary);
             line-height: 1.4;
         }
 
@@ -260,7 +284,7 @@
             position: relative;
             width: 48px;
             height: 26px;
-            background: #e5e7eb;
+            background: var(--toggle-bg);
             border-radius: 13px;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -268,7 +292,7 @@
         }
 
         .toggle-switch.active {
-            background: #0d0d0d;
+            background: var(--accent-color);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
@@ -304,8 +328,8 @@
         }
 
         .button-primary {
-            background: #0d0d0d;
-            color: white;
+            background: var(--accent-color);
+            color: var(--bg-primary);
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
@@ -315,9 +339,9 @@
         }
 
         .button-secondary {
-            background: rgba(255, 255, 255, 0.9);
-            color: #374151;
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            background: var(--section-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
@@ -383,13 +407,14 @@
         }
 
         .pin-content {
-            background: white;
+            background: var(--bg-primary);
             border-radius: 20px;
             padding: 32px;
             width: 320px;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
         }
 
         /* Upgrade note for locked settings */
@@ -404,12 +429,12 @@
             font-size: 18px;
             font-weight: 600;
             margin-bottom: 8px;
-            color: #000000;
+            color: var(--text-primary);
         }
 
         .pin-description {
             font-size: 13px;
-            color: #6b7280;
+            color: var(--text-secondary);
             margin-bottom: 24px;
             line-height: 1.4;
         }
@@ -417,10 +442,10 @@
         .pin-input {
             width: 100%;
             padding: 16px;
-            background: rgba(0, 0, 0, 0.03);
-            border: 2px solid rgba(0, 0, 0, 0.08);
+            background: var(--input-bg);
+            border: 2px solid var(--border-color);
             border-radius: 12px;
-            color: #000000;
+            color: var(--text-primary);
             font-size: 20px;
             text-align: center;
             letter-spacing: 1px;
@@ -430,9 +455,9 @@
         }
 
         .pin-input:focus {
-            border-color: #0d0d0d;
-            background: white;
-            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+            border-color: var(--accent-color);
+            background: var(--bg-primary);
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
         }
 
         .pin-buttons {
@@ -493,6 +518,35 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* Border Streak Effect */
+        @property --streak-angle {
+            syntax: '<angle>';
+            initial-value: 0deg;
+            inherits: false;
+        }
+
+        @keyframes streak-rotate {
+            from { --streak-angle: 0deg; }
+            to { --streak-angle: 360deg; }
+        }
+
+        .settings-container.streak-active::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px solid transparent;
+            border-radius: 20px;
+            background: conic-gradient(from var(--streak-angle), transparent, var(--streak-color), transparent 20%) border-box;
+            -webkit-mask:
+                linear-gradient(#fff 0 0) padding-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: destination-out;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 999;
+            animation: streak-rotate 3s linear infinite;
+        }
+
         /* Responsive adjustments */
         @media (max-width: 480px) {
             .settings-header {
@@ -545,6 +599,41 @@
 
         <!-- Content -->
         <div class="settings-content">
+            <!-- Appearance Section -->
+            <div class="settings-section">
+                <div class="section-title">
+                    <i data-lucide="palette" style="width: 16px; height: 16px;"></i>
+                    Appearance
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="moon" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Theme</div>
+                            <div class="setting-description">Choose between light and dark mode</div>
+                        </div>
+                    </div>
+                    <select id="themeSelect" style="width: 120px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-primary); color: var(--text-primary);">
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                    </select>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="sparkles" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Border Streak Effect</div>
+                            <div class="setting-description">Show purple light streak along window borders</div>
+                        </div>
+                    </div>
+                    <div class="toggle-switch" id="borderStreakToggle">
+                        <div class="toggle-slider"></div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Security Section -->
             <div class="settings-section">
                 <div class="section-title">
