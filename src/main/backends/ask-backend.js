@@ -32,19 +32,19 @@ class AskBackend {
 - Answer user questions clearly and concisely
 - Assist with coding, general knowledge, and explanations
 - Analyze images, PDFs, and file attachments
-- **Analyze user's screen** when needed
+- **Analyze user\'s screen** when needed
 - **Check system status** (battery, memory, etc.)
 - **Use web search** for real-time info or research
 
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
-- `[DISPLAY_CODE: <language>\n<code>]`: Display a formatted code block with a copy button.
+- \`[DISPLAY_CODE: <language>\\n<code>]\`: Display a formatted code block with a copy button.
 
 **CODE DISPLAY & FORMATTING:**
-- **CRITICAL:** When providing code snippets, scripts, or HTML, you MUST use the `[DISPLAY_CODE: <language>\n<code>]` tool.
+- **CRITICAL:** When providing code snippets, scripts, or HTML, you MUST use the \`[DISPLAY_CODE: <language>\\n<code>]\` tool.
 - **NEVER** output raw HTML or code directly in your text response. This ensures code is displayed in a specialized, copyable box and prevents accidental rendering of HTML as actual UI.
-- Example: `[DISPLAY_CODE: python\nprint("Hello World")]`
+- Example: \`[DISPLAY_CODE: python\\nprint("Hello World")]\`
 
 **WORKFLOW:**
 1. Request info tools automatically if needed.
@@ -128,9 +128,9 @@ class AskBackend {
   }
 
   async ollamaGenerate(prompt, systemPrompt, settings, images = []) {
-    const url = `${settings.ollamaUrl || 'http://localhost:11434'}/api/generate`;
+    const url = `${settings.ollamaUrl || "http://localhost:11434"}/api/generate`;
     const body = {
-      model: settings.ollamaModel || 'llama3',
+      model: settings.ollamaModel || "llama3",
       prompt: prompt,
       system: systemPrompt,
       stream: false
@@ -139,8 +139,8 @@ class AskBackend {
       body.images = images;
     }
     const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error(`Ollama error: ${response.statusText}`);
@@ -149,26 +149,26 @@ class AskBackend {
   }
 
   async openrouterGenerate(conversationParts, systemPrompt, settings) {
-    const firebaseService = require('../firebase-service');
+    const firebaseService = require("../firebase-service");
     const cachedKeys = firebaseService.getKeys();
 
     const apiKey = settings.openrouterApiKey || (cachedKeys && cachedKeys.openrouter);
     if (!apiKey) throw new Error("OpenRouter API key is missing. Please add one in settings or contact support.");
 
-    const model = settings.openrouterModel === 'custom' ? settings.openrouterCustomModel : settings.openrouterModel;
+    const model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
 
     // Convert conversation parts to OpenAI format
     const messages = [{ role: "system", content: systemPrompt }];
     for (const part of conversationParts) {
-      if (typeof part === 'string') {
-        const role = part.startsWith('User:') ? 'user' : (part.startsWith('Assistant:') ? 'assistant' : 'user');
-        const content = part.replace(/^(User:|Assistant:|System:)\s*/, '');
+      if (typeof part === "string") {
+        const role = part.startsWith("User:") ? "user" : (part.startsWith("Assistant:") ? "assistant" : "user");
+        const content = part.replace(/^(User:|Assistant:|System:)\s*/, "");
         messages.push({ role, content });
       } else if (part.inlineData) {
         // Handle images for OpenRouter (multimodal)
         const lastMessage = messages[messages.length - 1];
-        if (lastMessage && lastMessage.role === 'user') {
-          if (typeof lastMessage.content === 'string') {
+        if (lastMessage && lastMessage.role === "user") {
+          if (typeof lastMessage.content === "string") {
             lastMessage.content = [
               { type: "text", text: lastMessage.content },
               { type: "image_url", image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` } }
@@ -206,20 +206,20 @@ class AskBackend {
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
     this.stopRequested = false;
 
-    const provider = settings.modelProvider || 'gemini';
+    const provider = settings.modelProvider || "gemini";
 
     // Special case: if OpenRouter is selected but the model is Gemini 1.5 Flash (SDK version), switch to gemini provider logic
     let effectiveProvider = provider;
-    if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
-        effectiveProvider = 'gemini';
+    if (provider === "openrouter" && (settings.openrouterModel === "google/gemini-flash-1.5-sdk" || settings.openrouterModel === "gemini-native")) {
+        effectiveProvider = "gemini";
     }
 
-    const firebaseService = require('../firebase-service');
+    const firebaseService = require("../firebase-service");
     const cachedKeys = firebaseService.getKeys();
     const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
     const geminiModel = settings.selectedModel || defaultGeminiModel;
 
-    if (effectiveProvider === 'gemini') {
+    if (effectiveProvider === "gemini") {
       this.setupGeminiAPI(apiKey, geminiModel);
     }
     const cachedUser = firebaseService.checkCachedUser();
@@ -252,17 +252,17 @@ class AskBackend {
         let responseText = "";
         let responseObj = null;
 
-        if (effectiveProvider === 'ollama') {
+        if (effectiveProvider === "ollama") {
           // Flatten conversationParts for Ollama
-          const prompt = conversationParts.map(p => typeof p === 'string' ? p : JSON.stringify(p)).join('\n');
+          const prompt = conversationParts.map(p => typeof p === "string" ? p : JSON.stringify(p)).join("\n");
           const images = []; // Extract images from conversationParts if any
           responseText = await this.ollamaGenerate(prompt, "You are Control (Ask Mode), an intelligent AI assistant.", settings, images);
-        } else if (effectiveProvider === 'openrouter') {
+        } else if (effectiveProvider === "openrouter") {
           responseText = await this.openrouterGenerate(conversationParts, "You are Control (Ask Mode), an intelligent AI assistant.", settings);
         } else {
           const result = await this.model.generateContent(conversationParts);
           responseObj = await result.response;
-          if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, 'ask', responseObj.usageMetadata);
+          if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, "ask", responseObj.usageMetadata);
           responseText = responseObj.text().trim();
         }
 
@@ -291,11 +291,11 @@ class AskBackend {
       console.error("[ASK JS] Error:", err);
       const errorStr = err.message.toLowerCase();
       let userMessage = err.message;
-      const provider = settings.modelProvider || 'gemini';
+      const provider = settings.modelProvider || "gemini";
 
       if (errorStr.includes("quota") || errorStr.includes("exceeded") || errorStr.includes("429")) {
         userMessage = "AI Quota exceeded. Rotating API key for next request. Please try again in a moment.";
-        if (provider === 'openrouter') firebaseService.rotateOpenRouterKey();
+        if (provider === "openrouter") firebaseService.rotateOpenRouterKey();
         else firebaseService.rotateGeminiKey();
       }
 
