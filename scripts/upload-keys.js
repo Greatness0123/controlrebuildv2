@@ -94,6 +94,7 @@ async function uploadKeys() {
 
         if (orKeys.length > 0) {
             dataToUpload.openrouter_keys = orKeys;
+            dataToUpload.openrouter = orKeys[0];
         }
 
         await db.collection('config').doc('api_keys').set(dataToUpload, { merge: true });

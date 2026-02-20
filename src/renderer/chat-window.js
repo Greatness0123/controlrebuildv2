@@ -922,7 +922,6 @@ class ChatWindow {
 
             // 5. Connect to Vosk Server
             console.log('[Voice] Connecting to ws://127.0.0.1:2700...');
-            this.voiceButton.classList.add('recording');
             this.updateStatus('Connecting to voice server...', 'working');
 
             this.ws = new WebSocket('ws://127.0.0.1:2700');
@@ -941,6 +940,7 @@ class ChatWindow {
                 if (window.chatAPI && window.chatAPI.logToTerminal) {
                     window.chatAPI.logToTerminal('✓ Voice WebSocket Connected');
                 }
+                this.voiceButton.classList.add('recording');
                 this.updateStatus('Listening...', 'listening');
 
                 this.baseText = this.chatInput.value.trim();
@@ -1726,6 +1726,18 @@ class ChatWindow {
         return i;
     }
 
+    escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
     parseMarkdown(text) {
         if (!text) return '';
 
@@ -1734,20 +1746,26 @@ class ChatWindow {
                 const renderer = new marked.Renderer();
 
                 // Custom code block renderer with language label and copy button
-                renderer.code = (code, language) => {
-                    const lang = language || 'code';
+                // Supports marked v12+ token signature
+                renderer.code = (token) => {
+                    // Extract code and language from token object
+                    const code = token.text || '';
+                    const language = token.lang || 'code';
+
                     // Escape single quotes and backticks for the onclick handler
                     const escapedCode = code.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                    // Escape HTML for display inside <code>
+                    const safeCode = this.escapeHtml(code);
 
                     return `
                         <div class="code-block-wrapper">
                             <div class="code-header">
-                                <span class="code-lang">${lang}</span>
+                                <span class="code-lang">${language}</span>
                                 <button class="copy-code-btn" title="Copy code" onclick="window.chatWindowInstance.copyToClipboard(\`${escapedCode}\`, this)">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </div>
-                            <pre><code class="language-${lang}">${code}</code></pre>
+                            <pre><code class="language-${language}">${safeCode}</code></pre>
                         </div>
                     `;
                 };
@@ -1758,8 +1776,8 @@ class ChatWindow {
             console.error('Error parsing markdown with marked:', e);
         }
 
-        // Fallback simple parser
-        return text.replace(/\n/g, '<br>');
+        // Fallback simple parser with HTML escaping to prevent raw rendering
+        return this.escapeHtml(text).replace(/\n/g, '<br>');
     }
 
     scrollToBottom() {
