@@ -100,16 +100,17 @@ class ActBackend {
     this.currentBlueprint = [];
   }
 
-  setupGeminiAPI(apiKey) {
+  setupGeminiAPI(apiKey, modelName) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
-    if (key === this.currentApiKey && this.model) return;
+    if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName) return;
 
     this.currentApiKey = key;
+    this.currentModelName = finalModelName;
     const genAI = new GoogleGenerativeAI(key);
     const modelOptions = {
-      model: modelName,
+      model: finalModelName,
       systemInstruction: SYSTEM_PROMPT,
       generationConfig: {}
     };
@@ -119,7 +120,7 @@ class ActBackend {
     }
 
     this.model = genAI.getGenerativeModel(modelOptions);
-    console.log(`[ACT JS] Model initialized with: ${modelName}`);
+    console.log(`[ACT JS] Model initialized with: ${finalModelName}`);
   }
 
   async takeScreenshot(markCursor = true) {
@@ -540,10 +541,14 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
         effectiveProvider = 'gemini';
     }
 
-    if (effectiveProvider === 'gemini') {
-      this.setupGeminiAPI(apiKey);
-    }
     const firebaseService = require('../firebase-service');
+    const cachedKeys = firebaseService.getKeys();
+    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
+    const geminiModel = settings.selectedModel || defaultGeminiModel;
+
+    if (effectiveProvider === 'gemini') {
+      this.setupGeminiAPI(apiKey, geminiModel);
+    }
     const cachedUser = firebaseService.checkCachedUser();
 
     onEvent("task_start", { task: userRequest, show_effects: true });
