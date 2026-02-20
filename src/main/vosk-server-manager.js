@@ -118,9 +118,15 @@ class VoskServerManager {
     /**
      * Check if server is ready by attempting a connection
      */
-    async waitForServer(maxAttempts = 5, delayMs = 1000) {
+    async waitForServer(maxAttempts = 15, delayMs = 1000) {
         const net = require('net');
         for (let i = 0; i < maxAttempts; i++) {
+            // Check if process is still alive
+            if (this.serverProcess && this.serverProcess.exitCode !== null) {
+                console.error(`[Vosk] Server process died during startup with code: ${this.serverProcess.exitCode}`);
+                return false;
+            }
+
             try {
                 await new Promise((resolve, reject) => {
                     const socket = net.createConnection(this.port, this.host);
@@ -132,12 +138,14 @@ class VoskServerManager {
                     setTimeout(() => {
                         socket.destroy();
                         reject(new Error('Timeout'));
-                    }, 500);
+                    }, 800);
                 });
                 console.log(`[Vosk] Server is responding on port ${this.port}`);
                 return true;
             } catch (err) {
-                console.log(`[Vosk] Waiting for server... (attempt ${i + 1}/${maxAttempts})`);
+                if (i % 3 === 0) {
+                    console.log(`[Vosk] Waiting for server... (attempt ${i + 1}/${maxAttempts})`);
+                }
                 await new Promise(resolve => setTimeout(resolve, delayMs));
             }
         }
@@ -167,7 +175,9 @@ class VoskServerManager {
                 console.log(`[Vosk] Port ${port} is in use. Attempting to clear it...`);
                 try {
                     if (process.platform === 'win32') {
-                        execSync(`for /f "tokens=5" %a in ('netstat -aon ^| findstr :${port}') do taskkill /f /pid %a`, { stdio: 'ignore' });
+                        // More robust way to find and kill process on port
+                        const cmd = `for /f "tokens=5" %a in ('netstat -aon ^| findstr LISTENING ^| findstr :${port}') do taskkill /f /pid %a`;
+                        execSync(cmd, { stdio: 'ignore' });
                     } else {
                         execSync(`lsof -t -i:${port} | xargs kill -9`, { stdio: 'ignore' });
                     }
@@ -245,6 +255,7 @@ class VoskServerManager {
             });
 
             // Wait for server to be ready
+            console.log(`[Vosk] Waiting for server to initialize (max 15s)...`);
             const ready = await this.waitForServer();
 
             if (ready) {
@@ -252,8 +263,12 @@ class VoskServerManager {
                 console.log(`Vosk server started successfully at ${this.host}:${this.port}`);
                 return true;
             } else {
+                const logs = this.getLogs();
+                if (logs.errors) {
+                    console.error('[Vosk] Server startup error logs:', logs.errors.slice(-500));
+                }
                 this.stop();
-                throw new Error('Server did not respond in time');
+                throw new Error('Server did not respond in time. Check Python dependencies and model path.');
             }
         } catch (error) {
             console.error('Error starting Vosk server:', error.message);
