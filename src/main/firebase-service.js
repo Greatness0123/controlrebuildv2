@@ -703,7 +703,7 @@ module.exports = {
                     gemini_keys: geminiKeys,
                     gemini: geminiKeys[currentIndex % geminiKeys.length],
                     rotationIndex: currentIndex % geminiKeys.length,
-                    gemini_model: remoteKeys.gemini_model || "gemini-2.5-flash",
+                    gemini_model: remoteKeys.gemini_model || "gemini-1.5-flash",
                     openrouter_keys: openrouterKeys,
                     openrouter: openrouterKeys.length > 0 ? openrouterKeys[orIndex % openrouterKeys.length] : null,
                     orRotationIndex: orIndex % Math.max(1, openrouterKeys.length)

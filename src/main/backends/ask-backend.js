@@ -17,13 +17,14 @@ class AskBackend {
     this.maxHistoryLength = 20;
   }
 
-  setupGeminiAPI(apiKey) {
+  setupGeminiAPI(apiKey, modelName) {
     const key = apiKey || process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY || "test_api_key";
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash"; // Default to 2.0 or 2.5 flash
+    const finalModelName = modelName || process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
-    if (key === this.currentApiKey && this.model) return;
+    if (key === this.currentApiKey && this.model && this.currentModelName === finalModelName) return;
 
     this.currentApiKey = key;
+    this.currentModelName = finalModelName;
     const genAI = new GoogleGenerativeAI(key);
     const systemPrompt = `You are Control (Ask Mode), an intelligent AI assistant.
 
@@ -46,7 +47,7 @@ class AskBackend {
 4. Include citations if web search was used.
 `;
     const modelOptions = {
-      model: modelName,
+      model: finalModelName,
       systemInstruction: systemPrompt,
       generationConfig: {}
     };
@@ -56,7 +57,7 @@ class AskBackend {
     }
 
     this.model = genAI.getGenerativeModel(modelOptions);
-    console.log(`[ASK JS] Model initialized with: ${modelName}`);
+    console.log(`[ASK JS] Model initialized with: ${finalModelName}`);
   }
 
   async takeScreenshot() {
@@ -199,10 +200,14 @@ class AskBackend {
         effectiveProvider = 'gemini';
     }
 
-    if (effectiveProvider === 'gemini') {
-      this.setupGeminiAPI(apiKey);
-    }
     const firebaseService = require('../firebase-service');
+    const cachedKeys = firebaseService.getKeys();
+    const defaultGeminiModel = cachedKeys ? cachedKeys.gemini_model : "gemini-1.5-flash";
+    const geminiModel = settings.selectedModel || defaultGeminiModel;
+
+    if (effectiveProvider === 'gemini') {
+      this.setupGeminiAPI(apiKey, geminiModel);
+    }
     const cachedUser = firebaseService.checkCachedUser();
 
     try {
