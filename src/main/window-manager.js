@@ -66,7 +66,9 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-        this.mainWindow.setContentProtection(true);
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        this.mainWindow.setContentProtection(!windowVisibility);
+        this.mainWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
         this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
         // Make window click-through only when not interactive
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
