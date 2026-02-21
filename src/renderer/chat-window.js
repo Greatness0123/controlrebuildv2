@@ -99,7 +99,8 @@ class ChatWindow {
         this.setupOnlineOfflineListeners();
         // Don't auto-start new conversation here to avoid resetting UI state if restoring
         if (!this.currentSessionId) {
-            this.startNewConversation(false);
+            // CRITICAL: Pass true for keepMode to ensure restored mode is preserved
+            this.startNewConversation(false, true);
         }
     }
 
@@ -211,7 +212,7 @@ class ChatWindow {
             this.newChatButton.addEventListener('click', () => {
                 this.saveCurrentSession();
                 // When starting new chat, KEEP CURRENT MODE (do not reset to default)
-                this.startNewConversation(true);
+                this.startNewConversation(true, true);
             });
         }
 
