@@ -57,15 +57,6 @@ class ChatWindow {
         this.userName = null; // Track user name for personalization
         this.lastUserMessage = null; // Track last user message for Redo
 
-        this.greetings = [
-            "Welcome back", "Hello", "Good to see you", "Ready to work?",
-            "What's on the agenda?", "How can I help?", "System online", "Control active",
-            "Awaiting instructions", "Let's get started", "Designated for assistance",
-            "How's your day going?", "Standing by", "Task mode engaged",
-            "At your service", "What's the plan?", "Efficiency maximized",
-            "Progress awaits", "Let's make things happen", "Your move"
-        ];
-
         this.isOnline = navigator.onLine;
         this.offlineChecked = false;
         this.settings = {};
@@ -768,12 +759,49 @@ class ChatWindow {
         }
     }
 
+    getDynamicGreeting() {
+        const hour = new Date().getHours();
+        const simpleGreetings = [
+            "I'm ready when you are",
+            "How are you?",
+            "System online",
+            "Ready to help",
+            "What's the plan?",
+            "Let's get to work"
+        ];
+
+        let greeting = "";
+        const useTimeBased = Math.random() > 0.4; // 60% chance for time-based
+
+        if (useTimeBased) {
+            if (hour >= 5 && hour < 12) {
+                greeting = Math.random() > 0.5 ? "Good morning" : "How was your night?";
+            } else if (hour >= 12 && hour < 17) {
+                greeting = "Good afternoon";
+            } else if (hour >= 17 && hour < 22) {
+                greeting = "Good evening";
+            } else {
+                greeting = Math.random() > 0.5 ? "Aren't you going to sleep?" : "No sleep?";
+            }
+        } else {
+            greeting = simpleGreetings[Math.floor(Math.random() * simpleGreetings.length)];
+        }
+
+        if (this.userName) {
+            if (greeting.endsWith("?")) {
+                return `${this.userName}, ${greeting.toLowerCase()}`;
+            } else {
+                return `${greeting}, ${this.userName}!`;
+            }
+        } else {
+            return greeting.endsWith("?") ? greeting : `${greeting}!`;
+        }
+    }
+
     async showWelcomeScreen() {
         if (!this.welcomeScreen || !this.welcomeGreeting) return;
 
-        const randomGreeting = this.greetings[Math.floor(Math.random() * this.greetings.length)];
-        const personalized = this.userName ? `${randomGreeting}, ${this.userName}!` : `${randomGreeting}!`;
-
+        const personalized = this.getDynamicGreeting();
         this.welcomeGreeting.textContent = personalized;
         this.welcomeScreen.classList.remove('welcome-hidden');
 
