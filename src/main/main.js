@@ -1182,18 +1182,12 @@ class ComputerUseAgent {
         this.appSettings.windowVisibility = visible;
         global.appSettings = this.appSettings;
 
-        const chatWindow = this.windowManager.getWindow('chat');
-        const settingsWindow = this.windowManager.getWindow('settings');
-
-        if (chatWindow && !chatWindow.isDestroyed()) {
-            chatWindow.setContentProtection(!visible);
-            chatWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
-        }
-
-        if (settingsWindow && !settingsWindow.isDestroyed()) {
-            settingsWindow.setContentProtection(!visible);
-            settingsWindow.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
-        }
+        this.windowManager.getAllWindows().forEach(window => {
+            if (window && !window.isDestroyed()) {
+                window.setContentProtection(!visible);
+                window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+            }
+        });
     }
 
     async saveSettings(settings) {
