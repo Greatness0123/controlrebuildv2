@@ -1020,6 +1020,13 @@ class ComputerUseAgent {
             console.log('[Terminal Log]', message);
         });
 
+        ipcMain.on('register-devtools-window', (event) => {
+            console.log('[Main] DevTools window registered for logging');
+            if (this.wakewordManager) {
+                this.wakewordManager.registerDevToolsWindow(BrowserWindow.fromWebContents(event.sender));
+            }
+        });
+
         // Greeting TTS handlers (moved from onAppReady to be available immediately)
         ipcMain.handle('should-speak-greeting', () => {
             const shouldSpeak = this.appSettings.greetingTTS || false;
@@ -1429,9 +1436,4 @@ if (!gotTheLock) {
         }
     });
 
-        // Register devtools window for wakeword logging
-        ipcMain.on('register-devtools-window', (event) => {
-            console.log('[Main] DevTools window registered for logging');
-            this.wakewordManager.registerDevToolsWindow(BrowserWindow.fromWebContents(event.sender));
-        });
     }

@@ -407,11 +407,11 @@ class WakewordHelper {
       this.log(`Started listening with PvRecorder for wake word: ${path.basename(this.modelPath)}`);
 
       const processFrame = () => {
-        if (!this.isListening || !this.recorder || !this.porcupine) return;
+        if (!this.isListening || !this.recorder || !this.porcupine || this.isStopping) return;
 
         this.recorder.read()
           .then(frame => {
-            if (!this.isListening || !this.porcupine) return;
+            if (!this.isListening || !this.porcupine || !this.recorder || this.isStopping) return;
             const result = this.porcupine.process(frame);
 
             if (result >= 0) {
@@ -487,16 +487,40 @@ class WakewordHelper {
 
   stop() {
     this.isListening = false;
-    if (this.recorder) {
-      this.recorder.stop();
-      this.recorder.release();
-      this.recorder = null;
+    this.isStopping = true;
+
+    try {
+        if (this.recorder) {
+            this.log("Stopping PvRecorder...");
+            try {
+                this.recorder.stop();
+            } catch (e) {
+                this.log(`Error during recorder stop: ${e.message}`, 'warn');
+            }
+
+            try {
+                this.recorder.release();
+            } catch (e) {
+                this.log(`Error during recorder release: ${e.message}`, 'warn');
+            }
+            this.recorder = null;
+        }
+
+        if (this.porcupine) {
+            this.log("Releasing Porcupine...");
+            try {
+                this.porcupine.release();
+            } catch (e) {
+                this.log(`Error during porcupine release: ${e.message}`, 'warn');
+            }
+            this.porcupine = null;
+        }
+    } catch (err) {
+        this.log(`Critical error during stop: ${err.message}`, 'error');
+    } finally {
+        this.isStopping = false;
+        this.log("Stopped listening");
     }
-    if (this.porcupine) {
-      this.porcupine.release();
-      this.porcupine = null;
-    }
-    this.log("Stopped listening");
   }
 }
 

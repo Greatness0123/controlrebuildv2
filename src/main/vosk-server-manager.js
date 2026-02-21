@@ -176,8 +176,29 @@ class VoskServerManager {
                 try {
                     if (process.platform === 'win32') {
                         // More robust way to find and kill process on port
-                        const cmd = `for /f "tokens=5" %a in ('netstat -aon ^| findstr LISTENING ^| findstr :${port}') do taskkill /f /pid %a`;
-                        execSync(cmd, { stdio: 'ignore' });
+                        try {
+                            // First, get the PID
+                            const findCmd = `netstat -aon | findstr LISTENING | findstr :${port}`;
+                            const output = execSync(findCmd).toString();
+                            const lines = output.split('\n');
+                            for (const line of lines) {
+                                if (line.includes(`:${port}`)) {
+                                    const parts = line.trim().split(/\s+/);
+                                    const pid = parts[parts.length - 1];
+                                    if (pid && !isNaN(pid) && pid !== '0') {
+                                        console.log(`[Vosk] Found process ${pid} on port ${port}, killing it...`);
+                                        execSync(`taskkill /f /pid ${pid}`, { stdio: 'ignore' });
+                                    }
+                                }
+                            }
+                        } catch (cmdErr) {
+                            console.warn(`[Vosk] Failed to kill process on port ${port} using netstat: ${cmdErr.message}`);
+                            // Fallback to the one-liner if needed, but wrap in try
+                            try {
+                                const fallbackCmd = `for /f "tokens=5" %a in ('netstat -aon ^| findstr LISTENING ^| findstr :${port}') do taskkill /f /pid %a`;
+                                execSync(fallbackCmd, { stdio: 'ignore' });
+                            } catch (e2) {}
+                        }
                     } else {
                         execSync(`lsof -t -i:${port} | xargs kill -9`, { stdio: 'ignore' });
                     }
