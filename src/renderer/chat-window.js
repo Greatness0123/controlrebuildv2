@@ -764,7 +764,7 @@ class ChatWindow {
         const simpleGreetings = [
             "I'm ready when you are",
             "How are you?",
-            "System online",
+            "what've you got?",
             "Ready to help",
             "What's the plan?",
             "Let's get to work"
