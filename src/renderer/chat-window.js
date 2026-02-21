@@ -924,8 +924,9 @@ class ChatWindow {
 
         try {
             // 1. Minimized Hardware Handshake Delay for faster recording
-            console.log('[Voice] Waiting for hardware release (100ms)...');
-            await new Promise(resolve => setTimeout(resolve, 100));
+            // Increased to 500ms to ensure driver-level release of microphone by wakeword engine
+            console.log('[Voice] Waiting for hardware release (500ms)...');
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             // 3. Request microphone access
             console.log('[Voice] Requesting microphone access...');
