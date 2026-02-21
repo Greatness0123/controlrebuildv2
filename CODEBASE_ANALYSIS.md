@@ -50,7 +50,7 @@ A web-based dashboard for user management, subscription tracking, and documentat
 2. **Ask Mode**: For general questions or analysis of the current screen state without performing system actions.
 
 ### Voice Interaction
-- **Wake Word**: Users can say "Computer" (default) to activate the assistant.
+- **Wake Word**: Users can say "hey control" (default) to activate the assistant.
 - **STT**: Uses a local Vosk server for real-time transcription.
 - **TTS**: Uses Edge TTS to speak back to the user.
 

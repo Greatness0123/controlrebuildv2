@@ -138,7 +138,7 @@ DEFAULT_PIN=1234
 
 # Voice Settings
 ENABLE_VOICE_ACTIVATION=true
-WAKE_WORD=Computer
+WAKE_WORD=hey control
 ```
 
 ## Configuration
