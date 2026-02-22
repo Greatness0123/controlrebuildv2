@@ -9,6 +9,7 @@ let draggedElement = null;
 let dragOffset = { x: 0, y: 0 };
 let activePort = null;
 let currentView = 'node';
+let scale = 1;
 let animationFrameId = null;
 let installedApps = [];
 
@@ -86,7 +87,7 @@ function selectWorkflow(w) {
 }
 
 function setupEventListeners() {
-    document.getElementById('closeBtn').onclick = () => ipcRenderer.send('hide-window', 'workflow');
+    document.getElementById('closeBtn').onclick = () => ipcRenderer.invoke('hide-window', 'workflow');
     document.getElementById('minimizeBtn').onclick = () => ipcRenderer.invoke('minimize-window');
     document.getElementById('maximizeBtn').onclick = () => ipcRenderer.invoke('maximize-window');
 
@@ -99,6 +100,13 @@ function setupEventListeners() {
     };
 
     document.getElementById('confirmAddWorkflowBtn').onclick = createNewWorkflow;
+
+    document.getElementById('toggleSidebarBtn').onclick = () => {
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.classList.toggle('collapsed');
+        // Redraw connections after transition
+        setTimeout(updateConnections, 350);
+    };
 
     document.getElementById('nodeViewBtn').onclick = () => switchView('node');
     document.getElementById('listViewBtn').onclick = () => switchView('list');
@@ -119,6 +127,8 @@ function setupEventListeners() {
 
     document.getElementById('saveBtn').onclick = saveCurrentWorkflow;
     document.getElementById('runBtn').onclick = runCurrentWorkflow;
+
+    document.getElementById('canvasContainer').onwheel = onWheel;
 
     document.getElementById('cancelAppPickerBtn').onclick = () => {
         document.getElementById('appPickerModalOverlay').style.display = 'none';
@@ -226,8 +236,8 @@ function generateStepsFromNodes() {
 function runCurrentWorkflow() {
     if (!currentWorkflow) return;
     ipcRenderer.invoke('execute-workflow', currentWorkflow.id);
-    ipcRenderer.send('hide-window', 'workflow');
-    ipcRenderer.handle('show-window', 'chat');
+    ipcRenderer.invoke('hide-window', 'workflow');
+    ipcRenderer.invoke('show-window', 'chat');
 }
 
 function switchView(view) {
@@ -293,12 +303,13 @@ function createNodeElement(n) {
     div.style.top = n.position.y + 'px';
 
     const iconMap = {
-        start_time: 'fa-clock',
-        start_keyword: 'fa-key',
+        start_time: 'fa-stopwatch',
+        start_keyword: 'fa-bolt',
         app: 'fa-window-maximize',
         file: 'fa-file',
         document: 'fa-file-alt',
-        nl_task: 'fa-comment-alt'
+        web_search: 'fa-search',
+        nl_task: 'fa-brain'
     };
 
         let contentHtml = `<input type="text" class="node-input" placeholder="Value..." value="${n.data.value || ''}">`;
@@ -308,19 +319,25 @@ function createNodeElement(n) {
                 <input type="time" class="node-input" value="${n.data.value || '08:00'}">
                 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin-top: 4px;">
                     ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `
-                        <label style="font-size: 8px; display: flex; flex-direction: column; align-items: center;">
+                        <label style="font-size: 8px; display: flex; flex-direction: column; align-items: center; cursor: pointer;">
                             ${d}<input type="checkbox" class="day-check" data-day="${d}" ${n.data.days?.includes(d) ? 'checked' : ''}>
                         </label>
                     `).join('')}
                 </div>
             `;
+        } else if (n.type === 'web_search') {
+            contentHtml = `<input type="text" class="node-input" placeholder="Search query or instruction..." value="${n.data.value || ''}">`;
         }
 
+    const isStartNode = n.type.startsWith('start');
+    const headerColor = isStartNode ? 'var(--accent-color)' : 'transparent';
+    const textColor = isStartNode ? 'white' : 'inherit';
+
     div.innerHTML = `
-        <div class="node-header">
+        <div class="node-header" style="background: ${headerColor}; color: ${textColor}">
             <i class="fas ${iconMap[n.type] || 'fa-square'}"></i>
             <span style="flex: 1">${n.type.replace('_', ' ').toUpperCase()}</span>
-            <i class="fas fa-times delete-node" style="font-size: 10px; cursor: pointer; opacity: 0.5"></i>
+            <i class="fas fa-times delete-node" style="font-size: 10px; cursor: pointer; opacity: 0.8"></i>
         </div>
         <div class="node-content">
             ${contentHtml}
@@ -396,8 +413,9 @@ function onMouseDown(e) {
         isDragging = true;
         draggedElement = nodeEl;
         const rect = nodeEl.getBoundingClientRect();
-        dragOffset.x = e.clientX - rect.left;
-        dragOffset.y = e.clientY - rect.top;
+        // Adjust drag offset for scale
+        dragOffset.x = (e.clientX - rect.left);
+        dragOffset.y = (e.clientY - rect.top);
         nodeEl.style.zIndex = 1000;
         document.body.classList.add('dragging-node');
     }
@@ -411,17 +429,21 @@ function onMouseMove(e) {
 
     animationFrameId = requestAnimationFrame(() => {
         if (isDragging && draggedElement) {
+            const containerRect = document.getElementById('canvasContainer').getBoundingClientRect();
             const canvasRect = canvas.getBoundingClientRect();
-            let x = e.clientX - canvasRect.left - dragOffset.x;
-            let y = e.clientY - canvasRect.top - dragOffset.y;
 
-            draggedElement.style.left = x + 'px';
-            draggedElement.style.top = y + 'px';
+            // Calculate position relative to scaled canvas
+            let x = (e.clientX - canvasRect.left - dragOffset.x) / scale;
+            let y = (e.clientY - canvasRect.top - dragOffset.y) / scale;
 
+            // Get current internal position to add delta
             const node = nodes.find(n => n.id === draggedElement.id);
             if (node) {
-                node.position.x = x;
-                node.position.y = y;
+                node.position.x += x;
+                node.position.y += y;
+
+                draggedElement.style.left = node.position.x + 'px';
+                draggedElement.style.top = node.position.y + 'px';
             }
             updateConnections();
         }
@@ -460,9 +482,26 @@ function onMouseUp(e) {
     activePort = null;
 }
 
+function onWheel(e) {
+    if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        const newScale = Math.min(Math.max(0.2, scale * delta), 2);
+
+        // Zoom towards mouse position
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        scale = newScale;
+        canvas.style.transform = `scale(${scale})`;
+        canvas.style.transformOrigin = '0 0';
+
+        updateConnections();
+    }
+}
+
 function updateConnections() {
-    // For now, full re-render of connections.
-    // Optimization: only update paths for the dragged node if performance is still an issue.
     connectionsSvg.innerHTML = '';
     const cRect = canvas.getBoundingClientRect();
 
@@ -476,10 +515,11 @@ function updateConnections() {
                 const sRect = sourcePort.getBoundingClientRect();
                 const tRect = targetPort.getBoundingClientRect();
 
-                const x1 = sRect.left - cRect.left + 5;
-                const y1 = sRect.top - cRect.top + 5;
-                const x2 = tRect.left - cRect.left + 5;
-                const y2 = tRect.top - cRect.top + 5;
+                // Divide by scale to get internal coordinates
+                const x1 = (sRect.left - cRect.left + (5 * scale)) / scale;
+                const y1 = (sRect.top - cRect.top + (5 * scale)) / scale;
+                const x2 = (tRect.left - cRect.left + (5 * scale)) / scale;
+                const y2 = (tRect.top - cRect.top + (5 * scale)) / scale;
 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 const dx = Math.abs(x1 - x2) * 0.5;

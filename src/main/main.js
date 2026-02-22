@@ -1292,6 +1292,7 @@ class ComputerUseAgent {
                 }
             }
             else if (step.type === 'file' || step.type === 'document') detail = `Open file: "${step.value}"`;
+            else if (step.type === 'web_search') detail = `Search the web for: "${step.value}" and retrieve relevant information.`;
             else if (step.type === 'nl_task') detail = step.value;
 
             taskDescription += `${index + 1}. ${detail}\n`;
