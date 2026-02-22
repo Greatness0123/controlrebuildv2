@@ -21,6 +21,11 @@ const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGEN
 - Create a clear internal plan for how to achieve the user's goal.
 - After each set of actions, re-evaluate your plan based on the new screen state.
 
+**WORKFLOW EXECUTION:**
+- If the user provides a "Workflow" with numbered steps, you MUST follow these steps sequentially.
+- Treat each step as a sub-goal. Use your intelligence to decide the best actions (clicking, typing, etc.) to complete each step.
+- Continue until all steps in the workflow are finished or you encounter an unrecoverable error.
+
 **FULL UNDERSTANDING:** READ the user request CAREFULLY. Understand the GOAL before acting.
 
 **CRITICAL: TERMINAL-FIRST APPROACH**
@@ -88,6 +93,37 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 - For high-risk actions (terminal, system changes), if "proceedWithoutConfirmation" is FALSE, request confirmation.
 `;
 
+const GENERAL_SYSTEM_PROMPT = `You are Control (Act Mode), an AI assistant for computer automation.
+You receive screenshots of the user's screen and must provide actions to achieve their goal.
+
+**COORDINATE SYSTEM:**
+- The screen is normalized to a 1000x1000 grid.
+- When you want to interact with an element, identify its bounding box.
+- **FORMAT:** Use [xmin, ymin, xmax, ymax] normalized to 0-1000.
+- **IMPORTANT:** Target the center of the element.
+
+**RESPONSE FORMAT:**
+Respond with a JSON object:
+{
+  "type": "task",
+  "thought": "Reasoning",
+  "actions": [
+    {
+      "description": "Action description",
+      "action": "click|type|key_press|scroll|terminal|wait|display_code",
+      "parameters": {
+        "box2d": [xmin, ymin, xmax, ymax],
+        "text": "text to type (if applicable)",
+        "keys": ["key1", "key2"] (if applicable)
+      }
+    }
+  ]
+}
+
+**WORKFLOW EXECUTION:**
+- If the user provides a "Workflow" with numbered steps, follow them sequentially.
+`;
+
 class ActBackend {
   constructor(options = {}) {
     this.screenshotDir = path.join(os.tmpdir(), "control_screenshots");
@@ -105,6 +141,7 @@ class ActBackend {
     this.conversationHistory = [];
     this.maxHistoryLength = 20;
     this.currentBlueprint = [];
+    this.currentProvider = 'gemini';
   }
 
   setupGeminiAPI(apiKey, modelName) {
@@ -215,7 +252,12 @@ class ActBackend {
         case "double_click":
         case "mouse_move":
           if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
-            const [ymin, xmin, ymax, xmax] = params.box2d;
+            let xmin, ymin, xmax, ymax;
+            if (this.currentProvider === 'gemini') {
+                [ymin, xmin, ymax, xmax] = params.box2d;
+            } else {
+                [xmin, ymin, xmax, ymax] = params.box2d;
+            }
             const centerX = xmin + (xmax - xmin) / 2;
             const centerY = ymin + (ymax - ymin) / 2;
 
@@ -244,7 +286,12 @@ class ActBackend {
         case "type":
           if (params.text) {
             if (params.box2d && Array.isArray(params.box2d) && params.box2d.length === 4) {
-              const [ymin, xmin, ymax, xmax] = params.box2d;
+              let xmin, ymin, xmax, ymax;
+              if (this.currentProvider === 'gemini') {
+                  [ymin, xmin, ymax, xmax] = params.box2d;
+              } else {
+                  [xmin, ymin, xmax, ymax] = params.box2d;
+              }
               const centerX = xmin + (xmax - xmin) / 2;
               const centerY = ymin + (ymax - ymin) / 2;
 
@@ -307,8 +354,14 @@ class ActBackend {
 
         case "drag":
           if (params.box2d && params.end_box2d) {
-            const [y1_n, x1_n, y1_m, x1_m] = params.box2d;
-            const [y2_n, x2_n, y2_m, x2_m] = params.end_box2d;
+            let x1_n, y1_n, x1_m, y1_m, x2_n, y2_n, x2_m, y2_m;
+            if (this.currentProvider === 'gemini') {
+                [y1_n, x1_n, y1_m, x1_m] = params.box2d;
+                [y2_n, x2_n, y2_m, x2_m] = params.end_box2d;
+            } else {
+                [x1_n, y1_n, x1_m, y1_m] = params.box2d;
+                [x2_n, y2_n, x2_m, y2_m] = params.end_box2d;
+            }
 
             const x1 = Math.round(((x1_n + (x1_m - x1_n) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
             const y1 = Math.round(((y1_n + (y1_m - y1_n) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
@@ -335,7 +388,12 @@ class ActBackend {
         case "scroll":
           if (params.direction) {
             if (params.box2d) {
-               const [ymin, xmin, ymax, xmax] = params.box2d;
+               let xmin, ymin, xmax, ymax;
+               if (this.currentProvider === 'gemini') {
+                   [ymin, xmin, ymax, xmax] = params.box2d;
+               } else {
+                   [xmin, ymin, xmax, ymax] = params.box2d;
+               }
                const x = Math.round(((xmin + (xmax - xmin) / 2) / 1000) * this.screenSize.width) + this.screenSize.x;
                const y = Math.round(((ymin + (ymax - ymin) / 2) / 1000) * this.screenSize.height) + this.screenSize.y;
                await mouse.setPosition(new Point(x, y));
@@ -554,6 +612,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
     if (provider === 'openrouter' && (settings.openrouterModel === 'google/gemini-flash-1.5-sdk' || settings.openrouterModel === 'gemini-native')) {
         effectiveProvider = 'gemini';
     }
+    this.currentProvider = effectiveProvider;
 
     const firebaseService = require('../firebase-service');
     const cachedKeys = firebaseService.getKeys();
@@ -618,7 +677,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
         if (effectiveProvider === 'ollama') {
           const images = [fs.readFileSync(shot.filepath).toString("base64")];
-          fullText = await this.ollamaGenerate(prompt, SYSTEM_PROMPT, settings, images);
+          fullText = await this.ollamaGenerate(prompt, GENERAL_SYSTEM_PROMPT, settings, images);
         } else if (effectiveProvider === 'openrouter') {
           const images = [fs.readFileSync(shot.filepath).toString("base64")];
           // Handle additional attachments if any are images
@@ -632,7 +691,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
                   }
               }
           }
-          fullText = await this.openrouterGenerate(prompt, SYSTEM_PROMPT, settings, images);
+          fullText = await this.openrouterGenerate(prompt, GENERAL_SYSTEM_PROMPT, settings, images);
         } else {
           const result = await this.model.generateContent(content);
           const response = await result.response;

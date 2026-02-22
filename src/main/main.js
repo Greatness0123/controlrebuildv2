@@ -42,6 +42,7 @@ const EdgeTTSManager = require('./edge-tts');
 const VoskServerManager = require('./vosk-server-manager');
 const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
+const workflowManager = require('./workflow-manager');
 
 class ComputerUseAgent {
     constructor() {
@@ -57,6 +58,8 @@ class ComputerUseAgent {
         this.securityManager = new SecurityManager();
         this.backendManager = new BackendManager();
         this.wakewordManager = new WakewordManager();
+        this.workflowQueue = [];
+        this.isProcessingQueue = false;
         this.edgeTTS = new EdgeTTSManager();
         this.voskServerManager = new VoskServerManager();
         this.settingsManager = new SettingsManager();
@@ -259,6 +262,9 @@ class ComputerUseAgent {
 
             // Apply window visibility setting on startup
             this.updateWindowVisibility(this.appSettings.windowVisibility);
+
+            // Start workflow scheduler
+            this.startWorkflowScheduler();
 
             // Check for cached user to bypass login
             const cachedUser = firebaseService.checkCachedUser();
@@ -802,6 +808,54 @@ class ComputerUseAgent {
             return { version: app.getVersion() };
         });
 
+        // Workflow Management
+        ipcMain.handle('get-all-workflows', () => {
+            return workflowManager.getAllWorkflows();
+        });
+
+        ipcMain.handle('save-workflow', (event, workflow) => {
+            return workflowManager.saveWorkflow(workflow);
+        });
+
+        ipcMain.handle('delete-workflow', (event, id) => {
+            return workflowManager.deleteWorkflow(id);
+        });
+
+        ipcMain.handle('toggle-workflow', (event, id, enabled) => {
+            return workflowManager.toggleWorkflow(id, enabled);
+        });
+
+        ipcMain.handle('pick-item', async (event, type) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            let properties = ['openFile'];
+            if (type === 'app' && process.platform === 'darwin') {
+                properties = ['openFile'];
+            } else if (type === 'app') {
+                properties = ['openFile']; // On Windows/Linux apps are files
+            }
+
+            const result = await dialog.showOpenDialog(window, {
+                properties: properties,
+                title: `Select ${type}`
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                return result.filePaths[0];
+            }
+            return null;
+        });
+
+        ipcMain.handle('execute-workflow', async (event, id) => {
+            const workflow = workflowManager.getWorkflowById(id);
+            if (workflow) {
+                this.executeWorkflow(workflow);
+                return { success: true };
+            }
+            return { success: false, message: 'Workflow not found' };
+        });
+
         // Close settings window
         ipcMain.on('close-settings', () => {
             this.windowManager.hideWindow('settings');
@@ -941,6 +995,22 @@ class ComputerUseAgent {
 
         ipcMain.handle('execute-task', async (event, task, mode) => {
             console.log('[Main] [IPC] execute-task:', mode, task);
+
+            // Check for workflow keywords if triggers are enabled
+            if (this.appSettings.workflowTriggersEnabled !== false && task.text) {
+                const workflows = workflowManager.getAllWorkflows();
+                const matchedWorkflow = workflows.find(wf => {
+                    if (!wf.enabled || wf.trigger.type !== 'keyword') return false;
+                    const keyword = wf.trigger.value.toLowerCase();
+                    return task.text.toLowerCase().includes(keyword);
+                });
+
+                if (matchedWorkflow) {
+                    console.log(`[Main] Keyword trigger hit for workflow: ${matchedWorkflow.name}`);
+                    this.executeWorkflow(matchedWorkflow);
+                    return { success: true, workflowTriggered: true };
+                }
+            }
 
             // 1. Check Authentication & Profile
             if (this.securityManager.isEnabled() && !this.isAuthenticated) {
@@ -1176,6 +1246,97 @@ class ComputerUseAgent {
         settings.geminiModel = cachedKeys ? cachedKeys.gemini_model : (process.env.GEMINI_MODEL || "gemini-1.5-flash");
 
         return settings;
+    }
+
+    async executeWorkflow(workflow) {
+        this.workflowQueue.push(workflow);
+        this.processWorkflowQueue();
+    }
+
+    async processWorkflowQueue() {
+        if (this.isProcessingQueue || this.workflowQueue.length === 0) return;
+        this.isProcessingQueue = true;
+
+        while (this.workflowQueue.length > 0) {
+            const workflow = this.workflowQueue.shift();
+            await this.runWorkflow(workflow);
+        }
+
+        this.isProcessingQueue = false;
+    }
+
+    async runWorkflow(workflow) {
+        console.log(`[Main] Running workflow: ${workflow.name}`);
+
+        // Convert steps to natural language instructions
+        let taskDescription = `Perform the workflow: "${workflow.name}".\nSteps:\n`;
+        workflow.steps.forEach((step, index) => {
+            let detail = "";
+            if (step.type === 'app') detail = `Open application: ${step.value}`;
+            else if (step.type === 'file' || step.type === 'document') detail = `Open file: ${step.value}`;
+            else if (step.type === 'nl_task') detail = step.value;
+
+            taskDescription += `${index + 1}. ${detail}\n`;
+        });
+
+        const task = {
+            text: taskDescription,
+            attachments: []
+        };
+
+        // Switch to ACT mode for workflows
+        const mode = 'act';
+
+        try {
+            // Re-use execute-task logic
+            const currentUser = this.currentUser || firebaseService.checkCachedUser();
+            let apiKey = await firebaseService.getGeminiKey(currentUser.plan);
+            if (!apiKey) {
+                const cachedKeys = firebaseService.getKeys();
+                apiKey = (cachedKeys && cachedKeys.gemini) ? cachedKeys.gemini : (process.env.GEMINI_API_KEY || process.env.GEMINI_FREE_KEY);
+            }
+            task.api_key = apiKey;
+
+            // Broadcast task start to chat
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin) {
+                chatWin.webContents.send('workflow-started', { name: workflow.name });
+            }
+
+            await this.backendManager.executeTask(task, mode, this.getSettings());
+            console.log(`[Main] Workflow ${workflow.name} completed`);
+        } catch (error) {
+            console.error(`[Main] Workflow ${workflow.name} failed:`, error);
+        }
+    }
+
+    startWorkflowScheduler() {
+        console.log('[Main] Starting workflow scheduler...');
+        setInterval(() => {
+            if (this.appSettings.workflowTriggersEnabled === false) return;
+
+            const now = new Date();
+            const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            const currentDayFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
+            const currentDayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
+
+            const workflows = workflowManager.getAllWorkflows();
+            workflows.forEach(wf => {
+                if (wf.enabled && wf.trigger.type === 'time' && wf.trigger.value === currentTime) {
+                    // Check if today is one of the scheduled days
+                    const days = wf.trigger.days || [];
+                    if (days.length === 0 || days.includes(currentDayFull) || days.includes(currentDayShort)) {
+                        // Avoid double execution in the same minute
+                        if (wf.lastExecutedMinute !== currentTime) {
+                            console.log(`[Main] Time trigger hit for workflow: ${wf.name}`);
+                            wf.lastExecutedMinute = currentTime;
+                            workflowManager.saveWorkflow(wf);
+                            this.executeWorkflow(wf);
+                        }
+                    }
+                }
+            });
+        }, 10000); // Check every 10 seconds
     }
 
     updateWindowVisibility(visible) {

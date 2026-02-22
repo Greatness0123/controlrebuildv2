@@ -198,6 +198,16 @@ class ChatWindow {
             this.openSettings();
         });
 
+        // Workflow button
+        const workflowButton = document.getElementById('workflowButton');
+        if (workflowButton) {
+            workflowButton.addEventListener('click', () => {
+                if (window.chatAPI) {
+                    window.chatAPI.showWindow('workflow');
+                }
+            });
+        }
+
         // New chat button
         if (this.newChatButton) {
             this.newChatButton.addEventListener('click', () => {
@@ -547,6 +557,11 @@ class ChatWindow {
             // window.chatAPI.onPlanUpdate((event, data) => {
             //     this.updateBlueprint(data.blueprint);
             // });
+
+            window.chatAPI.onWorkflowStarted?.((event, data) => {
+                this.addMessage(`Workflow started: **${data.name}**`, 'ai', false, null, true);
+                this.updateStatus(`Running workflow ${data.name}...`, 'working');
+            });
 
             window.chatAPI.onRequestConfirmation((event, data) => {
                 this.handleConfirmationRequest(data);
