@@ -335,11 +335,9 @@ function createNodeElement(n) {
         }
 
     const isStartNode = n.type.startsWith('start');
-    const headerColor = isStartNode ? 'var(--accent-color)' : 'transparent';
-    const textColor = isStartNode ? 'white' : 'inherit';
 
     div.innerHTML = `
-        <div class="node-header" style="background: ${headerColor}; color: ${textColor}">
+        <div class="node-header ${isStartNode ? 'start-node' : ''}">
             <i class="fas ${iconMap[n.type] || 'fa-square'}"></i>
             <span style="flex: 1">${n.type.replace('_', ' ').toUpperCase()}</span>
             <i class="fas fa-times delete-node" style="font-size: 10px; cursor: pointer; opacity: 0.8"></i>
