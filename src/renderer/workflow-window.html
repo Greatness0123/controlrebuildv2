@@ -233,12 +233,17 @@
 
         .node:active { cursor: grabbing; }
 
-        body.dragging-node {
+        body.dragging-node,
+        body.dragging-node * {
             cursor: grabbing !important;
         }
 
+        body.connecting-node,
+        body.connecting-node * {
+            cursor: crosshair !important;
+        }
+
         body.dragging-node .node {
-            cursor: grabbing !important;
             user-select: none;
         }
 

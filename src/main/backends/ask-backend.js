@@ -48,9 +48,10 @@ class AskBackend {
 
 **WORKFLOW:**
 1. Request info tools automatically if needed.
-2. Use web search (googleSearch tool) proactively.
-3. Provide final answers grounded in the gathered information.
-4. Include citations if web search was used.
+2. ALWAYS PREFER read-only terminal commands (e.g. \`pgrep\`, \`ls\`, \`dir\`) over screenshots to check system state.
+3. Use web search (googleSearch tool) proactively.
+4. Provide final answers grounded in the gathered information.
+5. Include citations if web search was used.
 `;
     const modelOptions = {
       model: finalModelName,
