@@ -43,6 +43,7 @@ const VoskServerManager = require('./vosk-server-manager');
 const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
 const workflowManager = require('./workflow-manager');
+const appUtils = require('./app-utils');
 
 class ComputerUseAgent {
     constructor() {
@@ -99,6 +100,11 @@ class ComputerUseAgent {
                         const settingsWin = this.windowManager.getWindow('settings');
                         if (settingsWin && settingsWin.isVisible()) {
                             this.windowManager.hideWindow('settings');
+                        }
+
+                        const workflowWin = this.windowManager.getWindow('workflow');
+                        if (workflowWin && workflowWin.isVisible()) {
+                            this.windowManager.hideWindow('workflow');
                         }
 
                         if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
@@ -809,6 +815,10 @@ class ComputerUseAgent {
         });
 
         // Workflow Management
+        ipcMain.handle('get-installed-apps', async () => {
+            return await appUtils.getInstalledApps();
+        });
+
         ipcMain.handle('get-all-workflows', () => {
             return workflowManager.getAllWorkflows();
         });

@@ -10,6 +10,7 @@ let dragOffset = { x: 0, y: 0 };
 let activePort = null;
 let currentView = 'node';
 let animationFrameId = null;
+let installedApps = [];
 
 const canvas = document.getElementById('workflowCanvas');
 const connectionsSvg = document.getElementById('connections');
@@ -118,6 +119,14 @@ function setupEventListeners() {
 
     document.getElementById('saveBtn').onclick = saveCurrentWorkflow;
     document.getElementById('runBtn').onclick = runCurrentWorkflow;
+
+    document.getElementById('cancelAppPickerBtn').onclick = () => {
+        document.getElementById('appPickerModalOverlay').style.display = 'none';
+    };
+
+    document.getElementById('appSearchInput').oninput = (e) => {
+        renderAppList(e.target.value);
+    };
 
     // Drag and drop for nodes
     document.addEventListener('mousedown', onMouseDown);
@@ -354,10 +363,18 @@ function createNodeElement(n) {
     const pickBtn = div.querySelector('.node-btn-pick');
     if (pickBtn) {
         pickBtn.onclick = async () => {
-            const res = await ipcRenderer.invoke('pick-item', n.type);
-            if (res) {
-                input.value = res;
-                n.data.value = res;
+            if (n.type === 'app') {
+                showAppPicker((selectedApp) => {
+                    const val = selectedApp.path || selectedApp.id;
+                    input.value = selectedApp.name;
+                    n.data.value = val;
+                });
+            } else {
+                const res = await ipcRenderer.invoke('pick-item', n.type);
+                if (res) {
+                    input.value = res;
+                    n.data.value = res;
+                }
             }
         };
     }
@@ -470,6 +487,38 @@ function updateConnections() {
                 connectionsSvg.appendChild(path);
             }
         }
+    });
+}
+
+async function showAppPicker(onSelect) {
+    if (installedApps.length === 0) {
+        installedApps = await ipcRenderer.invoke('get-installed-apps');
+    }
+    renderAppList();
+    document.getElementById('appPickerModalOverlay').style.display = 'flex';
+    document.getElementById('appSearchInput').focus();
+    window.onAppSelect = (app) => {
+        onSelect(app);
+        document.getElementById('appPickerModalOverlay').style.display = 'none';
+    };
+}
+
+function renderAppList(filter = '') {
+    const list = document.getElementById('appList');
+    list.innerHTML = '';
+    const filtered = installedApps.filter(a => a.name.toLowerCase().includes(filter.toLowerCase()));
+
+    filtered.forEach(app => {
+        const div = document.createElement('div');
+        div.style.padding = '8px 12px';
+        div.style.cursor = 'pointer';
+        div.style.fontSize = '13px';
+        div.style.borderBottom = '1px solid var(--border-color)';
+        div.innerHTML = `<strong>${app.name}</strong><br><span style="font-size: 10px; opacity: 0.6">${app.path || app.id}</span>`;
+        div.onclick = () => window.onAppSelect(app);
+        div.onmouseover = () => div.style.background = 'var(--bg-tertiary)';
+        div.onmouseout = () => div.style.background = 'transparent';
+        list.appendChild(div);
     });
 }
 
