@@ -97,6 +97,10 @@ class SettingsModal {
             this.toggleAutoStart();
         });
 
+        document.getElementById('workflowTriggersToggle')?.addEventListener('click', () => {
+            this.toggleWorkflowTriggers();
+        });
+
         document.getElementById('wakeWordToggleChatToggle')?.addEventListener('click', () => {
             this.toggleWakeWordToggleChat();
         });
@@ -757,6 +761,16 @@ class SettingsModal {
             }
         }
 
+        // Update workflow triggers toggle
+        const workflowTriggersToggle = document.getElementById('workflowTriggersToggle');
+        if (workflowTriggersToggle) {
+            if (this.settings.workflowTriggersEnabled !== false) {
+                workflowTriggersToggle.classList.add('active');
+            } else {
+                workflowTriggersToggle.classList.remove('active');
+            }
+        }
+
         // Update proceed without confirmation toggle
         const proceedToggle = document.getElementById('proceedWithoutConfirmationToggle');
         if (proceedToggle) {
@@ -766,6 +780,17 @@ class SettingsModal {
                 proceedToggle.classList.remove('active');
             }
         }
+    }
+
+    async toggleWorkflowTriggers() {
+        this.settings.workflowTriggersEnabled = !(this.settings.workflowTriggersEnabled !== false);
+        this.updateToggleStates();
+        await this.saveSettings();
+
+        this.showToast(
+            this.settings.workflowTriggersEnabled ? 'Workflow triggers enabled' : 'Workflow triggers disabled',
+            'success'
+        );
     }
 
     async toggleAutoStart() {

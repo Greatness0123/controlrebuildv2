@@ -139,7 +139,8 @@
     "openai": "^4.104.0",
     "python-shell": "^5.0.0",
     "say": "^0.16.0",
-    "screenshot-desktop": "^1.15.3"
+    "screenshot-desktop": "^1.15.3",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

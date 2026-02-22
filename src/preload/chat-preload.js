@@ -58,6 +58,9 @@ contextBridge.exposeInMainWorld('chatAPI', {
 
     // App initialization
     onAppInitialized: (callback) => ipcRenderer.on('app-initialized', callback),
+    onWorkflowStarted: (callback) => ipcRenderer.on('workflow-started', callback),
+
+    showWindow: (windowType) => ipcRenderer.invoke('show-window', windowType),
 
     // Remove listeners
     removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),

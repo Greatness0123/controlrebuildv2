@@ -33,6 +33,9 @@ class WindowManager {
         // Create entry window
         await this.createEntryWindow();
 
+        // Create workflow window
+        await this.createWorkflowWindow();
+
         // Setup window management
         this.setupWindowManagement();
     }
@@ -215,6 +218,53 @@ class WindowManager {
             }, 150);
         });
         console.log('[WindowManager] Settings window created and registered');
+    }
+
+    async createWorkflowWindow() {
+        console.log('[WindowManager] Creating workflow window...');
+        const workflowWindow = new BrowserWindow({
+            width: 900,
+            height: 600,
+            frame: false,
+            transparent: true,
+            roundedCorners: true,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            resizable: true,
+            movable: true,
+            minimizable: true,
+            maximizable: true,
+            closable: false,
+            fullscreenable: false,
+            show: false,
+            visible: false,
+            hasShadow: true,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                enableRemoteModule: false,
+                preload: path.join(__dirname, '../preload/workflow-preload.js'),
+                webSecurity: !isDev
+            }
+        });
+
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        workflowWindow.setContentProtection(!windowVisibility);
+        workflowWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
+        workflowWindow.setAlwaysOnTop(true, 'screen-saver')
+
+        try {
+            await workflowWindow.loadFile(
+                path.join(__dirname, '../renderer/workflow-window.html')
+            );
+            console.log('[WindowManager] Workflow window loaded successfully');
+        } catch (err) {
+            console.error('[WindowManager] Failed to load workflow window:', err);
+            throw err;
+        }
+
+        this.windows.set('workflow', workflowWindow);
+        this.setupDraggableWindow(workflowWindow);
     }
 
     async createEntryWindow() {
