@@ -233,6 +233,15 @@
 
         .node:active { cursor: grabbing; }
 
+        body.dragging-node {
+            cursor: grabbing !important;
+        }
+
+        body.dragging-node .node {
+            cursor: grabbing !important;
+            user-select: none;
+        }
+
         .node-header {
             padding: 8px 12px;
             border-bottom: 1px solid var(--node-border);
@@ -411,7 +420,7 @@
     </style>
 </head>
 <body>
-    <div class="window-container streak-active">
+    <div class="window-container">
         <header>
             <div class="header-title">
                 <i class="fas fa-project-diagram"></i>

@@ -9,6 +9,7 @@ let draggedElement = null;
 let dragOffset = { x: 0, y: 0 };
 let activePort = null;
 let currentView = 'node';
+let animationFrameId = null;
 
 const canvas = document.getElementById('workflowCanvas');
 const connectionsSvg = document.getElementById('connections');
@@ -33,9 +34,9 @@ function renderWorkflowList() {
         const item = document.createElement('div');
         item.className = `workflow-item ${currentWorkflow && currentWorkflow.id === w.id ? 'active' : ''}`;
         item.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
                 <input type="checkbox" class="toggle-wf" ${w.enabled ? 'checked' : ''} data-id="${w.id}" title="Enable/Disable">
-                <span>${w.name}</span>
+                <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${w.name}</span>
             </div>
             <div style="display: flex; gap: 4px;">
                 <i class="fas fa-trash-alt delete-wf" data-id="${w.id}" title="Delete"></i>
@@ -130,11 +131,11 @@ function createNewWorkflow() {
     const name = document.getElementById('newWorkflowName').value;
     const keyword = document.getElementById('newWorkflowKeyword').value;
 
-    if (name && keyword) {
+    if (name) {
         const newWf = {
             name,
             enabled: true,
-            trigger: { type: 'keyword', value: keyword.toLowerCase() },
+            trigger: keyword ? { type: 'keyword', value: keyword.toLowerCase() } : { type: 'none' },
             nodes: [],
             edges: [],
             steps: []
@@ -144,7 +145,7 @@ function createNewWorkflow() {
         document.getElementById('newWorkflowName').value = '';
         document.getElementById('newWorkflowKeyword').value = '';
     } else {
-        alert('Please enter both name and keyword');
+        alert('Please enter a name for the workflow');
     }
 }
 
@@ -161,8 +162,21 @@ async function saveCurrentWorkflow() {
     currentWorkflow.nodes = nodes;
     currentWorkflow.edges = edges;
     currentWorkflow.steps = generateStepsFromNodes();
+
+    // Verify trigger still exists if it's a start node
+    const hasStartNode = nodes.find(n => n.type.startsWith('start'));
+    if (!hasStartNode) {
+        currentWorkflow.trigger = { type: 'none' };
+    }
+
     await saveWorkflow(currentWorkflow);
     alert('Workflow saved!');
+}
+
+function deleteNode(id) {
+    nodes = nodes.filter(n => n.id !== id);
+    edges = edges.filter(e => e.source !== id && e.target !== id);
+    renderCanvas();
 }
 
 function generateStepsFromNodes() {
@@ -296,7 +310,8 @@ function createNodeElement(n) {
     div.innerHTML = `
         <div class="node-header">
             <i class="fas ${iconMap[n.type] || 'fa-square'}"></i>
-            ${n.type.replace('_', ' ').toUpperCase()}
+            <span style="flex: 1">${n.type.replace('_', ' ').toUpperCase()}</span>
+            <i class="fas fa-times delete-node" style="font-size: 10px; cursor: pointer; opacity: 0.5"></i>
         </div>
         <div class="node-content">
             ${contentHtml}
@@ -307,6 +322,11 @@ function createNodeElement(n) {
         ${!n.type.startsWith('start') ? '<div class="node-port port-in"></div>' : ''}
         <div class="node-port port-out"></div>
     `;
+
+    div.querySelector('.delete-node').onclick = (e) => {
+        e.stopPropagation();
+        deleteNode(n.id);
+    };
 
     const input = div.querySelector('.node-input');
     input.onchange = (e) => {
@@ -350,8 +370,8 @@ function onMouseDown(e) {
     const portEl = e.target.closest('.node-port');
 
     if (portEl) {
-        // Start connection logic (not fully implemented in this MVP)
         activePort = { el: portEl, nodeId: nodeEl.id, type: portEl.classList.contains('port-out') ? 'out' : 'in' };
+        document.body.style.cursor = 'crosshair';
         return;
     }
 
@@ -362,28 +382,39 @@ function onMouseDown(e) {
         dragOffset.x = e.clientX - rect.left;
         dragOffset.y = e.clientY - rect.top;
         nodeEl.style.zIndex = 1000;
+        document.body.classList.add('dragging-node');
     }
 }
 
 function onMouseMove(e) {
-    if (isDragging && draggedElement) {
-        const canvasRect = canvas.getBoundingClientRect();
-        let x = e.clientX - canvasRect.left - dragOffset.x;
-        let y = e.clientY - canvasRect.top - dragOffset.y;
+    if (!isDragging && !activePort) return;
 
-        draggedElement.style.left = x + 'px';
-        draggedElement.style.top = y + 'px';
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-        const node = nodes.find(n => n.id === draggedElement.id);
-        if (node) {
-            node.position.x = x;
-            node.position.y = y;
+    animationFrameId = requestAnimationFrame(() => {
+        if (isDragging && draggedElement) {
+            const canvasRect = canvas.getBoundingClientRect();
+            let x = e.clientX - canvasRect.left - dragOffset.x;
+            let y = e.clientY - canvasRect.top - dragOffset.y;
+
+            draggedElement.style.left = x + 'px';
+            draggedElement.style.top = y + 'px';
+
+            const node = nodes.find(n => n.id === draggedElement.id);
+            if (node) {
+                node.position.x = x;
+                node.position.y = y;
+            }
+            updateConnections();
         }
-        updateConnections();
-    }
+    });
 }
 
 function onMouseUp(e) {
+    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    document.body.classList.remove('dragging-node');
+    document.body.style.cursor = 'default';
+
     if (isDragging && draggedElement) {
         draggedElement.style.zIndex = 10;
     }
@@ -412,7 +443,11 @@ function onMouseUp(e) {
 }
 
 function updateConnections() {
+    // For now, full re-render of connections.
+    // Optimization: only update paths for the dragged node if performance is still an issue.
     connectionsSvg.innerHTML = '';
+    const cRect = canvas.getBoundingClientRect();
+
     edges.forEach(edge => {
         const sourceNode = document.getElementById(edge.source);
         const targetNode = document.getElementById(edge.target);
@@ -422,7 +457,6 @@ function updateConnections() {
             if (sourcePort && targetPort) {
                 const sRect = sourcePort.getBoundingClientRect();
                 const tRect = targetPort.getBoundingClientRect();
-                const cRect = canvas.getBoundingClientRect();
 
                 const x1 = sRect.left - cRect.left + 5;
                 const y1 = sRect.top - cRect.top + 5;
