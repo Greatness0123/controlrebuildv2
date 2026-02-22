@@ -630,6 +630,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
       let loopCount = 0;
       const maxLoops = 15;
       let lastResultContext = "";
+      let taskFinished = false;
 
       while (loopCount < maxLoops && !this.stopRequested) {
         loopCount++;
@@ -727,6 +728,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
         const actions = plan.actions || [];
         if (actions.length === 0) {
             onEvent("task_complete", { task: userRequest, success: true });
+            taskFinished = true;
             // For the final message, use the clean markdown if thought is empty
             const finalMessage = plan.after_message || (plan.thought ? "" : cleanMarkdown);
             if (finalMessage) onEvent("after_message", { text: finalMessage });
@@ -778,6 +780,7 @@ Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
             if (!verification.verified) break;
         }
       }
+      if (!taskFinished) onEvent("task_complete", { task: userRequest, success: !this.stopRequested });
     } catch (err) {
       console.error("[ACT JS] Task error:", err);
       const errorStr = err.message.toLowerCase();

@@ -1329,27 +1329,31 @@ class ComputerUseAgent {
 
     startWorkflowScheduler() {
         console.log('[Main] Starting workflow scheduler...');
+        this.lastCheckedMinute = null;
+
         setInterval(() => {
             if (this.appSettings.workflowTriggersEnabled === false) return;
 
             const now = new Date();
             const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            // Only process if the minute has changed
+            if (this.lastCheckedMinute === currentTime) return;
+            this.lastCheckedMinute = currentTime;
+
             const currentDayFull = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][now.getDay()];
             const currentDayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.getDay()];
 
+            console.log(`[Scheduler] Checking workflows for ${currentDayFull} ${currentTime}`);
+
             const workflows = workflowManager.getAllWorkflows();
             workflows.forEach(wf => {
-                if (wf.enabled && wf.trigger.type === 'time' && wf.trigger.value === currentTime) {
+                if (wf.enabled && wf.trigger && wf.trigger.type === 'time' && wf.trigger.value === currentTime) {
                     // Check if today is one of the scheduled days
                     const days = wf.trigger.days || [];
                     if (days.length === 0 || days.includes(currentDayFull) || days.includes(currentDayShort)) {
-                        // Avoid double execution in the same minute
-                        if (wf.lastExecutedMinute !== currentTime) {
-                            console.log(`[Main] Time trigger hit for workflow: ${wf.name}`);
-                            wf.lastExecutedMinute = currentTime;
-                            workflowManager.saveWorkflow(wf);
-                            this.executeWorkflow(wf);
-                        }
+                        console.log(`[Scheduler] Triggering workflow: ${wf.name}`);
+                        this.executeWorkflow(wf);
                     }
                 }
             });
