@@ -69,7 +69,7 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
     {
       "step": 1,
       "description": "Action description",
-      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package|display_code",
+      "action": "screenshot|click|type|key_press|double_click|mouse_move|drag|scroll|terminal|wait|focus_window|read_preferences|write_preferences|read_libraries|write_libraries|research_package|web_search|display_code",
       "parameters": {
         "box2d": [ymin, xmin, ymax, xmax], // Normalized [0, 1000]
         "label": "button name",
@@ -92,6 +92,7 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 - terminal: {"command": "...", "confidence": 100}
 - research_package: {"name": "package-name", "type": "python|node", "query": "..."}
 - focus_window: {"app_name": "...", "confidence": 100}
+- web_search: {"query": "..."} Use this to search the web for information when required by a workflow or task.
 - display_code: {"code": "...", "language": "python|javascript|html|..."} (Use this to show code blocks clearly to the user with a copy button)
 
 **HUMAN-IN-THE-LOOP:**
@@ -119,7 +120,7 @@ Respond with a JSON object:
   "actions": [
     {
       "description": "Action description",
-      "action": "click|type|key_press|scroll|terminal|wait|display_code",
+      "action": "click|type|key_press|scroll|terminal|wait|web_search|display_code",
       "parameters": {
         "box2d": [xmin, ymin, xmax, ymax],
         "text": "text to type (if applicable)",
@@ -473,6 +474,29 @@ class ActBackend {
         case "wait":
           await new Promise(r => setTimeout(r, (params.duration || 1) * 1000));
           result.success = true;
+          break;
+
+        case "web_search":
+          if (params.query) {
+            console.log(`[ACT JS] Web search requested for: ${params.query}`);
+            let command = "";
+            const encodedQuery = encodeURIComponent(params.query);
+            if (process.platform === "win32") {
+                command = `start https://www.google.com/search?q=${encodedQuery}`;
+            } else if (process.platform === "darwin") {
+                command = `open "https://www.google.com/search?q=${encodedQuery}"`;
+            } else {
+                command = `xdg-open "https://www.google.com/search?q=${encodedQuery}"`;
+            }
+
+            await new Promise(resolve => exec(command, resolve));
+            await new Promise(r => setTimeout(r, 2000)); // Wait for browser to open
+
+            result.success = true;
+            result.message = `Web search for "${params.query}" performed. Results are now visible on screen.`;
+          } else {
+            result.message = "No query provided for web search";
+          }
           break;
 
         case "display_code":
