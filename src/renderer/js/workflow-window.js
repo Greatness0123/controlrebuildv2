@@ -23,6 +23,8 @@ async function init() {
     setupEventListeners();
     await loadWorkflows();
     detectTheme();
+    // Ensure window can receive focus for inputs
+    window.focus();
 }
 
 async function loadWorkflows() {
@@ -93,6 +95,7 @@ function setupEventListeners() {
 
     document.getElementById('addWorkflowBtn').onclick = () => {
         document.getElementById('workflowModalOverlay').style.display = 'flex';
+        document.getElementById('newWorkflowName').focus();
     };
 
     document.getElementById('cancelWorkflowBtn').onclick = () => {
@@ -402,6 +405,11 @@ function createNodeElement(n) {
 }
 
 function onMouseDown(e) {
+    // If clicking an input or textarea, don't start dragging
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+    }
+
     const nodeEl = e.target.closest('.node');
     const portEl = e.target.closest('.node-port');
 
@@ -415,9 +423,12 @@ function onMouseDown(e) {
         isDragging = true;
         draggedElement = nodeEl;
         const rect = nodeEl.getBoundingClientRect();
-        // Adjust drag offset for scale
-        dragOffset.x = (e.clientX - rect.left);
-        dragOffset.y = (e.clientY - rect.top);
+        const cRect = canvas.getBoundingClientRect();
+
+        // Offset of mouse from node's top-left in canvas-pixels
+        dragOffset.x = (e.clientX - rect.left) / scale;
+        dragOffset.y = (e.clientY - rect.top) / scale;
+
         nodeEl.style.zIndex = 1000;
         document.body.classList.add('dragging-node');
     }
@@ -431,18 +442,16 @@ function onMouseMove(e) {
 
     animationFrameId = requestAnimationFrame(() => {
         if (isDragging && draggedElement) {
-            const containerRect = document.getElementById('canvasContainer').getBoundingClientRect();
             const canvasRect = canvas.getBoundingClientRect();
 
-            // Calculate position relative to scaled canvas
-            let x = (e.clientX - canvasRect.left - dragOffset.x) / scale;
-            let y = (e.clientY - canvasRect.top - dragOffset.y) / scale;
+            // Position of mouse relative to canvas origin in canvas-pixels
+            let x = (e.clientX - canvasRect.left) / scale - dragOffset.x;
+            let y = (e.clientY - canvasRect.top) / scale - dragOffset.y;
 
-            // Get current internal position to add delta
             const node = nodes.find(n => n.id === draggedElement.id);
             if (node) {
-                node.position.x += x;
-                node.position.y += y;
+                node.position.x = x;
+                node.position.y = y;
 
                 draggedElement.style.left = node.position.x + 'px';
                 draggedElement.style.top = node.position.y + 'px';
@@ -488,16 +497,31 @@ function onWheel(e) {
     if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.min(Math.max(0.2, scale * delta), 2);
+        const oldScale = scale;
+        scale = Math.min(Math.max(0.2, scale * delta), 2);
 
-        // Zoom towards mouse position
-        const rect = canvas.getBoundingClientRect();
+        const container = document.getElementById('canvasContainer');
+        const rect = container.getBoundingClientRect();
+
+        // Mouse position relative to container
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        scale = newScale;
+        // Current scroll positions
+        const scrollX = container.scrollLeft;
+        const scrollY = container.scrollTop;
+
+        // Mouse position in canvas pixels before zoom
+        const canvasX = (scrollX + mouseX) / oldScale;
+        const canvasY = (scrollY + mouseY) / oldScale;
+
+        // Update scale
         canvas.style.transform = `scale(${scale})`;
         canvas.style.transformOrigin = '0 0';
+
+        // New scroll positions to keep canvasX/Y under the mouse
+        container.scrollLeft = canvasX * scale - mouseX;
+        container.scrollTop = canvasY * scale - mouseY;
 
         updateConnections();
     }
@@ -517,7 +541,8 @@ function updateConnections() {
                 const sRect = sourcePort.getBoundingClientRect();
                 const tRect = targetPort.getBoundingClientRect();
 
-                // Divide by scale to get internal coordinates
+                // Convert screen positions of port centers back to canvas-space
+                // port is 10x10, so center is +5px. In screen-space, that's +5*scale.
                 const x1 = (sRect.left - cRect.left + (5 * scale)) / scale;
                 const y1 = (sRect.top - cRect.top + (5 * scale)) / scale;
                 const x2 = (tRect.left - cRect.left + (5 * scale)) / scale;
