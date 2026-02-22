@@ -559,6 +559,7 @@ class ChatWindow {
             // });
 
             window.chatAPI.onWorkflowStarted?.((event, data) => {
+                this.forceStopThinking();
                 this.addMessage(`Workflow started: **${data.name}**`, 'ai', false, null, true);
                 this.updateStatus(`Running workflow ${data.name}...`, 'working');
             });
