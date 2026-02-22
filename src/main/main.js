@@ -43,6 +43,7 @@ const VoskServerManager = require('./vosk-server-manager');
 const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
 const workflowManager = require('./workflow-manager');
+const appUtils = require('./app-utils');
 
 class ComputerUseAgent {
     constructor() {
@@ -101,6 +102,11 @@ class ComputerUseAgent {
                             this.windowManager.hideWindow('settings');
                         }
 
+                        const workflowWin = this.windowManager.getWindow('workflow');
+                        if (workflowWin && workflowWin.isVisible()) {
+                            this.windowManager.hideWindow('workflow');
+                        }
+
                         if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
                             console.log('[Main] PIN required');
                             const mainWin = this.windowManager.getWindow('main');
@@ -149,8 +155,9 @@ class ComputerUseAgent {
                         break;
                     case 'toggle-chat':
                         console.log('[Main] Toggle chat event received');
-                        // Hide settings when toggling chat
+                        // Hide other windows when toggling chat
                         this.windowManager.hideWindow('settings');
+                        this.windowManager.hideWindow('workflow');
 
                         if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
                             console.log('[Main] PIN required for toggle - requesting authentication');
@@ -809,6 +816,10 @@ class ComputerUseAgent {
         });
 
         // Workflow Management
+        ipcMain.handle('get-installed-apps', async () => {
+            return await appUtils.getInstalledApps();
+        });
+
         ipcMain.handle('get-all-workflows', () => {
             return workflowManager.getAllWorkflows();
         });
@@ -1272,8 +1283,14 @@ class ComputerUseAgent {
         let taskDescription = `Perform the workflow: "${workflow.name}".\nSteps:\n`;
         workflow.steps.forEach((step, index) => {
             let detail = "";
-            if (step.type === 'app') detail = `Open application: ${step.value}`;
-            else if (step.type === 'file' || step.type === 'document') detail = `Open file: ${step.value}`;
+            if (step.type === 'app') {
+                if (process.platform === 'win32' && step.value.includes('!')) {
+                    detail = `Open the application with ID: "${step.value}". You can use the terminal command "explorer shell:AppsFolder\\${step.value}" to launch it if it's not already open.`;
+                } else {
+                    detail = `Open application: "${step.value}"`;
+                }
+            }
+            else if (step.type === 'file' || step.type === 'document') detail = `Open file: "${step.value}"`;
             else if (step.type === 'nl_task') detail = step.value;
 
             taskDescription += `${index + 1}. ${detail}\n`;

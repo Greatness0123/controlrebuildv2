@@ -493,6 +493,19 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="appPickerModalOverlay">
+        <div class="modal" style="width: 400px; max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 style="font-size: 16px; margin-bottom: 16px;">Select Application</h3>
+            <input type="text" id="appSearchInput" placeholder="Search apps..." style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 12px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
+            <div id="appList" style="flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); min-height: 200px;">
+                <!-- Apps will appear here -->
+            </div>
+            <div class="btn-group" style="margin-top: 16px;">
+                <button class="btn btn-secondary" id="cancelAppPickerBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="nodeModalOverlay">
         <div class="modal">
             <h3 style="font-size: 16px; margin-bottom: 16px;">Add Node</h3>
