@@ -31,18 +31,19 @@
         }
 
         body.dark-mode {
-            --bg-primary: #121212;
-            --bg-secondary: #181818;
-            --bg-tertiary: #222222;
+            --bg-primary: #000000;
+            --bg-secondary: #121212;
+            --bg-tertiary: #1a1a1a;
             --text-primary: #ffffff;
-            --text-secondary: #bbbbbb;
-            --border-color: rgba(255, 255, 255, 0.15);
-            --item-border: rgba(255, 255, 255, 0.1);
-            --section-bg: rgba(30, 30, 30, 0.8);
-            --header-bg: rgba(15, 15, 15, 0.98);
-            --input-bg: rgba(255, 255, 255, 0.08);
-            --toggle-bg: #444444;
+            --text-secondary: #b0b0b0;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --item-border: rgba(255, 255, 255, 0.05);
+            --section-bg: rgba(20, 20, 20, 0.8);
+            --header-bg: rgba(0, 0, 0, 0.95);
+            --input-bg: rgba(255, 255, 255, 0.05);
+            --toggle-bg: #333333;
             --accent-color: #ffffff;
+            --streak-color: #ffffff;
         }
 
         html,
@@ -615,7 +616,7 @@
                             <div class="setting-description">Choose between light and dark mode</div>
                         </div>
                     </div>
-                    <select id="themeSelect" style="width: 120px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-primary); color: var(--text-primary);">
+                    <select id="themeSelect" style="width: 120px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
                     </select>
@@ -811,7 +812,7 @@
                             <div class="setting-description">Choose where to run your AI models</div>
                         </div>
                     </div>
-                    <select id="modelProvider" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; background: white;">
+                    <select id="modelProvider" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
                         <option value="gemini">Google Gemini (Native)</option>
                         <option value="openrouter">OpenRouter (Pro/Master)</option>
                         <option value="ollama">Ollama (Local)</option>
@@ -842,7 +843,7 @@
                                 <div class="setting-description">Vetted multimodal & computer-use models</div>
                             </div>
                         </div>
-                        <select id="openrouterModelList" style="width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none; background: white;">
+                        <select id="openrouterModelList" style="width: 200px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
                             <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (Best Reasoning)</option>
                             <option value="anthropic/claude-3-opus">Claude 3 Opus (Most Powerful)</option>
                             <option value="openai/gpt-4o">GPT-4o (Fast Multimodal)</option>
@@ -876,7 +877,7 @@
                                 <div class="setting-description">Your personal key (optional, will use system key if empty)</div>
                             </div>
                         </div>
-                        <input type="password" id="openrouterApiKey" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="sk-or-v1-...">
+                        <input type="password" id="openrouterApiKey" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="sk-or-v1-...">
                     </div>
 
                     <div style="margin-top: 10px; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 10px; border: 1px solid rgba(102, 126, 234, 0.2);">
@@ -899,7 +900,7 @@
                                 <div class="setting-description">Local API endpoint</div>
                             </div>
                         </div>
-                        <input type="text" id="ollamaUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="http://localhost:11434">
+                        <input type="text" id="ollamaUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="http://localhost:11434">
                     </div>
 
                     <div class="setting-item">
@@ -910,7 +911,7 @@
                                 <div class="setting-description">Model name (e.g. llama3)</div>
                             </div>
                         </div>
-                        <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.1); font-size: 13px; outline: none;" placeholder="llama3">
+                        <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="llama3">
                     </div>
 
                     <div style="margin-top: 10px; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.2);">
