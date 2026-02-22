@@ -1243,6 +1243,7 @@ class ComputerUseAgent {
         settings.wakeWordToggleChat = this.appSettings.wakeWordToggleChat || false;
         settings.edgeGlowEnabled = this.appSettings.edgeGlowEnabled !== false;
         settings.borderStreakEnabled = this.appSettings.borderStreakEnabled !== false;
+        settings.workflowTriggersEnabled = this.appSettings.workflowTriggersEnabled !== false;
         settings.theme = this.appSettings.theme || 'light';
         settings.chatVisible = this.windowManager.chatVisible;
         settings.modelProvider = this.appSettings.modelProvider || 'gemini';
@@ -1421,6 +1422,9 @@ class ComputerUseAgent {
             if (settings.borderStreakEnabled !== undefined) {
                 this.appSettings.borderStreakEnabled = !!settings.borderStreakEnabled;
             }
+            if (settings.workflowTriggersEnabled !== undefined) {
+                this.appSettings.workflowTriggersEnabled = !!settings.workflowTriggersEnabled;
+            }
             if (settings.theme !== undefined) {
                 this.appSettings.theme = settings.theme;
             }
@@ -1467,6 +1471,7 @@ class ComputerUseAgent {
                 wakeWordToggleChat: this.appSettings.wakeWordToggleChat,
                 edgeGlowEnabled: this.appSettings.edgeGlowEnabled,
                 borderStreakEnabled: this.appSettings.borderStreakEnabled,
+                workflowTriggersEnabled: this.appSettings.workflowTriggersEnabled,
                 theme: this.appSettings.theme,
                 modelProvider: this.appSettings.modelProvider,
                 openrouterModel: this.appSettings.openrouterModel,

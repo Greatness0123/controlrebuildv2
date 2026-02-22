@@ -388,7 +388,7 @@ function onMouseDown(e) {
 
     if (portEl) {
         activePort = { el: portEl, nodeId: nodeEl.id, type: portEl.classList.contains('port-out') ? 'out' : 'in' };
-        document.body.style.cursor = 'crosshair';
+        document.body.classList.add('connecting-node');
         return;
     }
 
@@ -405,6 +405,7 @@ function onMouseDown(e) {
 
 function onMouseMove(e) {
     if (!isDragging && !activePort) return;
+    e.preventDefault();
 
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
@@ -430,7 +431,7 @@ function onMouseMove(e) {
 function onMouseUp(e) {
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
     document.body.classList.remove('dragging-node');
-    document.body.style.cursor = 'default';
+    document.body.classList.remove('connecting-node');
 
     if (isDragging && draggedElement) {
         draggedElement.style.zIndex = 10;
