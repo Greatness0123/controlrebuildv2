@@ -327,6 +327,8 @@ function createNodeElement(n) {
             `;
         } else if (n.type === 'web_search') {
             contentHtml = `<input type="text" class="node-input" placeholder="Search query or instruction..." value="${n.data.value || ''}">`;
+        } else if (n.type === 'nl_task') {
+            contentHtml = `<textarea class="node-textarea" placeholder="Describe the task for the AI..." style="width: 100%">${n.data.value || ''}</textarea>`;
         }
 
     const isStartNode = n.type.startsWith('start');
@@ -354,7 +356,7 @@ function createNodeElement(n) {
         deleteNode(n.id);
     };
 
-    const input = div.querySelector('.node-input');
+    const input = div.querySelector('.node-input') || div.querySelector('.node-textarea');
     input.onchange = (e) => {
         n.data.value = e.target.value;
         if (n.type === 'start_keyword') currentWorkflow.trigger = { type: 'keyword', value: e.target.value.toLowerCase() };
