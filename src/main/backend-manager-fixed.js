@@ -188,6 +188,7 @@ class BackendManager extends EventEmitter {
             const tmpDir = path.join(app.getPath('userData'), 'tmp');
             if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
+            let taskError = null;
             const processedAttachments = [];
             if (task && task.attachments && Array.isArray(task.attachments)) {
                 for (const at of task.attachments) {
@@ -221,6 +222,7 @@ class BackendManager extends EventEmitter {
             };
             const onError = (data) => {
                 if (!this.currentTask) return;
+                taskError = data.message || data;
                 this.handleFrontendMessage({ type: 'error', data }, targetLabel);
             };
             const onEvent = (type, data) => {
@@ -240,6 +242,7 @@ class BackendManager extends EventEmitter {
             }, onError, task.api_key, settings);
 
             this.currentTask = null;
+            if (taskError) return { success: false, error: taskError };
             return { success: true, task };
         } catch (err) {
             console.error('executeTask error:', err);

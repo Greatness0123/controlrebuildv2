@@ -155,8 +155,9 @@ class ComputerUseAgent {
                         break;
                     case 'toggle-chat':
                         console.log('[Main] Toggle chat event received');
-                        // Hide settings when toggling chat
+                        // Hide other windows when toggling chat
                         this.windowManager.hideWindow('settings');
+                        this.windowManager.hideWindow('workflow');
 
                         if (this.securityManager && this.securityManager.isEnabled() && !this.isAuthenticated) {
                             console.log('[Main] PIN required for toggle - requesting authentication');
@@ -1282,8 +1283,14 @@ class ComputerUseAgent {
         let taskDescription = `Perform the workflow: "${workflow.name}".\nSteps:\n`;
         workflow.steps.forEach((step, index) => {
             let detail = "";
-            if (step.type === 'app') detail = `Open application: ${step.value}`;
-            else if (step.type === 'file' || step.type === 'document') detail = `Open file: ${step.value}`;
+            if (step.type === 'app') {
+                if (process.platform === 'win32' && step.value.includes('!')) {
+                    detail = `Open the application with ID: "${step.value}". You can use the terminal command "explorer shell:AppsFolder\\${step.value}" to launch it if it's not already open.`;
+                } else {
+                    detail = `Open application: "${step.value}"`;
+                }
+            }
+            else if (step.type === 'file' || step.type === 'document') detail = `Open file: "${step.value}"`;
             else if (step.type === 'nl_task') detail = step.value;
 
             taskDescription += `${index + 1}. ${detail}\n`;

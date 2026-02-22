@@ -1930,6 +1930,11 @@ class ChatWindow {
     }
 
     parseErrorMessage(rawError) {
+        if (typeof rawError === 'object' && rawError !== null) {
+            if (rawError.message) return this.parseErrorMessage(rawError.message);
+            try { return JSON.stringify(rawError); } catch(e) { return 'Unknown error object'; }
+        }
+
         const errorString = String(rawError || '');
 
         // Map of technical error patterns to user-friendly messages
@@ -1939,7 +1944,7 @@ class ChatWindow {
             { pattern: /Rate limit exceeded/i, message: 'You\'ve reached your usage limit. Please upgrade your plan or wait.' },
             { pattern: /quota.*exceeded|exceeded.*quota/i, message: 'Unable to connect to AI. Please try again later.' },
             { pattern: /429|too many requests/i, message: 'Service temporarily busy. Please try again in a moment.' },
-            { pattern: /Network error|ECONNREFUSED|ENOTFOUND/i, message: 'Connection failed. Please check your internet.' },
+            { pattern: /fetch failed|ECONNREFUSED|ENOTFOUND/i, message: 'Connection failed. Please check your internet or ensure the local AI server (Ollama) is running.' },
             { pattern: /timeout/i, message: 'Request timed out. Please try again.' },
             { pattern: /API.*key.*invalid|invalid.*API.*key/i, message: 'Configuration error. Please contact support.' },
             { pattern: /User not found/i, message: 'Account not found. Please check your credentials.' },
