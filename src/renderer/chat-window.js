@@ -996,7 +996,7 @@ class ChatWindow {
 
             // Buffer for accumulating audio chunks before sending (min 320 samples = 640 bytes)
             const audioBuffer = [];
-            const MIN_CHUNK_SIZE = 320; // Minimum samples to send (recommended for Vosk)
+            const MIN_CHUNK_SIZE = 500; // Minimum samples to send (recommended for Vosk)
             let bufferedSamples = 0;
 
             this.ws.onopen = () => {
@@ -1092,7 +1092,7 @@ class ChatWindow {
                     if (audioBuffer.length > 0 && this.isRecording) {
                         flushBuffer();
                     }
-                }, 200);
+                }, 150);
 
                 // Store interval ID for cleanup
                 if (!this.voiceRecordingIntervals) {
