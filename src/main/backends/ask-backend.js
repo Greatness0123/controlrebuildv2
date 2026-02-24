@@ -39,8 +39,8 @@ class AskBackend {
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
-- `[BROWSER_OPEN: <url>]`: Open the agentic browser to a URL
-- `[BROWSER_EXECUTE_JS: <script>]`: Execute JS in the agentic browser
+- \`[BROWSER_OPEN: <url>]\`: Open the agentic browser to a URL
+- \`[BROWSER_EXECUTE_JS: <script>]\`: Execute JS in the agentic browser
 - \`[DISPLAY_CODE: <language>\\n<code>]\`: Display a formatted code block with a copy button.
 
 **CODE DISPLAY & FORMATTING:**
