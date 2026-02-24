@@ -276,6 +276,7 @@ class WindowManager {
         const browserWindow = new BrowserWindow({
             width: 1024,
             height: 768,
+            title: 'Control Agentic Browser', // Distinctive title
             frame: true, // Standard window frame for browser
             transparent: false,
             alwaysOnTop: true,
@@ -286,6 +287,22 @@ class WindowManager {
                 sandbox: true,
                 webSecurity: true
             }
+        });
+
+        // Add a banner when a page loads
+        browserWindow.webContents.on('did-finish-load', () => {
+            const bannerJS = `
+                (function() {
+                    if (document.getElementById('control-agent-banner')) return;
+                    const banner = document.createElement('div');
+                    banner.id = 'control-agent-banner';
+                    banner.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; background: #7c3aed; color: white; text-align: center; padding: 4px 0; font-size: 12px; font-weight: bold; z-index: 2147483647; pointer-events: none; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
+                    banner.textContent = 'CONTROL IS USING THIS BROWSER';
+                    document.body.appendChild(banner);
+                    document.body.style.marginTop = '24px';
+                })();
+            `;
+            browserWindow.webContents.executeJavaScript(bannerJS).catch(e => console.error('Failed to inject banner:', e));
         });
 
         const windowVisibility = global.appSettings?.windowVisibility !== false;

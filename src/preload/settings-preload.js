@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     lockApp: () => ipcRenderer.invoke('lock-app'),
     logout: () => ipcRenderer.invoke('logout'),
     quitApp: () => ipcRenderer.invoke('quit-app'),
+    restartApp: () => ipcRenderer.invoke('restart-app'),
     newConversation: () => ipcRenderer.invoke('new-conversation'),
 
     // Auto-start
@@ -47,4 +48,12 @@ contextBridge.exposeInMainWorld('settingsAPI', {
 
     // Window visibility
     setWindowVisibility: (visible) => ipcRenderer.invoke('set-window-visibility', visible),
+
+    // TTS Advanced
+    getTTSVoices: () => ipcRenderer.invoke('tts-get-voices'),
+    testVoice: (voice, rate, volume) => ipcRenderer.invoke('tts-test-voice', voice, rate, volume),
+
+    // Data Management
+    exportData: () => ipcRenderer.invoke('export-data'),
+    deleteAllData: () => ipcRenderer.invoke('delete-all-data'),
 });

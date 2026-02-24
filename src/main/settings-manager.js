@@ -85,6 +85,9 @@ class SettingsManager {
             ollamaEnabled: false,
             ollamaUrl: 'http://localhost:11434',
             ollamaModel: 'llama3',
+            ttsVoice: 'en-US-AriaNeural',
+            ttsRate: 1.0,
+            ttsVolume: 1.0,
             userAuthenticated: false,
             hotkeys: {
                 toggleChat: process.platform === 'darwin' ? 'Command+.' : 'CommandOrControl+Space',
