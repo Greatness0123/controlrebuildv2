@@ -211,6 +211,7 @@ class ComputerUseAgent {
         app.on('will-quit', () => this.onWillQuit());
         app.on('before-quit', () => {
             this.isQuitting = true;
+            if (this.windowManager) this.windowManager.isQuitting = true;
         });
     }
 
@@ -1229,6 +1230,54 @@ class ComputerUseAgent {
             app.exit();
             return { success: true };
         });
+
+        // Agentic Browser Handlers
+        ipcMain.handle('browser-navigate', async (event, url) => {
+            console.log(`[Main] Browser navigate: ${url}`);
+            const win = this.windowManager.getWindow('browser');
+            if (win) {
+                this.windowManager.showWindow('browser');
+                try {
+                    await win.loadURL(url);
+                    return { success: true };
+                } catch (e) {
+                    return { success: false, message: e.message };
+                }
+            }
+            return { success: false, message: 'Browser window not found' };
+        });
+
+        ipcMain.handle('browser-execute-js', async (event, script) => {
+            console.log(`[Main] Browser execute JS`);
+            const win = this.windowManager.getWindow('browser');
+            if (win) {
+                try {
+                    const result = await win.webContents.executeJavaScript(script);
+                    return { success: true, result };
+                } catch (e) {
+                    return { success: false, message: e.message };
+                }
+            }
+            return { success: false, message: 'Browser window not found' };
+        });
+
+        ipcMain.handle('browser-get-status', async () => {
+            const win = this.windowManager.getWindow('browser');
+            if (win) {
+                return {
+                    success: true,
+                    url: win.webContents.getURL(),
+                    title: win.webContents.getTitle(),
+                    isVisible: win.isVisible()
+                };
+            }
+            return { success: false, message: 'Browser window not found' };
+        });
+
+        ipcMain.handle('browser-close', async () => {
+            this.windowManager.hideWindow('browser');
+            return { success: true };
+        });
     }
 
     getSettings() {
@@ -1293,6 +1342,7 @@ class ComputerUseAgent {
             }
             else if (step.type === 'file' || step.type === 'document') detail = `Open file: "${step.value}"`;
             else if (step.type === 'web_search') detail = `Search the web for: "${step.value}" and retrieve relevant information.`;
+            else if (step.type === 'browser_search') detail = `Search for "${step.value}" using the agentic browser. Open the browser to a search engine, perform the search, and extract relevant data using JS injection if needed.`;
             else if (step.type === 'nl_task') detail = step.value;
 
             taskDescription += `${index + 1}. ${detail}\n`;
@@ -1363,13 +1413,33 @@ class ComputerUseAgent {
     }
 
     updateWindowVisibility(visible) {
+        console.log(`[Main] Updating window visibility in real-time: ${visible}`);
         this.appSettings.windowVisibility = visible;
         global.appSettings = this.appSettings;
+        global.windowManager = this.windowManager;
 
-        this.windowManager.getAllWindows().forEach(window => {
+        this.windowManager.getAllWindows().forEach((window, index) => {
             if (window && !window.isDestroyed()) {
-                window.setContentProtection(!visible);
-                window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+                try {
+                    // contentProtection: true means hidden from capture, false means visible
+                    // our setting windowVisibility: true means visible in screenshots, false means hidden
+                    const protect = !visible;
+                    window.setContentProtection(protect);
+                    window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+
+                    // Some platforms need a slight "nudge" to apply content protection changes to an existing window
+                    if (window.isVisible()) {
+                        // Toggling always-on-top level can sometimes trigger the OS to refresh the window's capture state
+                        const isAlwaysOnTop = window.isAlwaysOnTop();
+                        if (isAlwaysOnTop) {
+                            window.setAlwaysOnTop(false);
+                            window.setAlwaysOnTop(true, 'screen-saver');
+                        }
+                    }
+                    console.log(`[Main] Applied visibility settings to window ${index}`);
+                } catch (e) {
+                    console.error(`[Main] Failed to update visibility for window ${index}:`, e);
+                }
             }
         });
     }

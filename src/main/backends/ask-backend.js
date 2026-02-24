@@ -39,6 +39,8 @@ class AskBackend {
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
+- `[BROWSER_OPEN: <url>]`: Open the agentic browser to a URL
+- `[BROWSER_EXECUTE_JS: <script>]`: Execute JS in the agentic browser
 - \`[DISPLAY_CODE: <language>\\n<code>]\`: Display a formatted code block with a copy button.
 
 **CODE DISPLAY & FORMATTING:**
@@ -96,6 +98,8 @@ class AskBackend {
   parseAIResponse(responseText) {
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
+    const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
+    const browserJsMatch = /\[BROWSER_EXECUTE_JS:\s*([\s\S]+?)\]/.exec(responseText);
 
     let requestType = null;
     let requestData = null;
@@ -104,6 +108,12 @@ class AskBackend {
     else if (commandMatch) {
       requestType = "command";
       requestData = commandMatch[1].trim();
+    } else if (browserOpenMatch) {
+      requestType = "browser_open";
+      requestData = browserOpenMatch[1].trim();
+    } else if (browserJsMatch) {
+      requestType = "browser_js";
+      requestData = browserJsMatch[1].trim();
     }
 
     // Process [DISPLAY_CODE] blocks in-place for better flow
@@ -113,6 +123,8 @@ class AskBackend {
         })
         .replace(/\[REQUEST_SCREENSHOT\]/g, "")
         .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
+        .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
+        .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
         .trim();
 
     return { requestType, requestData, cleanText };
@@ -278,6 +290,27 @@ class AskBackend {
         } else if (requestType === "command") {
           const output = await this.runSystemCommand(requestData);
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
+          continue;
+        } else if (requestType === "browser_open") {
+          const win = global.windowManager.getWindow('browser');
+          if (win) {
+            global.windowManager.showWindow('browser');
+            await win.loadURL(requestData);
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData}. You can now request a screenshot to see it.`);
+          }
+          continue;
+        } else if (requestType === "browser_js") {
+          const win = global.windowManager.getWindow('browser');
+          let output = "";
+          if (win) {
+            try {
+              const res = await win.webContents.executeJavaScript(requestData);
+              output = JSON.stringify(res);
+            } catch (e) {
+              output = `Error: ${e.message}`;
+            }
+            conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}`);
+          }
           continue;
         } else {
           // Final response turn

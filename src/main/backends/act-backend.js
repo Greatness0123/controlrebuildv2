@@ -93,7 +93,14 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 - research_package: {"name": "package-name", "type": "python|node", "query": "..."}
 - focus_window: {"app_name": "...", "confidence": 100}
 - web_search: {"query": "..."} Use this to search the web for information when required by a workflow or task.
+- browser_open: {"url": "..."} - Opens a dedicated, AI-controlled browser window. Use this for deep research or if native search tools are unavailable.
+- browser_execute_js: {"script": "..."} - Executes JavaScript on the current page in the AI-controlled browser.
+- browser_close: {} - Hides the AI-controlled browser window.
 - display_code: {"code": "...", "language": "python|javascript|html|..."} (Use this to show code blocks clearly to the user with a copy button)
+
+**AGENTIC BROWSER CONTROL:**
+- For models without native web search (like Ollama), use \`browser_open\` to navigate to a search engine and \`browser_execute_js\` to interact with results.
+- This browser is visible to the user and allows for "headless-like" control via script injection.
 
 **HUMAN-IN-THE-LOOP:**
 - For high-risk actions (terminal, system changes), if "proceedWithoutConfirmation" is FALSE, request confirmation.
@@ -478,25 +485,82 @@ class ActBackend {
 
         case "web_search":
           if (params.query) {
+            const encodedQuery = encodeURIComponent(params.query);
+            const searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
+
+            // Fallback to Agentic Browser if native tools (gemini) are unavailable
+            if (this.currentProvider !== 'gemini') {
+                const win = global.windowManager.getWindow('browser');
+                if (win) {
+                    console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
+                    global.windowManager.showWindow('browser');
+                    await win.loadURL(searchUrl);
+                    result.success = true;
+                    result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
+                    return result;
+                }
+            }
+
             console.log(`[ACT JS] Web search requested for: ${params.query}`);
             let command = "";
-            const encodedQuery = encodeURIComponent(params.query);
             if (process.platform === "win32") {
-                command = `start https://www.google.com/search?q=${encodedQuery}`;
+                command = `start ${searchUrl}`;
             } else if (process.platform === "darwin") {
-                command = `open "https://www.google.com/search?q=${encodedQuery}"`;
+                command = `open "${searchUrl}"`;
             } else {
-                command = `xdg-open "https://www.google.com/search?q=${encodedQuery}"`;
+                command = `xdg-open "${searchUrl}"`;
             }
 
             await new Promise(resolve => exec(command, resolve));
             await new Promise(r => setTimeout(r, 2000)); // Wait for browser to open
 
             result.success = true;
-            result.message = `Web search for "${params.query}" performed. Results are now visible on screen.`;
+            result.message = `Web search for "${params.query}" performed via system browser. Results are now visible on screen.`;
           } else {
             result.message = "No query provided for web search";
           }
+          break;
+
+        case "browser_open":
+          if (params.url) {
+            const win = global.windowManager.getWindow('browser');
+            if (win) {
+              global.windowManager.showWindow('browser');
+              await win.loadURL(params.url);
+              result.success = true;
+              result.message = `Agentic browser opened to ${params.url}`;
+            } else {
+              result.message = "Browser window not available";
+            }
+          } else {
+            result.message = "No URL provided for browser_open";
+          }
+          break;
+
+        case "browser_execute_js":
+          if (params.script) {
+            const win = global.windowManager.getWindow('browser');
+            if (win) {
+              try {
+                const jsResult = await win.webContents.executeJavaScript(params.script);
+                result.success = true;
+                result.message = `JS executed. Result: ${JSON.stringify(jsResult)}`;
+                result.result = jsResult;
+              } catch (e) {
+                result.message = `JS error: ${e.message}`;
+              }
+            } else {
+              result.message = "Browser window not available";
+            }
+          } else {
+            result.message = "No script provided for browser_execute_js";
+          }
+          break;
+
+        case "browser_close":
+          global.windowManager.hideWindow('browser');
+          result.success = true;
+          result.message = "Agentic browser window hidden";
           break;
 
         case "display_code":
@@ -679,6 +743,7 @@ User Preferences: ${JSON.stringify(prefs)}
 Installed Libraries: ${JSON.stringify(libs)}
 Last Action Result: ${lastResultContext}
 OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.height}
+${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use browser_open, browser_execute_js, and standard spatial actions to perform web searches manually via a search engine.' : ''}
 
 Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 
