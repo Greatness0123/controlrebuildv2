@@ -528,12 +528,12 @@ class WindowManager {
     showVisualEffect(effectType) {
         const enabled = global.appSettings?.edgeGlowEnabled !== false;
         console.log('[WindowManager] showVisualEffect called:', effectType, 'edgeGlowEnabled=', enabled);
-        if (!enabled) {
+
+        // Always allow task-inactive to ensure UI resets correctly even if setting was just disabled
+        if (!enabled && effectType !== 'task-inactive') {
             console.log('[WindowManager] Skipping showVisualEffect because edge glow disabled in settings');
-            console.trace('[WindowManager] showVisualEffect called when disabled - trace');
             return;
         }
-        console.trace('[WindowManager] showVisualEffect proceeding - trace');
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('show-visual-effect', { type: effectType });

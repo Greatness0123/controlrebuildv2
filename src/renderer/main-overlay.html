@@ -1159,11 +1159,15 @@
                 console.log('[Overlay] Hiding edge glow');
                 this.isGlowIntended = false;
                 this.edgeGlow.classList.remove('active');
+
+                // Also hide flash overlay just in case
+                this.flashOverlay.classList.remove('active');
+
                 this.edgeGlow.classList.add('immediate-hide');
                 // Remove immediate-hide after a short delay to allow future glows
                 setTimeout(() => {
-                    this.edgeGlow.classList.remove('immediate-hide');
-                }, 100);
+                    if (this.edgeGlow) this.edgeGlow.classList.remove('immediate-hide');
+                }, 200);
             }
 
             async isEdgeGlowEnabled() {
