@@ -312,6 +312,7 @@ function createNodeElement(n) {
         file: 'fa-file',
         document: 'fa-file-alt',
         web_search: 'fa-search',
+        browser_search: 'fa-globe',
         nl_task: 'fa-brain'
     };
 
@@ -328,7 +329,7 @@ function createNodeElement(n) {
                     `).join('')}
                 </div>
             `;
-        } else if (n.type === 'web_search') {
+        } else if (n.type === 'web_search' || n.type === 'browser_search') {
             contentHtml = `<input type="text" class="node-input" placeholder="Search query or instruction..." value="${n.data.value || ''}">`;
         } else if (n.type === 'nl_task') {
             contentHtml = `<textarea class="node-textarea" placeholder="Describe the task for the AI..." style="width: 100%">${n.data.value || ''}</textarea>`;

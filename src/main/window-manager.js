@@ -10,6 +10,7 @@ class WindowManager {
         this.mainWindow = null;
         this.chatVisible = false;
         this.isInteractive = false; // overlay click-through by default; enable on hover when needed
+        this.isQuitting = false;
     }
 
     broadcast(channel, data) {
@@ -35,6 +36,9 @@ class WindowManager {
 
         // Create workflow window
         await this.createWorkflowWindow();
+
+        // Create agentic browser window
+        await this.createBrowserWindow();
 
         // Setup window management
         this.setupWindowManagement();
@@ -265,6 +269,38 @@ class WindowManager {
 
         this.windows.set('workflow', workflowWindow);
         this.setupDraggableWindow(workflowWindow);
+    }
+
+    async createBrowserWindow() {
+        console.log('[WindowManager] Creating agentic browser window...');
+        const browserWindow = new BrowserWindow({
+            width: 1024,
+            height: 768,
+            frame: true, // Standard window frame for browser
+            transparent: false,
+            alwaysOnTop: true,
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                sandbox: true,
+                webSecurity: true
+            }
+        });
+
+        const windowVisibility = global.appSettings?.windowVisibility !== false;
+        browserWindow.setContentProtection(!windowVisibility);
+        browserWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
+        browserWindow.setAlwaysOnTop(true, 'screen-saver');
+
+        this.windows.set('browser', browserWindow);
+
+        browserWindow.on('close', (e) => {
+            if (!this.isQuitting) {
+                e.preventDefault();
+                browserWindow.hide();
+            }
+        });
     }
 
     async createEntryWindow() {
