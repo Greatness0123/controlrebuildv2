@@ -17,6 +17,9 @@ class SettingsModal {
             theme: 'light',
             geminiModel: 'gemini-1.5-flash',
             wakeWordToggleChat: false,
+            ttsVoice: 'en-US-AriaNeural',
+            ttsRate: 1.0,
+            ttsVolume: 1.0,
             modelProvider: 'gemini',
             openrouterModel: 'anthropic/claude-3.5-sonnet',
             openrouterCustomModel: '',
@@ -160,6 +163,43 @@ class SettingsModal {
         document.getElementById('openrouterApiKey')?.addEventListener('change', (e) => {
             this.settings.openrouterApiKey = e.target.value;
             this.saveSettings();
+        });
+
+        document.getElementById('ttsVoiceSelect')?.addEventListener('change', (e) => {
+            this.settings.ttsVoice = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('ttsRateSlider')?.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this.settings.ttsRate = val;
+            document.getElementById('ttsRateValue').textContent = val.toFixed(1);
+        });
+
+        document.getElementById('ttsRateSlider')?.addEventListener('change', () => {
+            this.saveSettings();
+        });
+
+        document.getElementById('ttsVolumeSlider')?.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this.settings.ttsVolume = val;
+            document.getElementById('ttsVolumeValue').textContent = Math.round(val * 100);
+        });
+
+        document.getElementById('ttsVolumeSlider')?.addEventListener('change', () => {
+            this.saveSettings();
+        });
+
+        document.getElementById('testVoiceBtn')?.addEventListener('click', () => {
+            this.testVoice();
+        });
+
+        document.getElementById('exportDataBtn')?.addEventListener('click', () => {
+            this.exportData();
+        });
+
+        document.getElementById('deleteAllDataBtn')?.addEventListener('click', () => {
+            this.deleteAllData();
         });
 
         // Buttons
@@ -327,6 +367,31 @@ class SettingsModal {
             if (window.settingsAPI) {
                 const savedSettings = await window.settingsAPI.getSettings();
                 this.settings = { ...this.settings, ...savedSettings };
+
+                // Preload voices
+                const res = await window.settingsAPI.getTTSVoices?.();
+                if (res && res.success && res.voices) {
+                    const select = document.getElementById('ttsVoiceSelect');
+                    if (select) {
+                        const currentVoice = this.settings.ttsVoice;
+                        select.innerHTML = '';
+                        res.voices.forEach(v => {
+                            const opt = document.createElement('option');
+                            opt.value = v;
+                            // Prettify name: en-US-JennyNeural -> Jenny (US)
+                            let label = v;
+                            const parts = v.split('-');
+                            if (parts.length >= 3) {
+                                const name = parts[2].replace('Neural', '');
+                                const lang = parts[1];
+                                label = `${name} (${lang})`;
+                            }
+                            opt.textContent = label;
+                            select.appendChild(opt);
+                        });
+                        select.value = currentVoice;
+                    }
+                }
             } else {
                 // Fallback to sessionStorage
                 const stored = sessionStorage.getItem('appSettings');
@@ -573,6 +638,22 @@ class SettingsModal {
 
         const openrouterApiKey = document.getElementById('openrouterApiKey');
         if (openrouterApiKey) openrouterApiKey.value = this.settings.openrouterApiKey || '';
+
+        // Update TTS inputs
+        const ttsVoiceSelect = document.getElementById('ttsVoiceSelect');
+        if (ttsVoiceSelect) ttsVoiceSelect.value = this.settings.ttsVoice || 'en-US-AriaNeural';
+
+        const ttsRateSlider = document.getElementById('ttsRateSlider');
+        if (ttsRateSlider) {
+            ttsRateSlider.value = this.settings.ttsRate || 1.0;
+            document.getElementById('ttsRateValue').textContent = (this.settings.ttsRate || 1.0).toFixed(1);
+        }
+
+        const ttsVolumeSlider = document.getElementById('ttsVolumeSlider');
+        if (ttsVolumeSlider) {
+            ttsVolumeSlider.value = this.settings.ttsVolume !== undefined ? this.settings.ttsVolume : 1.0;
+            document.getElementById('ttsVolumeValue').textContent = Math.round((this.settings.ttsVolume !== undefined ? this.settings.ttsVolume : 1.0) * 100);
+        }
 
         // Update Ollama inputs
         const ollamaUrlInput = document.getElementById('ollamaUrl');
@@ -1582,6 +1663,64 @@ class SettingsModal {
         } catch (e) {
             console.error('Failed to save hotkeys:', e);
             this.showToast('Failed to save hotkeys', 'error');
+        }
+    }
+
+    async testVoice() {
+        try {
+            if (window.settingsAPI && window.settingsAPI.testVoice) {
+                await window.settingsAPI.testVoice(this.settings.ttsVoice, this.settings.ttsRate, this.settings.ttsVolume);
+            }
+        } catch (e) {
+            console.error('Failed to test voice:', e);
+            this.showToast('Failed to test voice', 'error');
+        }
+    }
+
+    async exportData() {
+        try {
+            if (window.settingsAPI && window.settingsAPI.exportData) {
+                const res = await window.settingsAPI.exportData();
+                if (res.success) {
+                    const dataStr = JSON.stringify(res.data, null, 2);
+                    const blob = new Blob([dataStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `control-data-export-${new Date().toISOString().split('T')[0]}.json`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    this.showToast('Data exported successfully', 'success');
+                } else {
+                    this.showToast(res.message || 'Export failed', 'error');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to export data:', e);
+            this.showToast('Failed to export data', 'error');
+        }
+    }
+
+    async deleteAllData() {
+        if (confirm('Are you absolutely sure? This will PERMANENTLY DELETE all your settings, workflows, and local data. This cannot be undone.')) {
+            try {
+                if (window.settingsAPI && window.settingsAPI.deleteAllData) {
+                    const res = await window.settingsAPI.deleteAllData();
+                    if (res.success) {
+                        this.showToast('All data wiped. Restarting application...', 'success');
+                        setTimeout(() => {
+                            window.settingsAPI.restartApp();
+                        }, 2000);
+                    } else {
+                        this.showToast(res.message || 'Wipe failed', 'error');
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to delete data:', e);
+                this.showToast('Failed to delete data', 'error');
+            }
         }
     }
 }

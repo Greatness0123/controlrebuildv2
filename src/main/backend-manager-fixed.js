@@ -242,12 +242,13 @@ class BackendManager extends EventEmitter {
             }, onError, task.api_key, settings);
 
             this.currentTask = null;
-            this.hideVisualEffects();
             if (taskError) return { success: false, error: taskError };
             return { success: true, task };
         } catch (err) {
             console.error('executeTask error:', err);
             return { success: false, error: String(err) };
+        } finally {
+            this.hideVisualEffects();
         }
     }
 

@@ -678,6 +678,60 @@
                     Voice & Speech
                 </div>
 
+                <!-- New TTS Controls -->
+                <div id="ttsAdvancedControls" style="padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--item-border);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="user-voice" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Voice</div>
+                                <div class="setting-description">Select your preferred AI voice</div>
+                            </div>
+                        </div>
+                        <select id="ttsVoiceSelect" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
+                            <option value="en-US-JennyNeural">Jenny (US)</option>
+                            <option value="en-US-GuyNeural">Guy (US)</option>
+                            <option value="en-US-AriaNeural">Aria (US)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="fast-forward" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Speed</div>
+                                <div class="setting-description">Adjust speech rate: <span id="ttsRateValue">1.0</span>x</div>
+                            </div>
+                        </div>
+                        <input type="range" id="ttsRateSlider" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 120px;">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="volume-2" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Volume</div>
+                                <div class="setting-description">Adjust speech volume: <span id="ttsVolumeValue">100</span>%</div>
+                            </div>
+                        </div>
+                        <input type="range" id="ttsVolumeSlider" min="0" max="1" step="0.05" value="1.0" style="width: 120px;">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="play-circle" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Test Voice</div>
+                                <div class="setting-description">Hear a sample with current settings</div>
+                            </div>
+                        </div>
+                        <button class="button button-secondary" id="testVoiceBtn">
+                            <i data-lucide="play" style="width: 14px; height: 14px;"></i>
+                            Test
+                        </button>
+                    </div>
+                </div>
+
                 <div class="setting-item">
                     <div class="setting-left">
                         <i data-lucide="volume-2" class="setting-icon"></i>
@@ -1000,6 +1054,35 @@
                 <div class="section-title">
                     <i data-lucide="settings" style="width: 16px; height: 16px;"></i>
                     System
+                </div>
+
+                <!-- New Data Management Controls -->
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="download" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Export Data</div>
+                            <div class="setting-description">Download all your settings and workflows</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="exportDataBtn">
+                        <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+                        Export
+                    </button>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="trash-2" class="setting-icon" style="color: #ef4444;"></i>
+                        <div class="setting-info">
+                            <div class="setting-name" style="color: #ef4444;">Delete All Data</div>
+                            <div class="setting-description">Wipe everything and reset to defaults</div>
+                        </div>
+                    </div>
+                    <button class="button button-danger" id="deleteAllDataBtn">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                        Wipe Clean
+                    </button>
                 </div>
 
                 <div class="setting-item">

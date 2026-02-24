@@ -86,6 +86,18 @@ class WorkflowManager {
         }
         return { success: false, error: 'Workflow not found' };
     }
+
+    deleteAllWorkflows() {
+        this._init();
+        try {
+            const data = { workflows: [] };
+            fs.writeJsonSync(this.workflowsFile, data, { spaces: 2 });
+            return { success: true };
+        } catch (err) {
+            console.error('Error deleting all workflows:', err);
+            return { success: false, error: err.message };
+        }
+    }
 }
 
 module.exports = new WorkflowManager();

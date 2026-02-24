@@ -153,11 +153,16 @@ class EdgeTTSManager extends EventEmitter {
                 const ratePercentage = Math.round((this.rate - 1.0) * 100);
                 const rateStr = (ratePercentage >= 0 ? '+' : '') + ratePercentage + '%';
 
+                // Build volume string (+0%, -10%, etc.)
+                const volPercentage = Math.round((this.volume - 1.0) * 100);
+                const volStr = (volPercentage >= 0 ? '+' : '') + volPercentage + '%';
+
                 // We use the edge-tts CLI directly if available
                 const args = [
                     '-m', 'edge_tts',
                     '--voice', this.voice,
                     '--rate', rateStr,
+                    '--volume', volStr,
                     '--text', text,
                     '--write-media', audioFile
                 ];
@@ -338,7 +343,21 @@ $mediaPlayer.Close()
     }
 
     async getAvailableVoices() {
-        // Return standard Edge TTS voices
+        try {
+            const python = await this.findPython();
+            if (!python) throw new Error('Python not found');
+
+            const { stdout } = await execAsync(`${python} -m edge_tts --list-voices`);
+            const voices = stdout.split('\n')
+                .filter(line => line.includes('Name:'))
+                .map(line => line.split('Name:')[1].trim().split(' ')[0]);
+
+            if (voices.length > 0) return voices;
+        } catch (e) {
+            console.warn('[EdgeTTS] Failed to fetch voices from python, using fallback:', e.message);
+        }
+
+        // Return standard Edge TTS voices as fallback
         return [
             'en-US-JennyNeural',
             'en-US-GuyNeural',

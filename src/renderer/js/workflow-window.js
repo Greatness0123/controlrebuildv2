@@ -456,6 +456,8 @@ function onMouseMove(e) {
                 draggedElement.style.top = node.position.y + 'px';
             }
             updateConnections();
+        } else if (activePort) {
+            updateConnections(e);
         }
     });
 }
@@ -526,9 +528,28 @@ function onWheel(e) {
     }
 }
 
-function updateConnections() {
+function updateConnections(mouseEvent = null) {
     connectionsSvg.innerHTML = '';
     const cRect = canvas.getBoundingClientRect();
+
+    // Draw temporary connection if dragging from a port
+    if (activePort && mouseEvent) {
+        const portRect = activePort.el.getBoundingClientRect();
+        const x1 = (portRect.left - cRect.left + (5 * scale)) / scale;
+        const y1 = (portRect.top - cRect.top + (5 * scale)) / scale;
+        const x2 = (mouseEvent.clientX - cRect.left) / scale;
+        const y2 = (mouseEvent.clientY - cRect.top) / scale;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const dx = Math.abs(x1 - x2) * 0.5;
+        // Directional curve based on port type
+        const cp1x = activePort.type === 'out' ? x1 + dx : x1 - dx;
+        const cp2x = activePort.type === 'out' ? x2 - dx : x2 + dx;
+        path.setAttribute('d', `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`);
+        path.setAttribute('class', 'connection-line temp-line');
+        path.setAttribute('style', 'stroke-dasharray: 5,5; opacity: 0.6;');
+        connectionsSvg.appendChild(path);
+    }
 
     edges.forEach(edge => {
         const sourceNode = document.getElementById(edge.source);

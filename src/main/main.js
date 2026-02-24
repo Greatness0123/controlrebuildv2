@@ -446,6 +446,31 @@ class ComputerUseAgent {
                 return { success: true };
             });
 
+            ipcMain.handle('tts-set-volume', (event, volume) => {
+                console.log('[Main] [IPC] tts-set-volume requested:', volume);
+                this.edgeTTS.setVolume(volume);
+                return { success: true };
+            });
+
+            ipcMain.handle('tts-test-voice', async (event, voice, rate, volume) => {
+                console.log('[Main] [IPC] tts-test-voice requested:', { voice, rate, volume });
+                const oldVoice = this.edgeTTS.voice;
+                const oldRate = this.edgeTTS.rate;
+                const oldVol = this.edgeTTS.volume;
+
+                this.edgeTTS.setVoice(voice);
+                this.edgeTTS.setRate(rate);
+                this.edgeTTS.setVolume(volume);
+
+                const sampleText = "Hello! This is a sample of how I will sound with your current settings.";
+                this.edgeTTS.speak(sampleText);
+
+                // We don't restore old settings immediately because speak() is async.
+                // But since this is just a test, it's fine if it leaves them set.
+                // The renderer will usually follow up with a save-settings which will persist them anyway.
+                return { success: true };
+            });
+
             // Setup system tray
             this.setupTray();
 
@@ -1231,6 +1256,55 @@ class ComputerUseAgent {
             return { success: true };
         });
 
+        // Data Management Handlers
+        ipcMain.handle('delete-all-data', async () => {
+            console.log('[Main] Delete all data requested');
+            try {
+                // Clear settings
+                this.settingsManager.resetSettings();
+
+                // Clear user profile
+                firebaseService.clearCachedUser();
+                this.isAuthenticated = false;
+                this.currentUser = null;
+
+                // Clear workflows
+                workflowManager.deleteAllWorkflows();
+
+                // Clear screenshots
+                const screenshotDir = path.join(os.tmpdir(), "control_screenshots");
+                if (fs.existsSync(screenshotDir)) {
+                    const files = fs.readdirSync(screenshotDir);
+                    for (const file of files) {
+                        fs.unlinkSync(path.join(screenshotDir, file));
+                    }
+                }
+
+                return { success: true };
+            } catch (e) {
+                console.error('Failed to delete all data:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
+        ipcMain.handle('export-data', async () => {
+            console.log('[Main] Export data requested');
+            try {
+                const settings = this.settingsManager.getSettings();
+                const workflows = workflowManager.getAllWorkflows();
+                const data = {
+                    version: '1.0.0',
+                    exportDate: new Date().toISOString(),
+                    settings,
+                    workflows
+                };
+                return { success: true, data };
+            } catch (e) {
+                console.error('Failed to export data:', e);
+                return { success: false, message: e.message };
+            }
+        });
+
         // Agentic Browser Handlers
         ipcMain.handle('browser-navigate', async (event, url) => {
             console.log(`[Main] Browser navigate: ${url}`);
@@ -1301,6 +1375,9 @@ class ComputerUseAgent {
         settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
         settings.ollamaUrl = this.appSettings.ollamaUrl || 'http://localhost:11434';
         settings.ollamaModel = this.appSettings.ollamaModel || 'llama3';
+        settings.ttsVoice = this.appSettings.ttsVoice || 'en-US-AriaNeural';
+        settings.ttsRate = this.appSettings.ttsRate !== undefined ? this.appSettings.ttsRate : 1.0;
+        settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
 
         // Add gemini model from cache
         const cachedKeys = firebaseService.getKeys();
@@ -1517,6 +1594,18 @@ class ComputerUseAgent {
             if (settings.ollamaModel !== undefined) {
                 this.appSettings.ollamaModel = settings.ollamaModel;
             }
+            if (settings.ttsVoice !== undefined) {
+                this.appSettings.ttsVoice = settings.ttsVoice;
+                this.edgeTTS.setVoice(settings.ttsVoice);
+            }
+            if (settings.ttsRate !== undefined) {
+                this.appSettings.ttsRate = settings.ttsRate;
+                this.edgeTTS.setRate(settings.ttsRate);
+            }
+            if (settings.ttsVolume !== undefined) {
+                this.appSettings.ttsVolume = settings.ttsVolume;
+                this.edgeTTS.setVolume(settings.ttsVolume);
+            }
 
             // Handle hotkeys if present
             if (settings.hotkeys) {
@@ -1549,7 +1638,10 @@ class ComputerUseAgent {
                 openrouterCustomModel: this.appSettings.openrouterCustomModel,
                 openrouterApiKey: this.appSettings.openrouterApiKey,
                 ollamaUrl: this.appSettings.ollamaUrl,
-                ollamaModel: this.appSettings.ollamaModel
+                ollamaModel: this.appSettings.ollamaModel,
+                ttsVoice: this.appSettings.ttsVoice,
+                ttsRate: this.appSettings.ttsRate,
+                ttsVolume: this.appSettings.ttsVolume
             });
 
             // Update local clone to match full state
