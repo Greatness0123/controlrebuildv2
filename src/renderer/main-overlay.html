@@ -434,26 +434,26 @@
         /* Action Status Pill */
         .action-status-pill {
             position: fixed;
-            top: 60px;
+            top: 70px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            color: rgb(255, 255, 255);
-            padding: 12px 20px;
+            background: rgba(88, 28, 135, 0.4); /* Deep purple accent */
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: #ffffff;
+            padding: 10px 22px;
             border-radius: 50px;
+            border: 1px solid rgba(168, 85, 247, 0.5);
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 600;
             opacity: 0;
             pointer-events: none;
             z-index: 9998;
-            /* backdrop-filter: blur(10px); */
             transition: opacity 0.3s ease, transform 0.3s ease;
             display: flex;
             align-items: center;
             gap: 10px;
-            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
             max-width: 400px;
             white-space: nowrap;
             overflow: hidden;
@@ -551,10 +551,10 @@
     </div>
 
     <!-- Control Working Indicator -->
-    <div class="control-working" id="controlWorking">
+    <!-- <div class="control-working" id="controlWorking">
         <div class="working-dot"></div>
         <span>Control is Working</span>
-    </div>
+    </div> -->
 
     <!-- Notification Indicator -->
     <div class="notification-indicator" id="notificationIndicator"></div>
@@ -1159,11 +1159,11 @@
             }
 
             showControlWorking() {
-                this.controlWorking.classList.add('show');
+                if (this.controlWorking) this.controlWorking.classList.add('show');
             }
 
             hideControlWorking() {
-                this.controlWorking.classList.remove('show');
+                if (this.controlWorking) this.controlWorking.classList.remove('show');
             }
 
             playNotificationSound() {

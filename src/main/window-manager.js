@@ -294,12 +294,21 @@ class WindowManager {
             const bannerJS = `
                 (function() {
                     if (document.getElementById('control-agent-banner')) return;
+
+                    const style = document.createElement('style');
+                    style.textContent = \`
+                        @keyframes banner-pulse {
+                            0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4); }
+                            50% { transform: translateX(-50%) scale(1.02); box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6); }
+                        }
+                    \`;
+                    document.head.appendChild(style);
+
                     const banner = document.createElement('div');
                     banner.id = 'control-agent-banner';
-                    banner.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; background: #7c3aed; color: white; text-align: center; padding: 4px 0; font-size: 12px; font-weight: bold; z-index: 2147483647; pointer-events: none; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);';
+                    banner.style.cssText = 'position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(124, 58, 237, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 6px 16px; font-size: 11px; font-weight: 800; border-radius: 30px; border: 1px solid rgba(255,255,255,0.3); z-index: 2147483647; pointer-events: none; letter-spacing: 1.2px; text-transform: uppercase; animation: banner-pulse 2s ease-in-out infinite;';
                     banner.textContent = 'CONTROL IS USING THIS BROWSER';
                     document.body.appendChild(banner);
-                    document.body.style.marginTop = '24px';
                 })();
             `;
             browserWindow.webContents.executeJavaScript(bannerJS).catch(e => console.error('Failed to inject banner:', e));
