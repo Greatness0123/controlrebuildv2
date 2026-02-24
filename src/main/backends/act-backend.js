@@ -94,7 +94,8 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 - focus_window: {"app_name": "...", "confidence": 100}
 - web_search: {"query": "..."} Use this to search the web for information when required by a workflow or task.
 - browser_open: {"url": "..."} - Opens a dedicated, AI-controlled browser window. Use this for deep research or if native search tools are unavailable.
-- browser_execute_js: {"script": "..."} - Executes JavaScript on the current page in the AI-controlled browser.
+- browser_execute_js: {"script": "..."} - Executes JavaScript on the current page in the AI-controlled browser. (Wait for page load if navigation is triggered).
+- browser_screenshot: {} - Captures a screenshot of ONLY the agentic browser window content for detailed analysis.
 - browser_close: {} - Hides the AI-controlled browser window.
 - display_code: {"code": "...", "language": "python|javascript|html|..."} (Use this to show code blocks clearly to the user with a copy button)
 
@@ -545,9 +546,16 @@ class ActBackend {
             if (win) {
               try {
                 const jsResult = await win.webContents.executeJavaScript(params.script);
+                // Give it a moment to react if it triggered a navigation
+                await new Promise(r => setTimeout(r, 800));
+
+                const currentUrl = win.webContents.getURL();
+                const currentTitle = win.webContents.getTitle();
+
                 result.success = true;
-                result.message = `JS executed. Result: ${JSON.stringify(jsResult)}`;
+                result.message = `JS executed. Result: ${JSON.stringify(jsResult) || "Success (no return value)"}. Current URL: ${currentUrl}, Title: ${currentTitle}`;
                 result.result = jsResult;
+                result.url = currentUrl;
               } catch (e) {
                 result.message = `JS error: ${e.message}`;
               }
@@ -556,6 +564,26 @@ class ActBackend {
             }
           } else {
             result.message = "No script provided for browser_execute_js";
+          }
+          break;
+
+        case "browser_screenshot":
+          const browserWin = global.windowManager.getWindow('browser');
+          if (browserWin) {
+            try {
+              const image = await browserWin.capturePage();
+              const timestamp = Date.now();
+              const filename = `browser_shot_${timestamp}.png`;
+              const filepath = path.join(this.screenshotDir, filename);
+              fs.writeFileSync(filepath, image.toPNG());
+              result.success = true;
+              result.screenshot = filepath;
+              result.message = "Browser content captured specifically.";
+            } catch (e) {
+              result.message = `Browser screenshot error: ${e.message}`;
+            }
+          } else {
+            result.message = "Browser window not available";
           }
           break;
 
@@ -740,10 +768,18 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
         const prefs = storageManager.readPreferences();
         const libs = storageManager.readLibraries();
 
+        let browserStatus = "";
+        try {
+            const bwin = global.windowManager.getWindow('browser');
+            if (bwin && bwin.isVisible()) {
+                browserStatus = `\nAgentic Browser Status: URL=${bwin.webContents.getURL()}, Title=${bwin.webContents.getTitle()}`;
+            }
+        } catch(e) {}
+
         const prompt = `User Request: ${userRequest}
 User Preferences: ${JSON.stringify(prefs)}
 Installed Libraries: ${JSON.stringify(libs)}
-Last Action Result: ${lastResultContext}
+Last Action Result: ${lastResultContext}${browserStatus}
 OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.height}
 ${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use browser_open, browser_execute_js, and standard spatial actions to perform web searches manually via a search engine.' : ''}
 

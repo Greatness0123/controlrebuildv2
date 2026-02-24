@@ -41,6 +41,7 @@ class AskBackend {
 - \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
 - \`[BROWSER_OPEN: <url>]\`: Open the agentic browser instance (titled "Control Agentic Browser") to a URL.
 - \`[BROWSER_EXECUTE_JS: <script>]\`: Execute JS in the agentic browser instance.
+- \`[BROWSER_SCREENSHOT]\`: Capture a screenshot of ONLY the agentic browser window content for detailed analysis.
 - \`[DISPLAY_CODE: <language>\\n<code>]\`: Display a formatted code block with a copy button.
 
 **CODE DISPLAY & FORMATTING:**
@@ -100,6 +101,7 @@ class AskBackend {
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
     const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
     const browserJsMatch = /\[BROWSER_EXECUTE_JS:\s*([\s\S]+?)\]/.exec(responseText);
+    const browserScreenshotMatch = /\[BROWSER_SCREENSHOT\]/.exec(responseText);
 
     let requestType = null;
     let requestData = null;
@@ -114,6 +116,8 @@ class AskBackend {
     } else if (browserJsMatch) {
       requestType = "browser_js";
       requestData = browserJsMatch[1].trim();
+    } else if (browserScreenshotMatch) {
+      requestType = "browser_screenshot";
     }
 
     // Process [DISPLAY_CODE] blocks in-place for better flow
@@ -125,6 +129,7 @@ class AskBackend {
         .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
         .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
         .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
+        .replace(/\[BROWSER_SCREENSHOT\]/g, "")
         .trim();
 
     return { requestType, requestData, cleanText };
@@ -305,11 +310,23 @@ class AskBackend {
           if (win) {
             try {
               const res = await win.webContents.executeJavaScript(requestData);
-              output = JSON.stringify(res);
+              output = JSON.stringify(res) || "Success (no return value)";
             } catch (e) {
               output = `Error: ${e.message}`;
             }
-            conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}`);
+            const currentUrl = win.webContents.getURL();
+            conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${currentUrl}`);
+          }
+          continue;
+        } else if (requestType === "browser_screenshot") {
+          const win = global.windowManager.getWindow('browser');
+          if (win) {
+            try {
+              const image = await win.capturePage();
+              conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: image.toPNG().toString("base64") } }, "System: Here is the browser screenshot.");
+            } catch (e) {
+              conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
+            }
           }
           continue;
         } else {
