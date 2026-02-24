@@ -94,7 +94,7 @@
 
 ---
 
-## Screenshots
+<!-- ## Screenshots
 
 <div align="center">
   <img src="https://controlbeta.vercel.app/screenshots/main-interface.png" alt="Main Interface" width="800">
@@ -111,7 +111,7 @@
   <p><em>Voice Control in Action</em></p>
 </div>
 
----
+--- -->
 
 ## Installation
 
@@ -426,7 +426,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Website**: [controlbeta.vercel.app](https://controlbeta.vercel.app/)
 - **Email**: support@controlbeta.vercel.app
 - **Discord**: [Join our Discord](https://discord.gg/control)
-- **Twitter**: [@ControlAI](https://twitter.com/ControlAI)
+- **Twitter**: [@ControlAI](https://twitter.com/Controlai0123)
 - **GitHub Issues**: [Report a bug](https://github.com/Greatness0123/controlrebuildv2/issues)
 
 ---
