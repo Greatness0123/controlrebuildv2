@@ -39,10 +39,10 @@ class AskBackend {
 
 **SYSTEM COMMANDS REFERENCE:**
 - **Battery Status:**
-  - Windows: `WMIC Path Win32_Battery Get EstimatedChargeRemaining`
-  - macOS: `pmset -g batt`
-  - Linux: `upower -i $(upower -e | grep 'BAT') | grep -E "state|to\ full|percentage"`
-- **Memory/Process:** `pgrep`, `top`, `ls`, `dir`
+  - Windows: \`WMIC Path Win32_Battery Get EstimatedChargeRemaining\`
+  - macOS: \`pmset -g batt\`
+  - Linux: \`upower -i $(upower -e | grep 'BAT') | grep -E "state|to\ full|percentage"\`
+- **Memory/Process:** \`pgrep\`, \`top\`,\`ls\`, \`dir\`
 
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
