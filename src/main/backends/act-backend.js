@@ -8,6 +8,7 @@ const path = require("path");
 const os = require("os");
 const Jimp = require("jimp");
 const storageManager = require("../storage-manager");
+const playwrightManager = require("../playwright-manager");
 
 const SYSTEM_PROMPT = `You are Control (Act Mode), A HIGH-PERFORMANCE INTELLIGENT AGENT AI assistant designed for GUI automation and task execution.
 
@@ -493,15 +494,11 @@ class ActBackend {
 
             // Fallback to Agentic Browser if native tools (gemini) are unavailable
             if (this.currentProvider !== 'gemini') {
-                const win = global.windowManager.getWindow('browser');
-                if (win) {
-                    console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
-                    global.windowManager.showWindow('browser');
-                    await win.loadURL(searchUrl);
-                    result.success = true;
-                    result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
-                    return result;
-                }
+                console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
+                await playwrightManager.open(searchUrl);
+                result.success = true;
+                result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
+                return result;
             }
 
             console.log(`[ACT JS] Web search requested for: ${params.query}`);
@@ -526,15 +523,9 @@ class ActBackend {
 
         case "browser_open":
           if (params.url) {
-            const win = global.windowManager.getWindow('browser');
-            if (win) {
-              global.windowManager.showWindow('browser');
-              await win.loadURL(params.url);
-              result.success = true;
-              result.message = `Agentic browser opened to ${params.url}`;
-            } else {
-              result.message = "Browser window not available";
-            }
+            await playwrightManager.open(params.url);
+            result.success = true;
+            result.message = `Agentic browser opened to ${params.url}`;
           } else {
             result.message = "No URL provided for browser_open";
           }
@@ -542,25 +533,19 @@ class ActBackend {
 
         case "browser_execute_js":
           if (params.script) {
-            const win = global.windowManager.getWindow('browser');
-            if (win) {
-              try {
-                const jsResult = await win.webContents.executeJavaScript(params.script);
-                // Give it a moment to react if it triggered a navigation
-                await new Promise(r => setTimeout(r, 800));
+            try {
+              const jsResult = await playwrightManager.executeJs(params.script);
+              // Give it a moment to react if it triggered a navigation
+              await new Promise(r => setTimeout(r, 800));
 
-                const currentUrl = win.webContents.getURL();
-                const currentTitle = win.webContents.getTitle();
+              const status = await playwrightManager.getStatus();
 
-                result.success = true;
-                result.message = `JS executed. Result: ${JSON.stringify(jsResult) || "Success (no return value)"}. Current URL: ${currentUrl}, Title: ${currentTitle}`;
-                result.result = jsResult;
-                result.url = currentUrl;
-              } catch (e) {
-                result.message = `JS error: ${e.message}`;
-              }
-            } else {
-              result.message = "Browser window not available";
+              result.success = true;
+              result.message = `JS executed. Result: ${JSON.stringify(jsResult) || "Success (no return value)"}. Current URL: ${status.url}, Title: ${status.title}`;
+              result.result = jsResult;
+              result.url = status.url;
+            } catch (e) {
+              result.message = `JS error: ${e.message}`;
             }
           } else {
             result.message = "No script provided for browser_execute_js";
@@ -568,29 +553,24 @@ class ActBackend {
           break;
 
         case "browser_screenshot":
-          const browserWin = global.windowManager.getWindow('browser');
-          if (browserWin) {
-            try {
-              const image = await browserWin.capturePage();
-              const timestamp = Date.now();
-              const filename = `browser_shot_${timestamp}.png`;
-              const filepath = path.join(this.screenshotDir, filename);
-              fs.writeFileSync(filepath, image.toPNG());
-              result.success = true;
-              result.screenshot = filepath;
-              result.message = "Browser content captured specifically.";
-            } catch (e) {
-              result.message = `Browser screenshot error: ${e.message}`;
-            }
-          } else {
-            result.message = "Browser window not available";
+          try {
+            const buffer = await playwrightManager.takeScreenshot();
+            const timestamp = Date.now();
+            const filename = `browser_shot_${timestamp}.png`;
+            const filepath = path.join(this.screenshotDir, filename);
+            fs.writeFileSync(filepath, buffer);
+            result.success = true;
+            result.screenshot = filepath;
+            result.message = "Browser content captured specifically via Playwright.";
+          } catch (e) {
+            result.message = `Browser screenshot error: ${e.message}`;
           }
           break;
 
         case "browser_close":
-          global.windowManager.hideWindow('browser');
+          await playwrightManager.close();
           result.success = true;
-          result.message = "Agentic browser window hidden";
+          result.message = "Agentic browser (Playwright) closed";
           break;
 
         case "display_code":
@@ -770,9 +750,9 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
         let browserStatus = "";
         try {
-            const bwin = global.windowManager.getWindow('browser');
-            if (bwin && bwin.isVisible()) {
-                browserStatus = `\nAgentic Browser Status: URL=${bwin.webContents.getURL()}, Title=${bwin.webContents.getTitle()}`;
+            const status = await playwrightManager.getStatus();
+            if (status.success && status.isVisible) {
+                browserStatus = `\nAgentic Browser Status: URL=${status.url}, Title=${status.title}`;
             }
         } catch(e) {}
 

@@ -4,6 +4,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const playwrightManager = require("../playwright-manager");
 
 class AskBackend {
   constructor() {
@@ -35,6 +36,13 @@ class AskBackend {
 - **Analyze user\'s screen** when needed
 - **Check system status** (battery, memory, etc.)
 - **Use web search** for real-time info or research
+
+**SYSTEM COMMANDS REFERENCE:**
+- **Battery Status:**
+  - Windows: `WMIC Path Win32_Battery Get EstimatedChargeRemaining`
+  - macOS: `pmset -g batt`
+  - Linux: `upower -i $(upower -e | grep 'BAT') | grep -E "state|to\ full|percentage"`
+- **Memory/Process:** `pgrep`, `top`, `ls`, `dir`
 
 **TOOLS AVAILABLE:**
 - \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
@@ -297,36 +305,26 @@ class AskBackend {
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
         } else if (requestType === "browser_open") {
-          const win = global.windowManager.getWindow('browser');
-          if (win) {
-            global.windowManager.showWindow('browser');
-            await win.loadURL(requestData);
-            conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData}. You can now request a screenshot to see it.`);
-          }
+          await playwrightManager.open(requestData);
+          conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData} via Playwright. You can now request a screenshot to see it.`);
           continue;
         } else if (requestType === "browser_js") {
-          const win = global.windowManager.getWindow('browser');
           let output = "";
-          if (win) {
-            try {
-              const res = await win.webContents.executeJavaScript(requestData);
-              output = JSON.stringify(res) || "Success (no return value)";
-            } catch (e) {
-              output = `Error: ${e.message}`;
-            }
-            const currentUrl = win.webContents.getURL();
-            conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${currentUrl}`);
+          try {
+            const res = await playwrightManager.executeJs(requestData);
+            output = JSON.stringify(res) || "Success (no return value)";
+          } catch (e) {
+            output = `Error: ${e.message}`;
           }
+          const status = await playwrightManager.getStatus();
+          conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${status.url}`);
           continue;
         } else if (requestType === "browser_screenshot") {
-          const win = global.windowManager.getWindow('browser');
-          if (win) {
-            try {
-              const image = await win.capturePage();
-              conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: image.toPNG().toString("base64") } }, "System: Here is the browser screenshot.");
-            } catch (e) {
-              conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
-            }
+          try {
+            const buffer = await playwrightManager.takeScreenshot();
+            conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot via Playwright.");
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
           }
           continue;
         } else {

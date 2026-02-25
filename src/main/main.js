@@ -44,6 +44,7 @@ const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
 const workflowManager = require('./workflow-manager');
 const appUtils = require('./app-utils');
+const playwrightManager = require('./playwright-manager');
 
 class ComputerUseAgent {
     constructor() {
@@ -1305,51 +1306,32 @@ class ComputerUseAgent {
             }
         });
 
-        // Agentic Browser Handlers
+        // Agentic Browser Handlers (Playwright)
         ipcMain.handle('browser-navigate', async (event, url) => {
-            console.log(`[Main] Browser navigate: ${url}`);
-            const win = this.windowManager.getWindow('browser');
-            if (win) {
-                this.windowManager.showWindow('browser');
-                try {
-                    await win.loadURL(url);
-                    return { success: true };
-                } catch (e) {
-                    return { success: false, message: e.message };
-                }
+            console.log(`[Main] Browser navigate (Playwright): ${url}`);
+            try {
+                return await playwrightManager.open(url);
+            } catch (e) {
+                return { success: false, message: e.message };
             }
-            return { success: false, message: 'Browser window not found' };
         });
 
         ipcMain.handle('browser-execute-js', async (event, script) => {
-            console.log(`[Main] Browser execute JS`);
-            const win = this.windowManager.getWindow('browser');
-            if (win) {
-                try {
-                    const result = await win.webContents.executeJavaScript(script);
-                    return { success: true, result };
-                } catch (e) {
-                    return { success: false, message: e.message };
-                }
+            console.log(`[Main] Browser execute JS (Playwright)`);
+            try {
+                const result = await playwrightManager.executeJs(script);
+                return { success: true, result };
+            } catch (e) {
+                return { success: false, message: e.message };
             }
-            return { success: false, message: 'Browser window not found' };
         });
 
         ipcMain.handle('browser-get-status', async () => {
-            const win = this.windowManager.getWindow('browser');
-            if (win) {
-                return {
-                    success: true,
-                    url: win.webContents.getURL(),
-                    title: win.webContents.getTitle(),
-                    isVisible: win.isVisible()
-                };
-            }
-            return { success: false, message: 'Browser window not found' };
+            return await playwrightManager.getStatus();
         });
 
         ipcMain.handle('browser-close', async () => {
-            this.windowManager.hideWindow('browser');
+            await playwrightManager.close();
             return { success: true };
         });
     }
@@ -1504,15 +1486,6 @@ class ComputerUseAgent {
                     window.setContentProtection(protect);
                     window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
 
-                    // Some platforms need a slight "nudge" to apply content protection changes to an existing window
-                    if (window.isVisible()) {
-                        // Toggling always-on-top level can sometimes trigger the OS to refresh the window's capture state
-                        const isAlwaysOnTop = window.isAlwaysOnTop();
-                        if (isAlwaysOnTop) {
-                            window.setAlwaysOnTop(false);
-                            window.setAlwaysOnTop(true, 'screen-saver');
-                        }
-                    }
                     console.log(`[Main] Applied visibility settings to window ${index}`);
                 } catch (e) {
                     console.error(`[Main] Failed to update visibility for window ${index}:`, e);

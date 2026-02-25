@@ -37,9 +37,6 @@ class WindowManager {
         // Create workflow window
         await this.createWorkflowWindow();
 
-        // Create agentic browser window
-        await this.createBrowserWindow();
-
         // Setup window management
         this.setupWindowManagement();
     }
@@ -211,15 +208,21 @@ class WindowManager {
         this.setupDraggableWindow(settingsWindow);
 
         // Close settings when it loses focus (click outside closes it).
-        // Use a short debounce to avoid hiding during transient focus shifts (e.g., scrolling or touch interactions).
+        // Use a longer debounce to avoid hiding during transient focus shifts (e.g., scrolling or touch interactions).
         settingsWindow.on('blur', () => {
             setTimeout(() => {
                 try {
                     if (!settingsWindow.isDestroyed() && !settingsWindow.isFocused()) {
-                        settingsWindow.hide();
+                        // Check if another window we manage just gained focus
+                        const focusedWindow = BrowserWindow.getFocusedWindow();
+                        const isOtherManagedWindowFocused = Array.from(this.windows.values()).some(w => w === focusedWindow);
+
+                        if (!isOtherManagedWindowFocused) {
+                            settingsWindow.hide();
+                        }
                     }
                 } catch (e) { }
-            }, 150);
+            }, 300);
         });
         console.log('[WindowManager] Settings window created and registered');
     }
@@ -271,63 +274,6 @@ class WindowManager {
         this.setupDraggableWindow(workflowWindow);
     }
 
-    async createBrowserWindow() {
-        console.log('[WindowManager] Creating agentic browser window...');
-        const browserWindow = new BrowserWindow({
-            width: 1024,
-            height: 768,
-            title: 'Control Agentic Browser', // Distinctive title
-            frame: true, // Standard window frame for browser
-            transparent: false,
-            alwaysOnTop: true,
-            show: false,
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-                sandbox: true,
-                webSecurity: true
-            }
-        });
-
-        // Add a banner when a page loads
-        browserWindow.webContents.on('did-finish-load', () => {
-            const bannerJS = `
-                (function() {
-                    if (document.getElementById('control-agent-banner')) return;
-
-                    const style = document.createElement('style');
-                    style.textContent = \`
-                        @keyframes banner-pulse {
-                            0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4); }
-                            50% { transform: translateX(-50%) scale(1.02); box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6); }
-                        }
-                    \`;
-                    document.head.appendChild(style);
-
-                    const banner = document.createElement('div');
-                    banner.id = 'control-agent-banner';
-                    banner.style.cssText = 'position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(124, 58, 237, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: white; padding: 6px 16px; font-size: 11px; font-weight: 800; border-radius: 30px; border: 1px solid rgba(255,255,255,0.3); z-index: 2147483647; pointer-events: none; letter-spacing: 1.2px; text-transform: uppercase; animation: banner-pulse 2s ease-in-out infinite;';
-                    banner.textContent = 'CONTROL IS USING THIS BROWSER';
-                    document.body.appendChild(banner);
-                })();
-            `;
-            browserWindow.webContents.executeJavaScript(bannerJS).catch(e => console.error('Failed to inject banner:', e));
-        });
-
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        browserWindow.setContentProtection(!windowVisibility);
-        browserWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
-        browserWindow.setAlwaysOnTop(true, 'screen-saver');
-
-        this.windows.set('browser', browserWindow);
-
-        browserWindow.on('close', (e) => {
-            if (!this.isQuitting) {
-                e.preventDefault();
-                browserWindow.hide();
-            }
-        });
-    }
 
     async createEntryWindow() {
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
@@ -431,9 +377,8 @@ class WindowManager {
                 console.log('[WindowManager] showWindow(settings): hiding floating button if enabled');
                 this.hideFloatingButtonIfEnabled();
             }
-            console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
+            console.log(`[WindowManager] showWindow: Showing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
             browserWindow.show();
-            browserWindow.focus();
             return true;
         }
         console.log(`[WindowManager] Window not found or destroyed for ${windowType}`);
