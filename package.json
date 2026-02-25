@@ -137,6 +137,7 @@
     "marked": "^17.0.1",
     "node-global-key-listener": "^0.1.1",
     "openai": "^4.104.0",
+    "playwright": "^1.58.2",
     "python-shell": "^5.0.0",
     "say": "^0.16.0",
     "screenshot-desktop": "^1.15.3",
