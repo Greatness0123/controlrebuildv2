@@ -867,9 +867,27 @@
                         </div>
                     </div>
                     <select id="modelProvider" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
-                        <option value="gemini">Google Gemini (Native)</option>
-                        <option value="openrouter">OpenRouter (Pro/Master)</option>
-                        <option value="ollama">Ollama (Local)</option>
+                        <optgroup label="Classic Providers">
+                            <option value="gemini">Google Gemini (Native)</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="xai">xAI (Grok)</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="moonshot">Moonshot AI</option>
+                            <option value="zai">Z-AI</option>
+                        </optgroup>
+                        <optgroup label="Cloud Providers">
+                            <option value="aws">AWS Bedrock</option>
+                            <option value="azure">Azure AI Foundry</option>
+                            <option value="vertex">Google Vertex AI</option>
+                        </optgroup>
+                        <optgroup label="Local & Proxy">
+                            <option value="ollama">Ollama (Local)</option>
+                            <option value="lmstudio">LMStudio (Local)</option>
+                            <option value="openrouter">OpenRouter (Pro/Master)</option>
+                            <option value="litellm">LiteLLM</option>
+                            <option value="minimax">MiniMax</option>
+                        </optgroup>
                     </select>
                 </div>
 
@@ -944,7 +962,7 @@
                     </div>
                 </div>
 
-                <!-- Ollama Settings (Show when Provider is Ollama) -->
+                <!-- Ollama Settings -->
                 <div id="ollamaSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
                     <div class="setting-item">
                         <div class="setting-left">
@@ -967,14 +985,79 @@
                         </div>
                         <input type="text" id="ollamaModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="llama3">
                     </div>
+                </div>
 
-                    <div style="margin-top: 10px; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 10px; border: 1px solid rgba(245, 158, 11, 0.2);">
-                        <div style="display: flex; gap: 8px; align-items: flex-start;">
-                            <i data-lucide="info" style="width: 16px; height: 16px; color: #f59e0b; margin-top: 2px;"></i>
-                            <div style="font-size: 12px; color: #374151; line-height: 1.4;">
-                                <strong>Note:</strong> For computer use tasks with Ollama, please use a <strong>multimodal</strong> model with vision support (e.g. <code>llama3-vision</code> or <code>llava</code>).
+                <!-- Universal Provider Settings (OpenAI, Anthropic, DeepSeek, etc.) -->
+                <div id="universalSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="key" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">API Key</div>
+                                <div class="setting-description" id="universalApiKeyLabel">Enter provider API key</div>
                             </div>
                         </div>
+                        <input type="password" id="universalApiKey" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="sk-...">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="box" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Model Name</div>
+                                <div class="setting-description">Enter model identifier</div>
+                            </div>
+                        </div>
+                        <input type="text" id="universalModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="gpt-4o">
+                    </div>
+
+                    <div id="baseUrlContainer" style="display: none;">
+                        <div class="setting-item">
+                            <div class="setting-left">
+                                <i data-lucide="link" class="setting-icon"></i>
+                                <div class="setting-info">
+                                    <div class="setting-name">Base URL</div>
+                                    <div class="setting-description">Custom API endpoint (optional)</div>
+                                </div>
+                            </div>
+                            <input type="text" id="universalBaseUrl" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="https://api.openai.com/v1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cloud Provider Settings (AWS, Azure, Vertex) -->
+                <div id="cloudSettings" style="display: none; padding-top: 10px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,0.05);">
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="globe" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Region / Endpoint</div>
+                                <div class="setting-description" id="cloudRegionLabel">Cloud region or endpoint</div>
+                            </div>
+                        </div>
+                        <input type="text" id="cloudRegion" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="us-east-1">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="shield-check" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Credentials / Key</div>
+                                <div class="setting-description">Access key or connection string</div>
+                            </div>
+                        </div>
+                        <input type="password" id="cloudCredentials" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="Credentials...">
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-left">
+                            <i data-lucide="box" class="setting-icon"></i>
+                            <div class="setting-info">
+                                <div class="setting-name">Model ID</div>
+                                <div class="setting-description">Cloud model identifier</div>
+                            </div>
+                        </div>
+                        <input type="text" id="cloudModel" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);" placeholder="anthropic.claude-3-sonnet-20240229-v1:0">
                     </div>
                 </div>
             </div>

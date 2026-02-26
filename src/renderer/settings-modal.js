@@ -27,6 +27,19 @@ class SettingsModal {
             ollamaEnabled: false,
             ollamaUrl: 'http://localhost:11434',
             ollamaModel: 'llama3',
+            // Universal / Generic Provider Settings
+            universalApiKey: '',
+            universalModel: '',
+            universalBaseUrl: '',
+            // Cloud Provider Settings
+            cloudRegion: '',
+            cloudCredentials: '',
+            cloudModel: '',
+            // Provider-specific keys (optional, can use universal)
+            openaiApiKey: '', openaiModel: 'gpt-4o',
+            anthropicApiKey: '', anthropicModel: 'claude-3-5-sonnet-20240620',
+            deepseekApiKey: '', deepseekModel: 'deepseek-chat',
+            xaiApiKey: '', xaiModel: 'grok-beta',
             hotkeys: {
                 toggleChat: 'CommandOrControl+Space',
                 stopAction: 'Alt+Z'
@@ -133,6 +146,45 @@ class SettingsModal {
 
         document.getElementById('ollamaModel')?.addEventListener('change', (e) => {
             this.settings.ollamaModel = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('universalApiKey')?.addEventListener('change', (e) => {
+            this.settings.universalApiKey = e.target.value;
+            // Also save to provider-specific key if applicable
+            const provider = this.settings.modelProvider;
+            if (['openai', 'anthropic', 'deepseek', 'xai', 'moonshot', 'zai', 'litellm', 'minimax', 'lmstudio'].includes(provider)) {
+                this.settings[`${provider}ApiKey`] = e.target.value;
+            }
+            this.saveSettings();
+        });
+
+        document.getElementById('universalModel')?.addEventListener('change', (e) => {
+            this.settings.universalModel = e.target.value;
+            const provider = this.settings.modelProvider;
+            if (['openai', 'anthropic', 'deepseek', 'xai', 'moonshot', 'zai', 'litellm', 'minimax', 'lmstudio'].includes(provider)) {
+                this.settings[`${provider}Model`] = e.target.value;
+            }
+            this.saveSettings();
+        });
+
+        document.getElementById('universalBaseUrl')?.addEventListener('change', (e) => {
+            this.settings.universalBaseUrl = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('cloudRegion')?.addEventListener('change', (e) => {
+            this.settings.cloudRegion = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('cloudCredentials')?.addEventListener('change', (e) => {
+            this.settings.cloudCredentials = e.target.value;
+            this.saveSettings();
+        });
+
+        document.getElementById('cloudModel')?.addEventListener('change', (e) => {
+            this.settings.cloudModel = e.target.value;
             this.saveSettings();
         });
 
@@ -606,12 +658,51 @@ class SettingsModal {
         // Update Provider selection
         const modelProvider = document.getElementById('modelProvider');
         if (modelProvider) {
-            modelProvider.value = this.settings.modelProvider || 'gemini';
+            const provider = this.settings.modelProvider || 'gemini';
+            modelProvider.value = provider;
 
             // Show/hide sub-sections
-            document.getElementById('geminiSettings').style.display = (modelProvider.value === 'gemini') ? 'block' : 'none';
-            document.getElementById('openrouterSettings').style.display = (modelProvider.value === 'openrouter') ? 'block' : 'none';
-            document.getElementById('ollamaSettings').style.display = (modelProvider.value === 'ollama') ? 'block' : 'none';
+            document.getElementById('geminiSettings').style.display = (provider === 'gemini') ? 'block' : 'none';
+            document.getElementById('openrouterSettings').style.display = (provider === 'openrouter') ? 'block' : 'none';
+            document.getElementById('ollamaSettings').style.display = (provider === 'ollama') ? 'block' : 'none';
+
+            const isUniversal = ['openai', 'anthropic', 'deepseek', 'xai', 'moonshot', 'zai', 'litellm', 'minimax', 'lmstudio'].includes(provider);
+            const isCloud = ['aws', 'azure', 'vertex'].includes(provider);
+
+            document.getElementById('universalSettings').style.display = isUniversal ? 'block' : 'none';
+            document.getElementById('cloudSettings').style.display = isCloud ? 'block' : 'none';
+
+            if (isUniversal) {
+                const apiKeyInput = document.getElementById('universalApiKey');
+                const modelInput = document.getElementById('universalModel');
+                const baseUrlContainer = document.getElementById('baseUrlContainer');
+                const baseUrlInput = document.getElementById('universalBaseUrl');
+                const apiKeyLabel = document.getElementById('universalApiKeyLabel');
+
+                apiKeyInput.value = this.settings[`${provider}ApiKey`] || this.settings.universalApiKey || '';
+                modelInput.value = this.settings[`${provider}Model`] || this.settings.universalModel || '';
+
+                // Show base URL for specific providers
+                const needsBaseUrl = ['litellm', 'lmstudio', 'zai'].includes(provider);
+                baseUrlContainer.style.display = needsBaseUrl ? 'block' : 'none';
+                if (needsBaseUrl) {
+                    baseUrlInput.value = this.settings.universalBaseUrl || (provider === 'lmstudio' ? 'http://localhost:1234/v1' : '');
+                }
+
+                // Update label based on provider
+                apiKeyLabel.textContent = `${provider.toUpperCase()} API Key`;
+            }
+
+            if (isCloud) {
+                document.getElementById('cloudRegion').value = this.settings.cloudRegion || '';
+                document.getElementById('cloudCredentials').value = this.settings.cloudCredentials || '';
+                document.getElementById('cloudModel').value = this.settings.cloudModel || '';
+
+                const regionLabel = document.getElementById('cloudRegionLabel');
+                if (provider === 'aws') regionLabel.textContent = 'AWS Region (e.g. us-east-1)';
+                else if (provider === 'azure') regionLabel.textContent = 'Azure Endpoint URL';
+                else if (provider === 'vertex') regionLabel.textContent = 'GCP Project ID / Location';
+            }
 
             // Disable OpenRouter for free users in dropdown
             const openrouterOption = modelProvider.querySelector('option[value="openrouter"]');
