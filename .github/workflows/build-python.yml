@@ -5,7 +5,7 @@ on:
     branches: [ main, develop ]
     paths:
       - 'vosk_server_v2.py'
-      - 'requirements.txt'
+      - 'vosk-requirements.txt'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -17,19 +17,50 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r vosk-requirements.txt
         pip install pyinstaller
     
     - name: Build vosk_server_v2
       run: |
-        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+        pyinstaller --onefile --console --name vosk_server_v2 ^
+          --hidden-import=vosk ^
+          --hidden-import=websockets ^
+          --hidden-import=websockets.legacy ^
+          --hidden-import=websockets.legacy.server ^
+          --hidden-import=websockets.legacy.client ^
+          --hidden-import=websockets.legacy.protocol ^
+          --hidden-import=websockets.legacy.handshake ^
+          --hidden-import=websockets.server ^
+          --hidden-import=websockets.client ^
+          --hidden-import=websockets.exceptions ^
+          --hidden-import=websockets.frames ^
+          --hidden-import=websockets.headers ^
+          --hidden-import=websockets.http ^
+          --hidden-import=websockets.http11 ^
+          --hidden-import=websockets.uri ^
+          --hidden-import=json ^
+          --hidden-import=logging ^
+          --hidden-import=asyncio ^
+          --hidden-import=argparse ^
+          --hidden-import=pathlib ^
+          --hidden-import=edge_tts ^
+          --collect-all vosk ^
+          --collect-all websockets ^
+          --collect-all edge_tts ^
+          vosk_server_v2.py
+      shell: cmd
+
+    - name: Verify executable
+      run: |
+        dist\vosk_server_v2.exe --help
+      shell: cmd
     
     - name: Upload Windows artifacts
       uses: actions/upload-artifact@v4
@@ -44,7 +75,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
@@ -54,15 +85,42 @@ jobs:
 
     - name: Install dependencies
       run: |
-        export CFLAGS="-I/$(brew --prefix portaudio)/include"
-        export LDFLAGS="-L/$(brew --prefix portaudio)/lib"
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r vosk-requirements.txt
         pip install pyinstaller
     
     - name: Build vosk_server_v2
       run: |
-        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+        pyinstaller --onefile --console --name vosk_server_v2 \
+          --hidden-import=vosk \
+          --hidden-import=websockets \
+          --hidden-import=websockets.legacy \
+          --hidden-import=websockets.legacy.server \
+          --hidden-import=websockets.legacy.client \
+          --hidden-import=websockets.legacy.protocol \
+          --hidden-import=websockets.legacy.handshake \
+          --hidden-import=websockets.server \
+          --hidden-import=websockets.client \
+          --hidden-import=websockets.exceptions \
+          --hidden-import=websockets.frames \
+          --hidden-import=websockets.headers \
+          --hidden-import=websockets.http \
+          --hidden-import=websockets.http11 \
+          --hidden-import=websockets.uri \
+          --hidden-import=json \
+          --hidden-import=logging \
+          --hidden-import=asyncio \
+          --hidden-import=argparse \
+          --hidden-import=pathlib \
+          --hidden-import=edge_tts \
+          --collect-all vosk \
+          --collect-all websockets \
+          --collect-all edge_tts \
+          vosk_server_v2.py
+
+    - name: Verify executable
+      run: |
+        ./dist/vosk_server_v2 --help
     
     - name: Upload macOS artifacts
       uses: actions/upload-artifact@v4
@@ -77,7 +135,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
@@ -89,12 +147,41 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r vosk-requirements.txt
         pip install pyinstaller
     
     - name: Build vosk_server_v2
       run: |
-        pyinstaller --onefile --console --name vosk_server_v2 vosk_server_v2.py
+        pyinstaller --onefile --console --name vosk_server_v2 \
+          --hidden-import=vosk \
+          --hidden-import=websockets \
+          --hidden-import=websockets.legacy \
+          --hidden-import=websockets.legacy.server \
+          --hidden-import=websockets.legacy.client \
+          --hidden-import=websockets.legacy.protocol \
+          --hidden-import=websockets.legacy.handshake \
+          --hidden-import=websockets.server \
+          --hidden-import=websockets.client \
+          --hidden-import=websockets.exceptions \
+          --hidden-import=websockets.frames \
+          --hidden-import=websockets.headers \
+          --hidden-import=websockets.http \
+          --hidden-import=websockets.http11 \
+          --hidden-import=websockets.uri \
+          --hidden-import=json \
+          --hidden-import=logging \
+          --hidden-import=asyncio \
+          --hidden-import=argparse \
+          --hidden-import=pathlib \
+          --hidden-import=edge_tts \
+          --collect-all vosk \
+          --collect-all websockets \
+          --collect-all edge_tts \
+          vosk_server_v2.py
+
+    - name: Verify executable
+      run: |
+        ./dist/vosk_server_v2 --help
     
     - name: Upload Linux artifacts
       uses: actions/upload-artifact@v4

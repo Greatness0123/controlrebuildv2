@@ -38,7 +38,7 @@ jobs:
         cache: npm
 
     # ----------------------------------------------------
-    # Python (node-gyp)
+    # Python (PyInstaller + node-gyp)
     # ----------------------------------------------------
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -55,7 +55,81 @@ jobs:
         sudo apt-get install -y \
           build-essential \
           pkg-config \
-          libffi-dev
+          libffi-dev \
+          python3-tk \
+          python3-dev \
+          portaudio19-dev
+
+    # ----------------------------------------------------
+    # macOS native build dependencies
+    # ----------------------------------------------------
+    - name: Install macOS build tools
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install portaudio
+
+    # ----------------------------------------------------
+    # Build Python executables (bundled with all deps)
+    # ----------------------------------------------------
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r vosk-requirements.txt
+        pip install pyinstaller
+
+    - name: Build vosk_server_v2 executable
+      shell: bash
+      run: |
+        pyinstaller --onefile --console --name vosk_server_v2 \
+          --hidden-import=vosk \
+          --hidden-import=websockets \
+          --hidden-import=websockets.legacy \
+          --hidden-import=websockets.legacy.server \
+          --hidden-import=websockets.legacy.client \
+          --hidden-import=websockets.legacy.protocol \
+          --hidden-import=websockets.legacy.handshake \
+          --hidden-import=websockets.server \
+          --hidden-import=websockets.client \
+          --hidden-import=websockets.exceptions \
+          --hidden-import=websockets.frames \
+          --hidden-import=websockets.headers \
+          --hidden-import=websockets.http \
+          --hidden-import=websockets.http11 \
+          --hidden-import=websockets.uri \
+          --hidden-import=json \
+          --hidden-import=logging \
+          --hidden-import=asyncio \
+          --hidden-import=argparse \
+          --hidden-import=pathlib \
+          --hidden-import=edge_tts \
+          --collect-all vosk \
+          --collect-all websockets \
+          --collect-all edge_tts \
+          vosk_server_v2.py
+
+    - name: Verify vosk executable
+      shell: bash
+      run: |
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          ./dist/vosk_server_v2.exe --help
+        else
+          ./dist/vosk_server_v2 --help
+        fi
+
+    - name: Copy Python executables to assets
+      shell: bash
+      run: |
+        mkdir -p assets/binaries
+
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          cp dist/vosk_server_v2.exe assets/binaries/
+        else
+          cp dist/vosk_server_v2 assets/binaries/
+          chmod +x assets/binaries/vosk_server_v2
+        fi
+
+        echo "Contents of assets/binaries:"
+        ls -la assets/binaries/
 
     # ----------------------------------------------------
     # Install dependencies (STRICT, deterministic)
@@ -73,36 +147,10 @@ jobs:
         npm_config_build_from_source: true
 
     # ----------------------------------------------------
-    # Prepare Python binaries
-    # ----------------------------------------------------
-    - name: Prepare Python executables
-      shell: bash
-      run: |
-        echo "Preparing python binaries..."
-        mkdir -p assets/binaries
-
-        if [ ! -d "python-artifacts" ] || [ -z "$(ls -A python-artifacts 2>/dev/null)" ]; then
-          echo "WARNING: python-artifacts directory missing or empty."
-          exit 0
-        fi
-
-        if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-          cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
-          chmod +x assets/binaries/* || true
-
-        elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-          cp python-artifacts/dist/vosk_server_v2.exe assets/binaries/ 2>/dev/null || true
-
-        elif [ "${{ matrix.os }}" = "macos-latest" ]; then
-          cp python-artifacts/dist/vosk_server_v2 assets/binaries/ 2>/dev/null || true
-          chmod +x assets/binaries/* || true
-        fi
-
-    # ----------------------------------------------------
     # Build Electron app
     # ----------------------------------------------------
     - name: Build Electron app
-      run: npm run build
+      run: npm run build-app
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

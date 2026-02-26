@@ -50,6 +50,7 @@
     ],
     "extraResources": [
       "assets/**/*",
+      "assets/binaries/**/*",
       "config/**/*",
       "src/config/**/*",
       "vosk_server_v2.py"

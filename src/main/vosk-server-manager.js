@@ -20,6 +20,8 @@ class VoskServerManager {
         this.host = '127.0.0.1';
         this.isRunning = false;
         this.pythonExePath = null;
+        this.executablePath = null; // Path to the compiled PyInstaller executable
+        this.useExecutable = false; // Whether to use the compiled executable
 
         this.resolvePaths();
 
@@ -41,7 +43,30 @@ class VoskServerManager {
         }
         searchDirs.push(process.cwd());
 
-        // Find vosk_server_v2.py
+        // --- 1. Look for compiled executable FIRST (no Python needed) ---
+        const exeName = process.platform === 'win32' ? 'vosk_server_v2.exe' : 'vosk_server_v2';
+        const binarySubDirs = ['assets/binaries', 'binaries'];
+        this.executablePath = null;
+        this.useExecutable = false;
+
+        for (const dir of searchDirs) {
+            for (const sub of binarySubDirs) {
+                const p = path.join(dir, sub, exeName);
+                if (fs.existsSync(p)) {
+                    this.executablePath = p;
+                    this.useExecutable = true;
+                    console.log(`[Vosk] Found compiled executable at: ${p}`);
+                    break;
+                }
+            }
+            if (this.executablePath) break;
+        }
+
+        if (!this.executablePath) {
+            console.log('[Vosk] No compiled executable found, will fall back to Python script.');
+        }
+
+        // --- 2. Find vosk_server_v2.py (fallback) ---
         this.serverScriptPath = null;
         for (const dir of searchDirs) {
             const p = path.join(dir, "vosk_server_v2.py");
@@ -56,7 +81,7 @@ class VoskServerManager {
             console.error(`[Vosk] Server script not found. Fallback: ${this.serverScriptPath}`);
         }
 
-        // Find vosk-model
+        // --- 3. Find vosk-model ---
         this.modelPath = null;
         const modelSubDirs = ["assets/vosk-model", "vosk-model"];
         for (const dir of searchDirs) {
@@ -235,29 +260,45 @@ class VoskServerManager {
 
             console.log('Starting Vosk server V2...');
 
-            // Find Python
-            if (!this.pythonExePath) {
-                this.pythonExePath = await this.findPythonExecutable();
-            }
-
             // Create log files
             const logStream = fs.createWriteStream(this.logFile, { flags: 'a' });
             const errorStream = fs.createWriteStream(this.errorFile, { flags: 'a' });
 
-            // Spawn server process
-            this.serverProcess = spawn(this.pythonExePath, [
-                this.serverScriptPath,
-                '--host', this.host,
-                '--port', this.port.toString(),
-                '--model', this.modelPath
-            ], {
-                detached: false,
-                stdio: ['ignore', 'pipe', 'pipe'],
-                env: {
-                    ...process.env,
-                    PYTHONUNBUFFERED: '1'
+            // Determine how to start the server
+            if (this.useExecutable && this.executablePath && fs.existsSync(this.executablePath)) {
+                // --- Use compiled executable (no Python needed) ---
+                console.log(`[Vosk] Starting with compiled executable: ${this.executablePath}`);
+
+                this.serverProcess = spawn(this.executablePath, [
+                    '--host', this.host,
+                    '--port', this.port.toString(),
+                    '--model', this.modelPath
+                ], {
+                    detached: false,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    env: { ...process.env }
+                });
+            } else {
+                // --- Fallback: use Python script ---
+                console.log('[Vosk] Using Python script fallback...');
+                if (!this.pythonExePath) {
+                    this.pythonExePath = await this.findPythonExecutable();
                 }
-            });
+
+                this.serverProcess = spawn(this.pythonExePath, [
+                    this.serverScriptPath,
+                    '--host', this.host,
+                    '--port', this.port.toString(),
+                    '--model', this.modelPath
+                ], {
+                    detached: false,
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                    env: {
+                        ...process.env,
+                        PYTHONUNBUFFERED: '1'
+                    }
+                });
+            }
 
             // Pipe output to log files
             this.serverProcess.stdout.pipe(logStream);
@@ -289,7 +330,7 @@ class VoskServerManager {
                     console.error('[Vosk] Server startup error logs:', logs.errors.slice(-500));
                 }
                 this.stop();
-                throw new Error('Server did not respond in time. Check Python dependencies and model path.');
+                throw new Error('Server did not respond in time. Check dependencies and model path.');
             }
         } catch (error) {
             console.error('Error starting Vosk server:', error.message);
