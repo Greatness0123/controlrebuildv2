@@ -20,6 +20,9 @@ class EdgeTTSManager extends EventEmitter {
         this.volume = 1.0;
         this.currentProcess = null;
         this.pythonExe = null;
+        this.onlineAvailable = true;
+        this.consecutiveFailures = 0;
+        this.lastFailureTime = 0;
 
         console.log('[EdgeTTS] Initialized with robust Python-bridge implementation');
     }
@@ -98,14 +101,34 @@ class EdgeTTSManager extends EventEmitter {
         this.isSpeaking = true;
         const text = this.queue.shift();
 
+        // If we've had many consecutive failures recently, skip online check for a while
+        const now = Date.now();
+        const cooldownActive = this.consecutiveFailures >= 3 && (now - this.lastFailureTime < 300000); // 5 minute cooldown
+
         try {
-            if (this.useOfflineFallback) {
+            if (this.useOfflineFallback || !this.onlineAvailable || cooldownActive) {
+                if (cooldownActive) console.log('[EdgeTTS] Online TTS cooldown active, using offline fallback');
                 await this.speakOffline(text);
             } else {
                 await this.speakOnline(text);
+                this.consecutiveFailures = 0; // Reset on success
             }
         } catch (error) {
-            console.error('[EdgeTTS] TTS error:', error);
+            const errorMsg = error.message || '';
+            const isNetworkError = errorMsg.includes('getaddrinfo') ||
+                                 errorMsg.includes('connection') ||
+                                 errorMsg.includes('timeout') ||
+                                 errorMsg.includes('ClientConnectorError');
+
+            if (isNetworkError) {
+                console.warn('[EdgeTTS] Network connectivity issue detected during online TTS');
+            } else {
+                console.error('[EdgeTTS] TTS error:', error);
+            }
+
+            this.consecutiveFailures++;
+            this.lastFailureTime = now;
+
             if (!this.useOfflineFallback) {
                 try {
                     console.log('[EdgeTTS] Online failed, trying offline fallback');
@@ -186,7 +209,16 @@ class EdgeTTSManager extends EventEmitter {
                             reject(e);
                         }
                     } else {
-                        console.error('[EdgeTTS] Python edge-tts error output:', stderr);
+                        const isNetworkError = stderr.includes('getaddrinfo failed') ||
+                                             stderr.includes('ClientConnectorError') ||
+                                             stderr.includes('DNSError');
+
+                        if (isNetworkError) {
+                            const shortError = stderr.split('\n').filter(l => l.includes('Error')).pop() || 'Network connection failed';
+                            console.warn(`[EdgeTTS] Online TTS failed (Network): ${shortError.trim()}`);
+                        } else {
+                            console.error('[EdgeTTS] Python edge-tts error output:', stderr);
+                        }
                         reject(new Error(`edge-tts process exited with code ${code}: ${stderr.trim()}`));
                     }
                 });
@@ -349,20 +381,43 @@ $mediaPlayer.Close()
     }
 
     async getAvailableVoices() {
+        // Avoid repeated network calls if we know we're offline or in cooldown
+        const now = Date.now();
+        const cooldownActive = this.consecutiveFailures >= 3 && (now - this.lastFailureTime < 300000);
+
+        if (cooldownActive) {
+            console.log('[EdgeTTS] Skipping voice fetch due to network cooldown');
+            return this.getDefaultVoices();
+        }
+
         try {
             const python = await this.findPython();
             if (!python) throw new Error('Python not found');
 
-            const { stdout } = await execAsync(`${python} -m edge_tts --list-voices`);
+            // Use a shorter timeout for voice listing
+            const { stdout } = await execAsync(`${python} -m edge_tts --list-voices`, { timeout: 5000 });
             const voices = stdout.split('\n')
                 .filter(line => line.includes('Name:'))
                 .map(line => line.split('Name:')[1].trim().split(' ')[0]);
 
-            if (voices.length > 0) return voices;
+            if (voices.length > 0) {
+                this.onlineAvailable = true;
+                return voices;
+            }
         } catch (e) {
-            console.warn('[EdgeTTS] Failed to fetch voices from python, using fallback:', e.message);
+            const isNetworkError = e.message.includes('getaddrinfo') || e.message.includes('ETIMEDOUT');
+            if (isNetworkError) {
+                console.warn('[EdgeTTS] Failed to fetch voices (Network issue)');
+                this.onlineAvailable = false;
+            } else {
+                console.warn('[EdgeTTS] Failed to fetch voices from python:', e.message);
+            }
         }
 
+        return this.getDefaultVoices();
+    }
+
+    getDefaultVoices() {
         // Return standard Edge TTS voices as fallback
         return [
             'en-US-JennyNeural',
