@@ -341,11 +341,9 @@ class EntryWindow {
 
     async closeWindow() {
         if (window.entryAPI) {
-            await window.entryAPI.closeWindow();
+            await window.entryAPI.quitApp();
         } else {
-            if (confirm('Are you sure you want to quit the application?')) {
-                window.close();
-            }
+            window.close();
         }
     }
 
