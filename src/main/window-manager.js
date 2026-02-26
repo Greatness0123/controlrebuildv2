@@ -272,7 +272,7 @@ class WindowManager {
             y: (height - 600) / 2,
             frame: false,
             transparent: false,
-            alwaysOnTop: false,
+            alwaysOnTop: true,
             skipTaskbar: false,
             resizable: true,
             movable: true,
@@ -344,30 +344,42 @@ class WindowManager {
         });
     }
 
-    showWindow(windowType) {
-        const browserWindow = this.windows.get(windowType);
+    async showWindow(windowType) {
+        let browserWindow = this.windows.get(windowType);
         console.log(`[WindowManager] showWindow('${windowType}'):`, { exists: !!browserWindow, destroyed: browserWindow?.isDestroyed?.() });
-        if (browserWindow && !browserWindow.isDestroyed()) {
-            if (browserWindow.isVisible()) return true;
 
+        // If window doesn't exist or is destroyed, recreate it
+        if (!browserWindow || browserWindow.isDestroyed()) {
+            console.log(`[WindowManager] Window ${windowType} not found or destroyed, recreating...`);
+            if (windowType === 'entry') await this.createEntryWindow();
+            else if (windowType === 'chat') await this.createChatWindow();
+            else if (windowType === 'settings') await this.createSettingsWindow();
+            else if (windowType === 'workflow') await this.createWorkflowWindow();
+            else if (windowType === 'main') await this.createMainWindow();
+
+            browserWindow = this.windows.get(windowType);
+        }
+
+        if (browserWindow && !browserWindow.isDestroyed()) {
             if (windowType === 'chat') {
                 this.chatVisible = true;
-                // Only hide floating button if it's enabled in settings
                 console.log('[WindowManager] showWindow(chat): hiding floating button if enabled');
                 this.hideFloatingButtonIfEnabled();
             }
             if (windowType === 'settings') {
-                // Make overlay click-through while settings is open so settings receives events
                 this.setInteractive(false);
-                // Only hide floating button if it's enabled in settings
                 console.log('[WindowManager] showWindow(settings): hiding floating button if enabled');
                 this.hideFloatingButtonIfEnabled();
             }
-            console.log(`[WindowManager] showWindow: Showing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
+
+            console.log(`[WindowManager] showWindow: Showing and focusing ${windowType}. Current state: chatVisible=${this.chatVisible}`);
+
+            // Always show and focus to ensure it's on top and active
             browserWindow.show();
+            browserWindow.focus();
+
             return true;
         }
-        console.log(`[WindowManager] Window not found or destroyed for ${windowType}`);
         return false;
     }
 
@@ -391,7 +403,7 @@ class WindowManager {
         return false;
     }
 
-    toggleChat() {
+    async toggleChat() {
         console.log(`[WindowManager] toggleChat: Current chatVisible=${this.chatVisible}`);
         if (this.chatVisible) {
             console.log('[WindowManager] toggleChat: Hiding chat');
@@ -399,7 +411,7 @@ class WindowManager {
             return { visible: false };
         } else {
             console.log('[WindowManager] toggleChat: Showing chat');
-            this.showWindow('chat');
+            await this.showWindow('chat');
             return { visible: true };
         }
     }
