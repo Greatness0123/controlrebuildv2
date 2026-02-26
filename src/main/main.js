@@ -313,6 +313,11 @@ class ComputerUseAgent {
                 this.windowManager.broadcast('settings-updated', this.getSettings());
 
                 await this.windowManager.showWindow('main');
+
+                // Show entry window minimized for auto-login to keep taskbar icon
+                await this.windowManager.showWindow('entry');
+                const entryWin = this.windowManager.getWindow('entry');
+                if (entryWin) entryWin.minimize();
             } else {
                 console.log('[Main] No cached user, showing login');
                 this.isAuthenticated = false;
@@ -924,9 +929,10 @@ class ComputerUseAgent {
             this.windowManager.hideWindow('settings');
             // Lock the app
             const result = this.securityManager.lockApp();
-            console.log('[Main] App locked, showing overlay');
+            console.log('[Main] App locked, showing overlay and entry screen');
             // Show the main overlay (overlay is always visible but will show PIN modal on interaction)
             await this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('entry');
             return result;
         });
 
