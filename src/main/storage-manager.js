@@ -12,6 +12,7 @@ class StorageManager {
         this.userDataDir = app.getPath('userData');
         this.preferencesFile = path.join(this.userDataDir, 'userPreferences.json');
         this.librariesFile = path.join(this.userDataDir, 'installedLibraries.json');
+        this.behaviorsFile = path.join(this.userDataDir, 'learnedBehaviors.json');
 
         this._initFiles();
         this.initialized = true;
@@ -40,6 +41,13 @@ class StorageManager {
                 node: []
             };
             fs.writeJsonSync(this.librariesFile, defaultLibraries, { spaces: 2 });
+        }
+
+        if (!fs.existsSync(this.behaviorsFile)) {
+            const defaultBehaviors = {
+                behaviors: []
+            };
+            fs.writeJsonSync(this.behaviorsFile, defaultBehaviors, { spaces: 2 });
         }
     }
 
@@ -85,6 +93,36 @@ class StorageManager {
             console.error('Error writing libraries:', err);
             return false;
         }
+    }
+
+    readBehaviors() {
+        this._init();
+        try {
+            return fs.readJsonSync(this.behaviorsFile);
+        } catch (err) {
+            console.error('Error reading behaviors:', err);
+            return { behaviors: [] };
+        }
+    }
+
+    writeBehaviors(behaviors) {
+        this._init();
+        try {
+            fs.writeJsonSync(this.behaviorsFile, behaviors, { spaces: 2 });
+            return true;
+        } catch (err) {
+            console.error('Error writing behaviors:', err);
+            return false;
+        }
+    }
+
+    addBehavior(behavior) {
+        const data = this.readBehaviors();
+        data.behaviors.push({
+            ...behavior,
+            timestamp: new Date().toISOString()
+        });
+        return this.writeBehaviors(data);
     }
 
     addLibrary(type, name, version = 'latest') {

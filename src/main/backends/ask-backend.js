@@ -5,6 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const playwrightManager = require("../playwright-manager");
+const promptManager = require("../prompt-manager");
+const storageManager = require("../storage-manager");
 
 class AskBackend {
   constructor() {
@@ -27,43 +29,7 @@ class AskBackend {
     this.currentApiKey = key;
     this.currentModelName = finalModelName;
     const genAI = new GoogleGenerativeAI(key);
-    const systemPrompt = `You are Control (Ask Mode), an intelligent AI assistant.
-
-**YOUR ROLE:**
-- Answer user questions clearly and concisely
-- Assist with coding, general knowledge, and explanations
-- Analyze images, PDFs, and file attachments
-- **Analyze user\'s screen** when needed
-- **Check system status** (battery, memory, etc.)
-- **Use web search** for real-time info or research
-
-**SYSTEM COMMANDS REFERENCE:**
-- **Battery Status:**
-  - Windows: \`WMIC Path Win32_Battery Get EstimatedChargeRemaining\`
-  - macOS: \`pmset -g batt\`
-  - Linux: \`upower -i $(upower -e | grep 'BAT') | grep -E "state|to\ full|percentage"\`
-- **Memory/Process:** \`pgrep\`, \`top\`,\`ls\`, \`dir\`
-
-**TOOLS AVAILABLE:**
-- \`[REQUEST_SCREENSHOT]\`: Request a current screen capture
-- \`[REQUEST_COMMAND: <command>]\`: Run read-only system commands
-- \`[BROWSER_OPEN: <url>]\`: Open the agentic browser instance (titled "Control Agentic Browser") to a URL.
-- \`[BROWSER_EXECUTE_JS: <script>]\`: Execute JS in the agentic browser instance.
-- \`[BROWSER_SCREENSHOT]\`: Capture a screenshot of ONLY the agentic browser window content for detailed analysis.
-- \`[DISPLAY_CODE: <language>\\n<code>]\`: Display a formatted code block with a copy button.
-
-**CODE DISPLAY & FORMATTING:**
-- **CRITICAL:** When providing code snippets, scripts, or HTML, you MUST use the \`[DISPLAY_CODE: <language>\\n<code>]\` tool.
-- **NEVER** output raw HTML or code directly in your text response. This ensures code is displayed in a specialized, copyable box and prevents accidental rendering of HTML as actual UI.
-- Example: \`[DISPLAY_CODE: python\\nprint("Hello World")]\`
-
-**WORKFLOW:**
-1. Request info tools automatically if needed.
-2. ALWAYS PREFER read-only terminal commands (e.g. \`pgrep\`, \`ls\`, \`dir\`) over screenshots to check system state.
-3. Use web search (googleSearch tool) proactively.
-4. Provide final answers grounded in the gathered information.
-5. Include citations if web search was used.
-`;
+    const systemPrompt = promptManager.getPrompt('ask-system-prompt');
     const modelOptions = {
       model: finalModelName,
       systemInstruction: systemPrompt,
@@ -110,6 +76,8 @@ class AskBackend {
     const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
     const browserJsMatch = /\[BROWSER_EXECUTE_JS:\s*([\s\S]+?)\]/.exec(responseText);
     const browserScreenshotMatch = /\[BROWSER_SCREENSHOT\]/.exec(responseText);
+    const readBehaviorsMatch = /\[READ_BEHAVIORS\]/.exec(responseText);
+    const writeBehaviorMatch = /\[WRITE_BEHAVIOR:\s*([\s\S]+?)\]/.exec(responseText);
 
     let requestType = null;
     let requestData = null;
@@ -126,6 +94,11 @@ class AskBackend {
       requestData = browserJsMatch[1].trim();
     } else if (browserScreenshotMatch) {
       requestType = "browser_screenshot";
+    } else if (readBehaviorsMatch) {
+      requestType = "read_behaviors";
+    } else if (writeBehaviorMatch) {
+      requestType = "write_behavior";
+      requestData = writeBehaviorMatch[1].trim();
     }
 
     // Process [DISPLAY_CODE] blocks in-place for better flow
@@ -138,6 +111,8 @@ class AskBackend {
         .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
         .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
         .replace(/\[BROWSER_SCREENSHOT\]/g, "")
+        .replace(/\[READ_BEHAVIORS\]/g, "")
+        .replace(/\[WRITE_BEHAVIOR:\s*[\s\S]+?\]/g, "")
         .trim();
 
     return { requestType, requestData, cleanText };
@@ -367,6 +342,8 @@ class AskBackend {
         }
       }
 
+      const behaviors = storageManager.readBehaviors();
+      conversationParts.push(`System: Learned Behaviors: ${JSON.stringify(behaviors)}`);
       conversationParts.push(`User: ${userRequest}`);
 
       let iteration = 0;
@@ -426,6 +403,19 @@ class AskBackend {
             conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot via Playwright.");
           } catch (e) {
             conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
+          }
+          continue;
+        } else if (requestType === "read_behaviors") {
+          const behaviors = storageManager.readBehaviors();
+          conversationParts.push(`Assistant: ${cleanText}`, `System: Learned Behaviors: ${JSON.stringify(behaviors)}`);
+          continue;
+        } else if (requestType === "write_behavior") {
+          try {
+            const behavior = JSON.parse(requestData);
+            storageManager.addBehavior(behavior);
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Behavior learned and saved.`);
+          } catch (e) {
+            conversationParts.push(`Assistant: ${cleanText}`, `System: Error saving behavior (invalid JSON): ${e.message}`);
           }
           continue;
         } else {
