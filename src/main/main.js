@@ -1357,6 +1357,30 @@ class ComputerUseAgent {
         settings.openrouterApiKey = this.appSettings.openrouterApiKey || '';
         settings.ollamaUrl = this.appSettings.ollamaUrl || 'http://localhost:11434';
         settings.ollamaModel = this.appSettings.ollamaModel || 'llama3';
+        settings.universalApiKey = this.appSettings.universalApiKey || '';
+        settings.universalModel = this.appSettings.universalModel || '';
+        settings.universalBaseUrl = this.appSettings.universalBaseUrl || '';
+        settings.cloudRegion = this.appSettings.cloudRegion || '';
+        settings.cloudCredentials = this.appSettings.cloudCredentials || '';
+        settings.cloudModel = this.appSettings.cloudModel || '';
+        settings.openaiApiKey = this.appSettings.openaiApiKey || '';
+        settings.openaiModel = this.appSettings.openaiModel || 'gpt-4o';
+        settings.anthropicApiKey = this.appSettings.anthropicApiKey || '';
+        settings.anthropicModel = this.appSettings.anthropicModel || 'claude-3-5-sonnet-20240620';
+        settings.xaiApiKey = this.appSettings.xaiApiKey || '';
+        settings.xaiModel = this.appSettings.xaiModel || 'grok-beta';
+        settings.deepseekApiKey = this.appSettings.deepseekApiKey || '';
+        settings.deepseekModel = this.appSettings.deepseekModel || 'deepseek-chat';
+        settings.moonshotApiKey = this.appSettings.moonshotApiKey || '';
+        settings.moonshotModel = this.appSettings.moonshotModel || 'moonshot-v1-8k';
+        settings.zaiApiKey = this.appSettings.zaiApiKey || '';
+        settings.zaiModel = this.appSettings.zaiModel || 'zai-model';
+        settings.litellmApiKey = this.appSettings.litellmApiKey || '';
+        settings.litellmModel = this.appSettings.litellmModel || 'gpt-4o';
+        settings.minimaxApiKey = this.appSettings.minimaxApiKey || '';
+        settings.minimaxModel = this.appSettings.minimaxModel || 'abab6.5-chat';
+        settings.lmstudioApiKey = this.appSettings.lmstudioApiKey || '';
+        settings.lmstudioModel = this.appSettings.lmstudioModel || 'model-identifier';
         settings.ttsVoice = this.appSettings.ttsVoice || 'en-US-AriaNeural';
         settings.ttsRate = this.appSettings.ttsRate !== undefined ? this.appSettings.ttsRate : 1.0;
         settings.ttsVolume = this.appSettings.ttsVolume !== undefined ? this.appSettings.ttsVolume : 1.0;
@@ -1567,6 +1591,31 @@ class ComputerUseAgent {
             if (settings.ollamaModel !== undefined) {
                 this.appSettings.ollamaModel = settings.ollamaModel;
             }
+            if (settings.universalApiKey !== undefined) this.appSettings.universalApiKey = settings.universalApiKey;
+            if (settings.universalModel !== undefined) this.appSettings.universalModel = settings.universalModel;
+            if (settings.universalBaseUrl !== undefined) this.appSettings.universalBaseUrl = settings.universalBaseUrl;
+            if (settings.cloudRegion !== undefined) this.appSettings.cloudRegion = settings.cloudRegion;
+            if (settings.cloudCredentials !== undefined) this.appSettings.cloudCredentials = settings.cloudCredentials;
+            if (settings.cloudModel !== undefined) this.appSettings.cloudModel = settings.cloudModel;
+            if (settings.openaiApiKey !== undefined) this.appSettings.openaiApiKey = settings.openaiApiKey;
+            if (settings.openaiModel !== undefined) this.appSettings.openaiModel = settings.openaiModel;
+            if (settings.anthropicApiKey !== undefined) this.appSettings.anthropicApiKey = settings.anthropicApiKey;
+            if (settings.anthropicModel !== undefined) this.appSettings.anthropicModel = settings.anthropicModel;
+            if (settings.xaiApiKey !== undefined) this.appSettings.xaiApiKey = settings.xaiApiKey;
+            if (settings.xaiModel !== undefined) this.appSettings.xaiModel = settings.xaiModel;
+            if (settings.deepseekApiKey !== undefined) this.appSettings.deepseekApiKey = settings.deepseekApiKey;
+            if (settings.deepseekModel !== undefined) this.appSettings.deepseekModel = settings.deepseekModel;
+            if (settings.moonshotApiKey !== undefined) this.appSettings.moonshotApiKey = settings.moonshotApiKey;
+            if (settings.moonshotModel !== undefined) this.appSettings.moonshotModel = settings.moonshotModel;
+            if (settings.zaiApiKey !== undefined) this.appSettings.zaiApiKey = settings.zaiApiKey;
+            if (settings.zaiModel !== undefined) this.appSettings.zaiModel = settings.zaiModel;
+            if (settings.litellmApiKey !== undefined) this.appSettings.litellmApiKey = settings.litellmApiKey;
+            if (settings.litellmModel !== undefined) this.appSettings.litellmModel = settings.litellmModel;
+            if (settings.minimaxApiKey !== undefined) this.appSettings.minimaxApiKey = settings.minimaxApiKey;
+            if (settings.minimaxModel !== undefined) this.appSettings.minimaxModel = settings.minimaxModel;
+            if (settings.lmstudioApiKey !== undefined) this.appSettings.lmstudioApiKey = settings.lmstudioApiKey;
+            if (settings.lmstudioModel !== undefined) this.appSettings.lmstudioModel = settings.lmstudioModel;
+
             if (settings.ttsVoice !== undefined) {
                 this.appSettings.ttsVoice = settings.ttsVoice;
                 this.edgeTTS.setVoice(settings.ttsVoice);
@@ -1612,6 +1661,30 @@ class ComputerUseAgent {
                 openrouterApiKey: this.appSettings.openrouterApiKey,
                 ollamaUrl: this.appSettings.ollamaUrl,
                 ollamaModel: this.appSettings.ollamaModel,
+                universalApiKey: this.appSettings.universalApiKey,
+                universalModel: this.appSettings.universalModel,
+                universalBaseUrl: this.appSettings.universalBaseUrl,
+                cloudRegion: this.appSettings.cloudRegion,
+                cloudCredentials: this.appSettings.cloudCredentials,
+                cloudModel: this.appSettings.cloudModel,
+                openaiApiKey: this.appSettings.openaiApiKey,
+                openaiModel: this.appSettings.openaiModel,
+                anthropicApiKey: this.appSettings.anthropicApiKey,
+                anthropicModel: this.appSettings.anthropicModel,
+                xaiApiKey: this.appSettings.xaiApiKey,
+                xaiModel: this.appSettings.xaiModel,
+                deepseekApiKey: this.appSettings.deepseekApiKey,
+                deepseekModel: this.appSettings.deepseekModel,
+                moonshotApiKey: this.appSettings.moonshotApiKey,
+                moonshotModel: this.appSettings.moonshotModel,
+                zaiApiKey: this.appSettings.zaiApiKey,
+                zaiModel: this.appSettings.zaiModel,
+                litellmApiKey: this.appSettings.litellmApiKey,
+                litellmModel: this.appSettings.litellmModel,
+                minimaxApiKey: this.appSettings.minimaxApiKey,
+                minimaxModel: this.appSettings.minimaxModel,
+                lmstudioApiKey: this.appSettings.lmstudioApiKey,
+                lmstudioModel: this.appSettings.lmstudioModel,
                 ttsVoice: this.appSettings.ttsVoice,
                 ttsRate: this.appSettings.ttsRate,
                 ttsVolume: this.appSettings.ttsVolume

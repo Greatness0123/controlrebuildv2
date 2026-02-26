@@ -174,16 +174,36 @@ class AskBackend {
     return data.response;
   }
 
-  async openrouterGenerate(conversationParts, systemPrompt, settings) {
-    const firebaseService = require("../firebase-service");
-    const cachedKeys = firebaseService.getKeys();
+  async universalGenerate(conversationParts, systemPrompt, settings) {
+    const provider = settings.modelProvider;
+    let apiKey = settings[`${provider}ApiKey`] || settings.universalApiKey;
+    let model = settings[`${provider}Model`] || settings.universalModel;
+    let baseUrl = settings.universalBaseUrl;
 
-    const apiKey = settings.openrouterApiKey || (cachedKeys && cachedKeys.openrouter);
-    if (!apiKey) throw new Error("OpenRouter API key is missing. Please add one in settings or contact support.");
+    // Default endpoints for known providers
+    const endpoints = {
+      'openai': 'https://api.openai.com/v1/chat/completions',
+      'deepseek': 'https://api.deepseek.com/chat/completions',
+      'xai': 'https://api.x.ai/v1/chat/completions',
+      'moonshot': 'https://api.moonshot.cn/v1/chat/completions',
+      'zai': 'https://api.zhipuai.cn/paas/v4/chat/completions',
+      'openrouter': 'https://openrouter.ai/api/v1/chat/completions',
+      'lmstudio': 'http://localhost:1234/v1/chat/completions',
+      'litellm': settings.universalBaseUrl || 'http://localhost:4000/chat/completions',
+      'minimax': 'https://api.minimax.chat/v1/text/chat-completion-v2'
+    };
 
-    const model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
+    const url = baseUrl ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`) : endpoints[provider];
+    if (!url) throw new Error(`Endpoint for provider ${provider} not found and no Base URL provided.`);
 
-    // Convert conversation parts to OpenAI format
+    // Handle OpenRouter specific logic
+    if (provider === 'openrouter') {
+      apiKey = settings.openrouterApiKey || (require("../firebase-service").getKeys()?.openrouter);
+      model = settings.openrouterModel === "custom" ? settings.openrouterCustomModel : settings.openrouterModel;
+    }
+
+    if (!apiKey && provider !== 'lmstudio') throw new Error(`API Key for ${provider} is missing.`);
+
     const messages = [{ role: "system", content: systemPrompt }];
     for (const part of conversationParts) {
       if (typeof part === "string") {
@@ -191,7 +211,6 @@ class AskBackend {
         const content = part.replace(/^(User:|Assistant:|System:)\s*/, "");
         messages.push({ role, content });
       } else if (part.inlineData) {
-        // Handle images for OpenRouter (multimodal)
         const lastMessage = messages[messages.length - 1];
         if (lastMessage && lastMessage.role === "user") {
           if (typeof lastMessage.content === "string") {
@@ -206,27 +225,89 @@ class AskBackend {
       }
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const headers = {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    };
+
+    if (provider === 'openrouter') {
+      headers["HTTP-Referer"] = "https://controlrebuild-website.vercel.app";
+      headers["X-Title"] = "Control AI";
+    }
+
+    const body = { model, messages };
+
+    // MiniMax uses a slightly different body format for some models but v2 is OpenAI compatible
+
+    const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://controlrebuild-website.vercel.app",
-        "X-Title": "Control AI",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages
-      })
+      headers,
+      body: JSON.stringify(body)
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`OpenRouter error: ${errorData.error?.message || response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
     return data.choices[0].message.content;
+  }
+
+  async anthropicGenerate(conversationParts, systemPrompt, settings) {
+    const apiKey = settings.anthropicApiKey || settings.universalApiKey;
+    const model = settings.anthropicModel || settings.universalModel || "claude-3-5-sonnet-20240620";
+
+    if (!apiKey) throw new Error("Anthropic API key is missing.");
+
+    const messages = [];
+    for (const part of conversationParts) {
+      if (typeof part === "string") {
+        const role = part.startsWith("User:") ? "user" : (part.startsWith("Assistant:") ? "assistant" : "user");
+        const content = part.replace(/^(User:|Assistant:|System:)\s*/, "");
+        messages.push({ role, content });
+      } else if (part.inlineData) {
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && lastMessage.role === "user") {
+          const imgContent = {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: part.inlineData.mimeType,
+              data: part.inlineData.data
+            }
+          };
+          if (typeof lastMessage.content === "string") {
+            lastMessage.content = [{ type: "text", text: lastMessage.content }, imgContent];
+          } else {
+            lastMessage.content.push(imgContent);
+          }
+        }
+      }
+    }
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model,
+        system: systemPrompt,
+        messages,
+        max_tokens: 4096
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Anthropic error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.content[0].text;
   }
 
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
@@ -278,18 +359,21 @@ class AskBackend {
         let responseText = "";
         let responseObj = null;
 
+        const sysMsg = "You are Control (Ask Mode), an intelligent AI assistant.";
         if (effectiveProvider === "ollama") {
-          // Flatten conversationParts for Ollama
           const prompt = conversationParts.map(p => typeof p === "string" ? p : JSON.stringify(p)).join("\n");
-          const images = []; // Extract images from conversationParts if any
-          responseText = await this.ollamaGenerate(prompt, "You are Control (Ask Mode), an intelligent AI assistant.", settings, images);
-        } else if (effectiveProvider === "openrouter") {
-          responseText = await this.openrouterGenerate(conversationParts, "You are Control (Ask Mode), an intelligent AI assistant.", settings);
-        } else {
+          responseText = await this.ollamaGenerate(prompt, sysMsg, settings);
+        } else if (effectiveProvider === "anthropic") {
+          responseText = await this.anthropicGenerate(conversationParts, sysMsg, settings);
+        } else if (["openai", "deepseek", "xai", "moonshot", "zai", "openrouter", "lmstudio", "litellm", "minimax"].includes(effectiveProvider)) {
+          responseText = await this.universalGenerate(conversationParts, sysMsg, settings);
+        } else if (effectiveProvider === "gemini") {
           const result = await this.model.generateContent(conversationParts);
           responseObj = await result.response;
           if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, "ask", responseObj.usageMetadata);
           responseText = responseObj.text().trim();
+        } else {
+          throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }
 
         const { requestType, requestData, cleanText } = this.parseAIResponse(responseText);
