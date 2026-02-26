@@ -1495,6 +1495,16 @@ class ComputerUseAgent {
                     window.setContentProtection(protect);
                     window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
 
+                    // "Nudge" the window to force OS-level refresh of capture state
+                    // This can help OBS/Game Capture realize the protection state changed
+                    const isAlwaysOnTop = window.isAlwaysOnTop();
+                    window.setAlwaysOnTop(!isAlwaysOnTop);
+                    setTimeout(() => {
+                        if (!window.isDestroyed()) {
+                            window.setAlwaysOnTop(isAlwaysOnTop);
+                        }
+                    }, 100);
+
                     console.log(`[Main] Applied visibility settings to window ${index}`);
                 } catch (e) {
                     console.error(`[Main] Failed to update visibility for window ${index}:`, e);

@@ -168,6 +168,11 @@ class EdgeTTSManager extends EventEmitter {
                 ];
 
                 const ttsProcess = spawn(python, args);
+                let stderr = '';
+
+                ttsProcess.stderr.on('data', (data) => {
+                    stderr += data.toString();
+                });
 
                 ttsProcess.on('close', async (code) => {
                     if (code === 0) {
@@ -181,7 +186,8 @@ class EdgeTTSManager extends EventEmitter {
                             reject(e);
                         }
                     } else {
-                        reject(new Error(`edge-tts process exited with code ${code}`));
+                        console.error('[EdgeTTS] Python edge-tts error output:', stderr);
+                        reject(new Error(`edge-tts process exited with code ${code}: ${stderr.trim()}`));
                     }
                 });
 

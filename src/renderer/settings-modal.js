@@ -75,6 +75,14 @@ class SettingsModal {
                 if (e.target === aiModal) aiModal.classList.remove('show');
             });
         }
+
+        const voiceModal = document.getElementById('voiceSettingsModal');
+        if (voiceModal) {
+            voiceModal.classList.remove('show');
+            voiceModal.addEventListener('click', (e) => {
+                if (e.target === voiceModal) voiceModal.classList.remove('show');
+            });
+        }
     }
 
     initializeLucideIcons() {
@@ -158,6 +166,20 @@ class SettingsModal {
 
         document.getElementById('aiSettingsCloseBtn')?.addEventListener('click', () => {
             const modal = document.getElementById('aiSettingsModal');
+            if (modal) modal.classList.remove('show');
+        });
+
+        // Voice Settings Modal
+        document.getElementById('openVoiceSettingsBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('voiceSettingsModal');
+            if (modal) {
+                modal.classList.add('show');
+                this.updateToggleStates();
+            }
+        });
+
+        document.getElementById('voiceSettingsCloseBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('voiceSettingsModal');
             if (modal) modal.classList.remove('show');
         });
 
@@ -1780,13 +1802,28 @@ class SettingsModal {
     }
 
     async testVoice() {
+        const icon = document.getElementById('testVoiceIcon');
+        const spinner = document.getElementById('testVoiceSpinner');
+        const btn = document.getElementById('testVoiceBtn');
+
         try {
+            if (icon) icon.style.display = 'none';
+            if (spinner) spinner.style.display = 'inline-block';
+            if (btn) btn.disabled = true;
+
             if (window.settingsAPI && window.settingsAPI.testVoice) {
                 await window.settingsAPI.testVoice(this.settings.ttsVoice, this.settings.ttsRate, this.settings.ttsVolume);
             }
         } catch (e) {
             console.error('Failed to test voice:', e);
             this.showToast('Failed to test voice', 'error');
+        } finally {
+            // Give it a moment to indicate "active" before restoring
+            setTimeout(() => {
+                if (icon) icon.style.display = 'inline-block';
+                if (spinner) spinner.style.display = 'none';
+                if (btn) btn.disabled = false;
+            }, 1000);
         }
     }
 
