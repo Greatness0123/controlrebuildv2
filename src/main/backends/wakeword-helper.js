@@ -416,7 +416,7 @@ class WakewordHelper {
 
             if (result >= 0) {
               const now = Date.now();
-              if (now - this.lastDetection > 1500) { // 1.5s cooldown
+              if (now - this.lastDetection > 1000) { // 1.0s cooldown
                 this.lastDetection = now;
                 this.log("Wake word DETECTED");
                 onDetected();
