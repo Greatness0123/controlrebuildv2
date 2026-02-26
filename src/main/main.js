@@ -411,67 +411,6 @@ class ComputerUseAgent {
                 }
             });
 
-            // Add IPC handlers for TTS control
-            ipcMain.handle('tts-stop', () => {
-                console.log('[Main] [IPC] tts-stop requested');
-                this.edgeTTS.stop();
-                return { success: true };
-            });
-
-            ipcMain.handle('stop-audio', () => {
-                console.log('[Main] [IPC] stop-audio requested');
-                this.edgeTTS.stop();
-                const chatWin = this.windowManager.getWindow('chat');
-                if (chatWin && !chatWin.isDestroyed()) {
-                    chatWin.webContents.send('audio-stopped', { manualStop: true });
-                }
-                return { success: true };
-            });
-
-            ipcMain.handle('tts-get-voices', async () => {
-                console.log('[Main] [IPC] tts-get-voices requested');
-                const voices = await this.edgeTTS.getAvailableVoices();
-                console.log('[Main] [IPC] Available voices:', voices);
-                return { success: true, voices };
-            });
-
-            ipcMain.handle('tts-set-voice', (event, voice) => {
-                console.log('[Main] [IPC] tts-set-voice requested:', voice);
-                this.edgeTTS.setVoice(voice);
-                return { success: true };
-            });
-
-            ipcMain.handle('tts-set-rate', (event, rate) => {
-                console.log('[Main] [IPC] tts-set-rate requested:', rate);
-                this.edgeTTS.setRate(rate);
-                return { success: true };
-            });
-
-            ipcMain.handle('tts-set-volume', (event, volume) => {
-                console.log('[Main] [IPC] tts-set-volume requested:', volume);
-                this.edgeTTS.setVolume(volume);
-                return { success: true };
-            });
-
-            ipcMain.handle('tts-test-voice', async (event, voice, rate, volume) => {
-                console.log('[Main] [IPC] tts-test-voice requested:', { voice, rate, volume });
-                const oldVoice = this.edgeTTS.voice;
-                const oldRate = this.edgeTTS.rate;
-                const oldVol = this.edgeTTS.volume;
-
-                this.edgeTTS.setVoice(voice);
-                this.edgeTTS.setRate(rate);
-                this.edgeTTS.setVolume(volume);
-
-                const sampleText = "Hello! This is a sample of how I will sound with your current settings.";
-                this.edgeTTS.speak(sampleText);
-
-                // We don't restore old settings immediately because speak() is async.
-                // But since this is just a test, it's fine if it leaves them set.
-                // The renderer will usually follow up with a save-settings which will persist them anyway.
-                return { success: true };
-            });
-
             // Setup system tray
             this.setupTray();
 
@@ -1135,7 +1074,60 @@ class ComputerUseAgent {
             }
         });
 
-        // Greeting TTS handlers (moved from onAppReady to be available immediately)
+        // TTS Control handlers
+        ipcMain.handle('tts-stop', () => {
+            console.log('[Main] [IPC] tts-stop requested');
+            this.edgeTTS.stop();
+            return { success: true };
+        });
+
+        ipcMain.handle('stop-audio', () => {
+            console.log('[Main] [IPC] stop-audio requested');
+            this.edgeTTS.stop();
+            const chatWin = this.windowManager.getWindow('chat');
+            if (chatWin && !chatWin.isDestroyed()) {
+                chatWin.webContents.send('audio-stopped', { manualStop: true });
+            }
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-get-voices', async () => {
+            console.log('[Main] [IPC] tts-get-voices requested');
+            const voices = await this.edgeTTS.getAvailableVoices();
+            console.log('[Main] [IPC] Available voices:', voices);
+            return { success: true, voices };
+        });
+
+        ipcMain.handle('tts-set-voice', (event, voice) => {
+            console.log('[Main] [IPC] tts-set-voice requested:', voice);
+            this.edgeTTS.setVoice(voice);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-set-rate', (event, rate) => {
+            console.log('[Main] [IPC] tts-set-rate requested:', rate);
+            this.edgeTTS.setRate(rate);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-set-volume', (event, volume) => {
+            console.log('[Main] [IPC] tts-set-volume requested:', volume);
+            this.edgeTTS.setVolume(volume);
+            return { success: true };
+        });
+
+        ipcMain.handle('tts-test-voice', async (event, voice, rate, volume) => {
+            console.log('[Main] [IPC] tts-test-voice requested:', { voice, rate, volume });
+            this.edgeTTS.setVoice(voice);
+            this.edgeTTS.setRate(rate);
+            this.edgeTTS.setVolume(volume);
+
+            const sampleText = "Hello! This is a sample of how I will sound with your current settings.";
+            this.edgeTTS.speak(sampleText);
+            return { success: true };
+        });
+
+        // Greeting TTS handlers
         ipcMain.handle('should-speak-greeting', () => {
             const shouldSpeak = this.appSettings.greetingTTS || false;
             console.log('[Main] [IPC] should-speak-greeting requested. Setting:', shouldSpeak);
@@ -1145,22 +1137,15 @@ class ComputerUseAgent {
         ipcMain.handle('speak-greeting', (event, text) => {
             console.log('[Main] [IPC] speak-greeting requested:', text);
             console.log('[Main] [IPC] greetingTTS setting:', this.appSettings.greetingTTS);
-            console.log('[Main] [IPC] edgeTTS currently enabled:', this.edgeTTS.isEnabled());
 
             if (this.appSettings.greetingTTS && text) {
                 console.log('[Main] [IPC] ✓ All conditions met - Speaking greeting via EdgeTTS');
-                // Enable EdgeTTS for greeting (even if voiceResponse is disabled)
                 if (!this.edgeTTS.isEnabled()) {
-                    console.log('[Main] [IPC] Temporarily enabling EdgeTTS for greeting');
                     this.edgeTTS.enable(true);
                 }
                 this.edgeTTS.speak(text);
-                console.log('[Main] [IPC] Greeting sent to EdgeTTS');
                 return { success: true, message: 'Greeting spoken' };
             } else {
-                console.log('[Main] [IPC] ✗ Cannot speak greeting:');
-                console.log('    - greetingTTS enabled:', this.appSettings.greetingTTS);
-                console.log('    - Text provided:', !!text);
                 return { success: false, message: 'Greeting TTS disabled or no text provided' };
             }
         });
