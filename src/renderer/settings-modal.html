@@ -519,11 +519,13 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
-        /* Hide scrollbar for AI settings modal content */
-        #aiSettingsModal .pin-content::-webkit-scrollbar {
+        /* Hide scrollbar for AI and Voice settings modal content */
+        #aiSettingsModal .pin-content::-webkit-scrollbar,
+        #voiceSettingsModal .pin-content::-webkit-scrollbar {
             display: none;
         }
-        #aiSettingsModal .pin-content {
+        #aiSettingsModal .pin-content,
+        #voiceSettingsModal .pin-content {
             -ms-overflow-style: none;  /* IE and Edge */
             scrollbar-width: none;  /* Firefox */
         }
@@ -687,58 +689,18 @@
                     Voice & Speech
                 </div>
 
-                <!-- New TTS Controls -->
-                <div id="ttsAdvancedControls" style="padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--item-border);">
-                    <div class="setting-item">
-                        <div class="setting-left">
-                            <i data-lucide="user-voice" class="setting-icon"></i>
-                            <div class="setting-info">
-                                <div class="setting-name">Voice</div>
-                                <div class="setting-description">Select your preferred AI voice</div>
-                            </div>
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="user-voice" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Voice Settings</div>
+                            <div class="setting-description">Configure your preferred AI voice and speed</div>
                         </div>
-                        <select id="ttsVoiceSelect" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
-                            <option value="en-US-JennyNeural">Jenny (US)</option>
-                            <option value="en-US-GuyNeural">Guy (US)</option>
-                            <option value="en-US-AriaNeural">Aria (US)</option>
-                        </select>
                     </div>
-
-                    <div class="setting-item">
-                        <div class="setting-left">
-                            <i data-lucide="fast-forward" class="setting-icon"></i>
-                            <div class="setting-info">
-                                <div class="setting-name">Speed</div>
-                                <div class="setting-description">Adjust speech rate: <span id="ttsRateValue">1.0</span>x</div>
-                            </div>
-                        </div>
-                        <input type="range" id="ttsRateSlider" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 120px;">
-                    </div>
-
-                    <div class="setting-item">
-                        <div class="setting-left">
-                            <i data-lucide="volume-2" class="setting-icon"></i>
-                            <div class="setting-info">
-                                <div class="setting-name">Volume</div>
-                                <div class="setting-description">Adjust speech volume: <span id="ttsVolumeValue">100</span>%</div>
-                            </div>
-                        </div>
-                        <input type="range" id="ttsVolumeSlider" min="0" max="1" step="0.05" value="1.0" style="width: 120px;">
-                    </div>
-
-                    <div class="setting-item">
-                        <div class="setting-left">
-                            <i data-lucide="play-circle" class="setting-icon"></i>
-                            <div class="setting-info">
-                                <div class="setting-name">Test Voice</div>
-                                <div class="setting-description">Hear a sample with current settings</div>
-                            </div>
-                        </div>
-                        <button class="button button-secondary" id="testVoiceBtn">
-                            <i data-lucide="play" style="width: 14px; height: 14px;"></i>
-                            Test
-                        </button>
-                    </div>
+                    <button class="button button-primary" id="openVoiceSettingsBtn">
+                        <i data-lucide="settings" style="width: 14px; height: 14px;"></i>
+                        Configure
+                    </button>
                 </div>
 
                 <div class="setting-item">
@@ -1251,6 +1213,71 @@
 
             <div class="pin-buttons" style="margin-top: 30px;">
                 <button class="button button-primary" style="width: 100%;" id="aiSettingsCloseBtn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice & Speech Settings Modal -->
+    <div class="pin-modal" id="voiceSettingsModal">
+        <div class="pin-content" style="width: 500px; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div class="pin-title" style="text-align: center; margin-bottom: 20px;">Voice & Speech Configuration</div>
+
+            <div class="settings-content" style="padding: 0; max-height: none; overflow: visible;">
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="user-voice" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Voice</div>
+                            <div class="setting-description">Select your preferred AI voice</div>
+                        </div>
+                    </div>
+                    <select id="ttsVoiceSelect" style="width: 180px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); font-size: 13px; outline: none; background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="en-US-JennyNeural">Jenny (US)</option>
+                        <option value="en-US-GuyNeural">Guy (US)</option>
+                        <option value="en-US-AriaNeural">Aria (US)</option>
+                    </select>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="fast-forward" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Speed</div>
+                            <div class="setting-description">Adjust speech rate: <span id="ttsRateValue">1.0</span>x</div>
+                        </div>
+                    </div>
+                    <input type="range" id="ttsRateSlider" min="0.5" max="2.0" step="0.1" value="1.0" style="width: 120px;">
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="volume-2" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Volume</div>
+                            <div class="setting-description">Adjust speech volume: <span id="ttsVolumeValue">100</span>%</div>
+                        </div>
+                    </div>
+                    <input type="range" id="ttsVolumeSlider" min="0" max="1" step="0.05" value="1.0" style="width: 120px;">
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-left">
+                        <i data-lucide="play-circle" class="setting-icon"></i>
+                        <div class="setting-info">
+                            <div class="setting-name">Test Voice</div>
+                            <div class="setting-description">Hear a sample with current settings</div>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="testVoiceBtn">
+                        <i data-lucide="play" id="testVoiceIcon" style="width: 14px; height: 14px;"></i>
+                        <div class="loading-spinner" id="testVoiceSpinner" style="width: 14px; height: 14px; display: none; border: 2px solid rgba(0,0,0,0.1); border-top: 2px solid var(--accent-color); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                        Test
+                    </button>
+                </div>
+            </div>
+
+            <div class="pin-buttons" style="margin-top: 30px;">
+                <button class="button button-primary" style="width: 100%;" id="voiceSettingsCloseBtn">Done</button>
             </div>
         </div>
     </div>
