@@ -519,6 +519,15 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        /* Hide scrollbar for AI settings modal content */
+        #aiSettingsModal .pin-content::-webkit-scrollbar {
+            display: none;
+        }
+        #aiSettingsModal .pin-content {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
         /* Border Streak Effect */
         @property --streak-angle {
             syntax: '<angle>';
