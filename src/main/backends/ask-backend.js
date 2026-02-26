@@ -71,6 +71,7 @@ class AskBackend {
   }
 
   parseAIResponse(responseText) {
+    // Primary bracketed matches
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
     const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
@@ -79,6 +80,9 @@ class AskBackend {
     const readBehaviorsMatch = /\[READ_BEHAVIORS\]/.exec(responseText);
     const writeBehaviorMatch = /\[WRITE_BEHAVIOR:\s*([\s\S]+?)\]/.exec(responseText);
 
+    // Fallback for unbracketed commands if they appear at the start of a line
+    const fallbackCommandMatch = /^(?:REQUEST_COMMAND|COMMAND):\s*(.+)$/m.exec(responseText);
+
     let requestType = null;
     let requestData = null;
 
@@ -86,6 +90,9 @@ class AskBackend {
     else if (commandMatch) {
       requestType = "command";
       requestData = commandMatch[1].trim();
+    } else if (fallbackCommandMatch) {
+      requestType = "command";
+      requestData = fallbackCommandMatch[1].trim();
     } else if (browserOpenMatch) {
       requestType = "browser_open";
       requestData = browserOpenMatch[1].trim();
@@ -113,6 +120,7 @@ class AskBackend {
         .replace(/\[BROWSER_SCREENSHOT\]/g, "")
         .replace(/\[READ_BEHAVIORS\]/g, "")
         .replace(/\[WRITE_BEHAVIOR:\s*[\s\S]+?\]/g, "")
+        .replace(/^(?:REQUEST_COMMAND|COMMAND):\s*.+$/gm, "")
         .trim();
 
     return { requestType, requestData, cleanText };
@@ -344,6 +352,7 @@ class AskBackend {
 
       const behaviors = storageManager.readBehaviors();
       conversationParts.push(`System: Learned Behaviors: ${JSON.stringify(behaviors)}`);
+      conversationParts.push(`System: Current OS: ${process.platform}`);
       conversationParts.push(`User: ${userRequest}`);
 
       let iteration = 0;
