@@ -263,6 +263,7 @@ class WindowManager {
 
 
     async createEntryWindow() {
+        console.log('[WindowManager] Creating entry window...');
         const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
         const entryWindow = new BrowserWindow({
@@ -291,9 +292,15 @@ class WindowManager {
             }
         });
 
-        await entryWindow.loadFile(
-            path.join(__dirname, '../renderer/entry-window.html')
-        );
+        try {
+            await entryWindow.loadFile(
+                path.join(__dirname, '../renderer/entry-window.html')
+            );
+            console.log('[WindowManager] Entry window loaded successfully');
+        } catch (err) {
+            console.error('[WindowManager] Failed to load entry window:', err);
+            throw err;
+        }
 
         this.windows.set('entry', entryWindow);
 
