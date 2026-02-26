@@ -70,10 +70,7 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        this.mainWindow.setContentProtection(!windowVisibility);
-        this.mainWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
-        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+        this.mainWindow.setAlwaysOnTop(true, 'floating')
         // Make window click-through only when not interactive
         this.mainWindow.setIgnoreMouseEvents(!this.isInteractive, { forward: !this.isInteractive });
 
@@ -113,7 +110,6 @@ class WindowManager {
             fullscreenable: false,
             roundedCorners: true,
             show: false,
-            visible: false,
             hasShadow: false,
             webPreferences: {
                 nodeIntegration: false,
@@ -124,9 +120,6 @@ class WindowManager {
             }
         });
 
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        chatWindow.setContentProtection(!windowVisibility);
-        chatWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
         chatWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
@@ -168,6 +161,7 @@ class WindowManager {
             height: 500,
             frame: false,
             transparent: true,
+            backgroundColor: '#00000000',
             roundedCorners: true,
             alwaysOnTop: true,
             skipTaskbar: true,
@@ -178,7 +172,6 @@ class WindowManager {
             closable: false,
             fullscreenable: false,
             show: false,
-            visible: false,
             hasShadow: false,
             webPreferences: {
                 nodeIntegration: false,
@@ -188,9 +181,6 @@ class WindowManager {
                 webSecurity: !isDev
             }
         });
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        settingsWindow.setContentProtection(!windowVisibility);
-        settingsWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
         settingsWindow.setAlwaysOnTop(true, 'screen-saver')
         try {
             await settingsWindow.loadFile(
@@ -234,6 +224,7 @@ class WindowManager {
             height: 600,
             frame: false,
             transparent: true,
+            backgroundColor: '#00000000',
             roundedCorners: true,
             alwaysOnTop: true,
             skipTaskbar: true,
@@ -244,7 +235,6 @@ class WindowManager {
             closable: false,
             fullscreenable: false,
             show: false,
-            visible: false,
             hasShadow: true,
             webPreferences: {
                 nodeIntegration: false,
@@ -255,9 +245,6 @@ class WindowManager {
             }
         });
 
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        workflowWindow.setContentProtection(!windowVisibility);
-        workflowWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
         workflowWindow.setAlwaysOnTop(true, 'screen-saver')
 
         try {
@@ -293,7 +280,7 @@ class WindowManager {
             maximizable: true,
             closable: true,
             fullscreenable: false,
-            visible: false,
+            show: false,
             hasShadow: true,
             webPreferences: {
                 nodeIntegration: false,
@@ -309,9 +296,6 @@ class WindowManager {
         );
 
         this.windows.set('entry', entryWindow);
-        const windowVisibility = global.appSettings?.windowVisibility !== false;
-        entryWindow.setContentProtection(!windowVisibility);
-        entryWindow.setVisibleOnAllWorkspaces(windowVisibility, { visibleOnFullScreen: true });
 
         // Make entry window draggable via IPC
         this.setupDraggableWindow(entryWindow);
@@ -364,6 +348,8 @@ class WindowManager {
         const browserWindow = this.windows.get(windowType);
         console.log(`[WindowManager] showWindow('${windowType}'):`, { exists: !!browserWindow, destroyed: browserWindow?.isDestroyed?.() });
         if (browserWindow && !browserWindow.isDestroyed()) {
+            if (browserWindow.isVisible()) return true;
+
             if (windowType === 'chat') {
                 this.chatVisible = true;
                 // Only hide floating button if it's enabled in settings
@@ -388,6 +374,8 @@ class WindowManager {
     hideWindow(windowType) {
         const browserWindow = this.windows.get(windowType);
         if (browserWindow && !browserWindow.isDestroyed()) {
+            if (!browserWindow.isVisible()) return true;
+
             if (windowType === 'chat') {
                 this.chatVisible = false;
             }
@@ -464,6 +452,7 @@ class WindowManager {
     }
 
     setInteractive(interactive) {
+        if (this.isInteractive === interactive) return;
         this.isInteractive = interactive;
         const mainWindow = this.windows.get('main');
         if (mainWindow && !mainWindow.isDestroyed()) {
