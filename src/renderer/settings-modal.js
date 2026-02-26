@@ -67,6 +67,14 @@ class SettingsModal {
                 if (e.target === staticPin) staticPin.classList.remove('show');
             });
         }
+
+        const aiModal = document.getElementById('aiSettingsModal');
+        if (aiModal) {
+            aiModal.classList.remove('show');
+            aiModal.addEventListener('click', (e) => {
+                if (e.target === aiModal) aiModal.classList.remove('show');
+            });
+        }
     }
 
     initializeLucideIcons() {
@@ -137,6 +145,20 @@ class SettingsModal {
 
         document.getElementById('proceedWithoutConfirmationToggle')?.addEventListener('click', () => {
             this.toggleProceedWithoutConfirmation();
+        });
+
+        // AI Settings Modal
+        document.getElementById('openAiSettingsBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('aiSettingsModal');
+            if (modal) {
+                modal.classList.add('show');
+                this.updateToggleStates();
+            }
+        });
+
+        document.getElementById('aiSettingsCloseBtn')?.addEventListener('click', () => {
+            const modal = document.getElementById('aiSettingsModal');
+            if (modal) modal.classList.remove('show');
         });
 
         document.getElementById('ollamaUrl')?.addEventListener('change', (e) => {

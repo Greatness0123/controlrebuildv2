@@ -193,7 +193,19 @@ class AskBackend {
       'minimax': 'https://api.minimax.chat/v1/text/chat-completion-v2'
     };
 
-    const url = baseUrl ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`) : endpoints[provider];
+    let url = baseUrl ? (baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl}/chat/completions`) : endpoints[provider];
+
+    // Handle Cloud Providers specifically
+    if (provider === 'azure') {
+      apiKey = settings.cloudCredentials;
+      model = settings.cloudModel;
+      const endpoint = settings.cloudRegion; // Base URL
+      if (!endpoint || !apiKey || !model) throw new Error("Azure requires Endpoint URL, API Key, and Deployment Name (Model ID).");
+      url = `${endpoint.replace(/\/$/, '')}/openai/deployments/${model}/chat/completions?api-version=2024-02-15-preview`;
+    } else if (provider === 'aws' || provider === 'vertex') {
+      throw new Error(`${provider.toUpperCase()} is not yet natively supported. Please use LiteLLM or OpenRouter as a gateway for this provider.`);
+    }
+
     if (!url) throw new Error(`Endpoint for provider ${provider} not found and no Base URL provided.`);
 
     // Handle OpenRouter specific logic
@@ -226,9 +238,14 @@ class AskBackend {
     }
 
     const headers = {
-      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     };
+
+    if (provider === 'azure') {
+      headers["api-key"] = apiKey;
+    } else {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
 
     if (provider === 'openrouter') {
       headers["HTTP-Referer"] = "https://controlrebuild-website.vercel.app";
@@ -365,7 +382,7 @@ class AskBackend {
           responseText = await this.ollamaGenerate(prompt, sysMsg, settings);
         } else if (effectiveProvider === "anthropic") {
           responseText = await this.anthropicGenerate(conversationParts, sysMsg, settings);
-        } else if (["openai", "deepseek", "xai", "moonshot", "zai", "openrouter", "lmstudio", "litellm", "minimax"].includes(effectiveProvider)) {
+        } else if (["openai", "deepseek", "xai", "moonshot", "zai", "openrouter", "lmstudio", "litellm", "minimax", "azure", "aws", "vertex"].includes(effectiveProvider)) {
           responseText = await this.universalGenerate(conversationParts, sysMsg, settings);
         } else if (effectiveProvider === "gemini") {
           const result = await this.model.generateContent(conversationParts);
