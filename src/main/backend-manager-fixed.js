@@ -47,7 +47,9 @@ class BackendManager extends EventEmitter {
             // so the frontend can display the response and clear any thinking indicators.
             if (source === 'ASK' && global.windowManager) {
                 try {
-                    global.windowManager.showWindow('chat');
+                    global.windowManager.showWindow('chat').catch(e => {
+                        console.error('[BackendManager] Failed to show chat window on ai_response async:', e);
+                    });
                 } catch (e) {
                     console.error('[BackendManager] Failed to show chat window on ai_response:', e);
                 }
@@ -75,10 +77,10 @@ class BackendManager extends EventEmitter {
             this.broadcastToWindows('plan-update', data);
         });
 
-        this.messageHandlers.set('request_confirmation', (data) => {
+        this.messageHandlers.set('request_confirmation', async (data) => {
             this.broadcastToWindows('request-confirmation', data);
             if (global.windowManager) {
-                global.windowManager.showWindow('chat');
+                await global.windowManager.showWindow('chat');
             }
         });
 
@@ -104,8 +106,8 @@ class BackendManager extends EventEmitter {
             this.broadcastToWindows('task-complete', data);
             this.hideVisualEffects();
             if (global.windowManager) {
-                setTimeout(() => {
-                    global.windowManager.showWindow('chat');
+                setTimeout(async () => {
+                    await global.windowManager.showWindow('chat');
                 }, 500);
             }
         });
@@ -275,8 +277,8 @@ class BackendManager extends EventEmitter {
         this.hideVisualEffects();
 
         if (global.windowManager) {
-            setTimeout(() => {
-                if (global.windowManager) global.windowManager.showWindow('chat');
+            setTimeout(async () => {
+                if (global.windowManager) await global.windowManager.showWindow('chat');
             }, 300);
         }
 

@@ -89,7 +89,7 @@ class ComputerUseAgent {
         this.setupIPCHandlers();
 
         // Listen for hotkey events emitted by HotkeyManager via process.emit
-        process.on('hotkey-triggered', (payload) => {
+        process.on('hotkey-triggered', async (payload) => {
             try {
                 const { event, data } = payload;
                 console.log(`[Main] hotkey-triggered: ${event}`, data || '');
@@ -122,7 +122,7 @@ class ComputerUseAgent {
                             // Check if wake word should toggle chat or just open it
                             if (this.appSettings.wakeWordToggleChat) {
                                 // Toggle mode
-                                this.windowManager.toggleChat();
+                                await this.windowManager.toggleChat();
 
                                 // Only send wakeword-detected if chat became visible (was closed, now open)
                                 if (this.windowManager.chatVisible && !wasVisible) {
@@ -136,7 +136,7 @@ class ComputerUseAgent {
                                 // Default behavior: Ensure open
                                 if (!wasVisible) {
                                     // Chat was closed, open it and start transcription
-                                    this.windowManager.showWindow('chat');
+                                    await this.windowManager.showWindow('chat');
 
                                     const chatWin = this.windowManager.getWindow('chat');
                                     if (chatWin && !chatWin.isDestroyed()) {
@@ -169,7 +169,7 @@ class ComputerUseAgent {
                             }
                         } else {
                             console.log('[Main] Toggle chat - proceed to windowManager.toggleChat()');
-                            this.windowManager.toggleChat();
+                            await this.windowManager.toggleChat();
                         }
                         break;
                     case 'stop-action':
@@ -244,7 +244,7 @@ class ComputerUseAgent {
             await this.windowManager.initializeWindows();
 
             // Show main overlay after all windows are initialized
-            this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('main');
 
             // Set up global hotkeys
             // Set up global hotkeys with saved settings
@@ -312,12 +312,12 @@ class ComputerUseAgent {
                 this.windowManager.broadcast('user-changed', this.currentUser);
                 this.windowManager.broadcast('settings-updated', this.getSettings());
 
-                this.windowManager.showWindow('main');
+                await this.windowManager.showWindow('main');
             } else {
                 console.log('[Main] No cached user, showing login');
                 this.isAuthenticated = false;
-                this.windowManager.showWindow('main');
-                this.windowManager.showWindow('entry');
+                await this.windowManager.showWindow('main');
+                await this.windowManager.showWindow('entry');
             }
 
             // ENABLE EDGETTS ONLY IF voiceResponse IS ENABLED IN SETTINGS
@@ -444,8 +444,8 @@ class ComputerUseAgent {
 
     setupIPCHandlers() {
         // Window management
-        ipcMain.handle('show-window', (event, windowType) => {
-            this.windowManager.showWindow(windowType);
+        ipcMain.handle('show-window', async (event, windowType) => {
+            await this.windowManager.showWindow(windowType);
             return { success: true };
         });
 
@@ -455,7 +455,7 @@ class ComputerUseAgent {
         });
 
         // ✅ SINGLE toggle-chat handler - checks authentication state internally
-        ipcMain.handle('toggle-chat', () => {
+        ipcMain.handle('toggle-chat', async () => {
             console.log('[Main] toggle-chat handler called');
 
             // Check if authentication is required
@@ -471,7 +471,7 @@ class ComputerUseAgent {
 
             // User is authenticated or PIN disabled
             console.log('[Main] Calling windowManager.toggleChat()');
-            const result = this.windowManager.toggleChat();
+            const result = await this.windowManager.toggleChat();
             console.log('[Main] toggleChat result:', result);
             return result;
         });
@@ -673,7 +673,7 @@ class ComputerUseAgent {
                     this.windowManager.broadcast('user-changed', result.user);
                     this.windowManager.broadcast('settings-updated', this.getSettings());
 
-                    this.windowManager.showWindow('main');
+                    await this.windowManager.showWindow('main');
                 }
 
                 return result;
@@ -905,7 +905,7 @@ class ComputerUseAgent {
             }
 
             this.windowManager.hideWindow('settings');
-            this.windowManager.showWindow('entry');
+            await this.windowManager.showWindow('entry');
 
             return { success: true };
         });
@@ -916,7 +916,7 @@ class ComputerUseAgent {
             return { success: true };
         });
 
-        ipcMain.handle('lock-app', () => {
+        ipcMain.handle('lock-app', async () => {
             console.log('[Main] lock-app handler called');
             this.isAuthenticated = false; // ✅ Clear authentication state
             // Close chat and settings windows
@@ -926,7 +926,7 @@ class ComputerUseAgent {
             const result = this.securityManager.lockApp();
             console.log('[Main] App locked, showing overlay');
             // Show the main overlay (overlay is always visible but will show PIN modal on interaction)
-            this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('main');
             return result;
         });
 
@@ -1728,8 +1728,8 @@ class ComputerUseAgent {
                 },
                 {
                     label: 'Settings',
-                    click: () => {
-                        this.windowManager.showWindow('settings');
+                    click: async () => {
+                        await this.windowManager.showWindow('settings');
                     }
                 },
                 { type: 'separator' },
@@ -1789,7 +1789,7 @@ if (!gotTheLock) {
     // Create and start the application
     const agent = new ComputerUseAgent();
 
-    app.on('second-instance', (event, commandLine, workingDirectory) => {
+    app.on('second-instance', async (event, commandLine, workingDirectory) => {
         console.log('[Main] Second instance detected, showing entry window');
         console.log('[Main] Attempting to open entry page for second instance');
         // If someone tried to run a second instance, we should focus our window.
@@ -1806,7 +1806,7 @@ if (!gotTheLock) {
             } else {
                 // If entry window doesn't exist or was closed, recreate/show it
                 console.log('[Main] Entry window does not exist, creating it');
-                agent.windowManager.showWindow('entry');
+                await agent.windowManager.showWindow('entry');
             }
         }
     });
