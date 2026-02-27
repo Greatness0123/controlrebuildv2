@@ -8,7 +8,6 @@ const path = require("path");
 const os = require("os");
 const Jimp = require("jimp");
 const storageManager = require("../storage-manager");
-const playwrightManager = require("../playwright-manager");
 const promptManager = require("../prompt-manager");
 
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
@@ -372,15 +371,6 @@ class ActBackend {
             const encodedQuery = encodeURIComponent(params.query);
             const searchUrl = `https://www.google.com/search?q=${encodedQuery}`;
 
-            // Fallback to Agentic Browser if native tools (gemini) are unavailable
-            if (this.currentProvider !== 'gemini') {
-                console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
-                await playwrightManager.open(searchUrl);
-                result.success = true;
-                result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
-                return result;
-            }
-
             console.log(`[ACT JS] Web search requested for: ${params.query}`);
             let command = "";
             if (process.platform === "win32") {
@@ -399,58 +389,6 @@ class ActBackend {
           } else {
             result.message = "No query provided for web search";
           }
-          break;
-
-        case "browser_open":
-          if (params.url) {
-            await playwrightManager.open(params.url);
-            result.success = true;
-            result.message = `Agentic browser opened to ${params.url}`;
-          } else {
-            result.message = "No URL provided for browser_open";
-          }
-          break;
-
-        case "browser_execute_js":
-          if (params.script) {
-            try {
-              const jsResult = await playwrightManager.executeJs(params.script);
-              // Give it a moment to react if it triggered a navigation
-              await new Promise(r => setTimeout(r, 800));
-
-              const status = await playwrightManager.getStatus();
-
-              result.success = true;
-              result.message = `JS executed. Result: ${JSON.stringify(jsResult) || "Success (no return value)"}. Current URL: ${status.url}, Title: ${status.title}`;
-              result.result = jsResult;
-              result.url = status.url;
-            } catch (e) {
-              result.message = `JS error: ${e.message}`;
-            }
-          } else {
-            result.message = "No script provided for browser_execute_js";
-          }
-          break;
-
-        case "browser_screenshot":
-          try {
-            const buffer = await playwrightManager.takeScreenshot();
-            const timestamp = Date.now();
-            const filename = `browser_shot_${timestamp}.png`;
-            const filepath = path.join(this.screenshotDir, filename);
-            fs.writeFileSync(filepath, buffer);
-            result.success = true;
-            result.screenshot = filepath;
-            result.message = "Browser content captured specifically via Playwright.";
-          } catch (e) {
-            result.message = `Browser screenshot error: ${e.message}`;
-          }
-          break;
-
-        case "browser_close":
-          await playwrightManager.close();
-          result.success = true;
-          result.message = "Agentic browser (Playwright) closed";
           break;
 
         case "display_code":
@@ -710,21 +648,13 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
         const libs = storageManager.readLibraries();
         const behaviors = storageManager.readBehaviors();
 
-        let browserStatus = "";
-        try {
-            const status = await playwrightManager.getStatus();
-            if (status.success && status.isVisible) {
-                browserStatus = `\nAgentic Browser Status: URL=${status.url}, Title=${status.title}`;
-            }
-        } catch(e) {}
-
         const prompt = `User Request: ${userRequest}
 User Preferences: ${JSON.stringify(prefs)}
 Installed Libraries: ${JSON.stringify(libs)}
 Learned Behaviors: ${JSON.stringify(behaviors)}
-Last Action Result: ${lastResultContext}${browserStatus}
+Last Action Result: ${lastResultContext}
 OS: ${process.platform}, Screen: ${this.screenSize.width}x${this.screenSize.height}
-${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use browser_open, browser_execute_js, and standard spatial actions to perform web searches manually via a search engine.' : ''}
+${effectiveProvider !== 'gemini' ? 'NOTE: Native web search tool (googleSearch) is NOT available for this provider. Use standard spatial actions to perform web searches manually via a search engine.' : ''}
 
 Analyze screen and provide IMMEDIATE ACTIONS. Respond with JSON.`;
 

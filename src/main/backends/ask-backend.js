@@ -4,7 +4,6 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const playwrightManager = require("../playwright-manager");
 const promptManager = require("../prompt-manager");
 const storageManager = require("../storage-manager");
 
@@ -74,9 +73,6 @@ class AskBackend {
     // Primary bracketed matches
     const screenshotMatch = /\[REQUEST_SCREENSHOT\]/.exec(responseText);
     const commandMatch = /\[REQUEST_COMMAND:\s*(.+?)\]/.exec(responseText);
-    const browserOpenMatch = /\[BROWSER_OPEN:\s*(.+?)\]/.exec(responseText);
-    const browserJsMatch = /\[BROWSER_EXECUTE_JS:\s*([\s\S]+?)\]/.exec(responseText);
-    const browserScreenshotMatch = /\[BROWSER_SCREENSHOT\]/.exec(responseText);
     const readBehaviorsMatch = /\[READ_BEHAVIORS\]/.exec(responseText);
     const writeBehaviorMatch = /\[WRITE_BEHAVIOR:\s*([\s\S]+?)\]/.exec(responseText);
 
@@ -93,14 +89,6 @@ class AskBackend {
     } else if (fallbackCommandMatch) {
       requestType = "command";
       requestData = fallbackCommandMatch[1].trim();
-    } else if (browserOpenMatch) {
-      requestType = "browser_open";
-      requestData = browserOpenMatch[1].trim();
-    } else if (browserJsMatch) {
-      requestType = "browser_js";
-      requestData = browserJsMatch[1].trim();
-    } else if (browserScreenshotMatch) {
-      requestType = "browser_screenshot";
     } else if (readBehaviorsMatch) {
       requestType = "read_behaviors";
     } else if (writeBehaviorMatch) {
@@ -115,9 +103,6 @@ class AskBackend {
         })
         .replace(/\[REQUEST_SCREENSHOT\]/g, "")
         .replace(/\[REQUEST_COMMAND:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_OPEN:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_EXECUTE_JS:\s*.+?\]/g, "")
-        .replace(/\[BROWSER_SCREENSHOT\]/g, "")
         .replace(/\[READ_BEHAVIORS\]/g, "")
         .replace(/\[WRITE_BEHAVIOR:\s*[\s\S]+?\]/g, "")
         .replace(/^(?:REQUEST_COMMAND|COMMAND):\s*.+$/gm, "")
@@ -390,29 +375,6 @@ class AskBackend {
         } else if (requestType === "command") {
           const output = await this.runSystemCommand(requestData);
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
-          continue;
-        } else if (requestType === "browser_open") {
-          await playwrightManager.open(requestData);
-          conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData} via Playwright. You can now request a screenshot to see it.`);
-          continue;
-        } else if (requestType === "browser_js") {
-          let output = "";
-          try {
-            const res = await playwrightManager.executeJs(requestData);
-            output = JSON.stringify(res) || "Success (no return value)";
-          } catch (e) {
-            output = `Error: ${e.message}`;
-          }
-          const status = await playwrightManager.getStatus();
-          conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${status.url}`);
-          continue;
-        } else if (requestType === "browser_screenshot") {
-          try {
-            const buffer = await playwrightManager.takeScreenshot();
-            conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot via Playwright.");
-          } catch (e) {
-            conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
-          }
           continue;
         } else if (requestType === "read_behaviors") {
           const behaviors = storageManager.readBehaviors();
