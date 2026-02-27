@@ -273,7 +273,7 @@ class WindowManager {
             y: (height - 600) / 2,
             frame: false,
             transparent: false,
-            alwaysOnTop: true,
+            alwaysOnTop: false,
             skipTaskbar: false,
             resizable: true,
             movable: true,
