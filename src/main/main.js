@@ -1748,6 +1748,12 @@ class ComputerUseAgent {
                         await this.windowManager.showWindow('settings');
                     }
                 },
+                {
+                    label: 'Sign In / Account',
+                    click: async () => {
+                        await this.windowManager.showWindow('entry');
+                    }
+                },
                 { type: 'separator' },
                 {
                     label: 'Quit',

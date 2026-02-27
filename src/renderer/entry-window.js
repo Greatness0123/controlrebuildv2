@@ -341,7 +341,7 @@ class EntryWindow {
 
     async closeWindow() {
         if (window.entryAPI) {
-            await window.entryAPI.quitApp();
+            await window.entryAPI.closeWindow();
         } else {
             window.close();
         }
