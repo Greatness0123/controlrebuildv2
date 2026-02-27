@@ -44,7 +44,7 @@ const SettingsManager = require('./settings-manager');
 const firebaseService = require('./firebase-service');
 const workflowManager = require('./workflow-manager');
 const appUtils = require('./app-utils');
-const playwrightManager = require('./playwright-manager');
+const electronBrowserManager = require('./electron-browser-manager');
 
 class ComputerUseAgent {
     constructor() {
@@ -1297,20 +1297,20 @@ class ComputerUseAgent {
             }
         });
 
-        // Agentic Browser Handlers (Playwright)
+        // Agentic Browser Handlers (Native Electron)
         ipcMain.handle('browser-navigate', async (event, url) => {
-            console.log(`[Main] Browser navigate (Playwright): ${url}`);
+            console.log(`[Main] Browser navigate: ${url}`);
             try {
-                return await playwrightManager.open(url);
+                return await electronBrowserManager.open(url);
             } catch (e) {
                 return { success: false, message: e.message };
             }
         });
 
         ipcMain.handle('browser-execute-js', async (event, script) => {
-            console.log(`[Main] Browser execute JS (Playwright)`);
+            console.log(`[Main] Browser execute JS`);
             try {
-                const result = await playwrightManager.executeJs(script);
+                const result = await electronBrowserManager.executeJs(script);
                 return { success: true, result };
             } catch (e) {
                 return { success: false, message: e.message };
@@ -1318,11 +1318,11 @@ class ComputerUseAgent {
         });
 
         ipcMain.handle('browser-get-status', async () => {
-            return await playwrightManager.getStatus();
+            return await electronBrowserManager.getStatus();
         });
 
         ipcMain.handle('browser-close', async () => {
-            await playwrightManager.close();
+            await electronBrowserManager.close();
             return { success: true };
         });
     }
