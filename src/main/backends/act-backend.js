@@ -8,7 +8,7 @@ const path = require("path");
 const os = require("os");
 const Jimp = require("jimp");
 const storageManager = require("../storage-manager");
-const playwrightManager = require("../playwright-manager");
+const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
 
 const SYSTEM_PROMPT = promptManager.getPrompt('act-system-prompt');
@@ -375,7 +375,7 @@ class ActBackend {
             // Fallback to Agentic Browser if native tools (gemini) are unavailable
             if (this.currentProvider !== 'gemini') {
                 console.log(`[ACT JS] Web search fallback to agentic browser for: ${params.query}`);
-                await playwrightManager.open(searchUrl);
+                await electronBrowserManager.open(searchUrl);
                 result.success = true;
                 result.message = `Web search for "${params.query}" performed using agentic browser (native tool fallback).`;
                 return result;
@@ -403,7 +403,7 @@ class ActBackend {
 
         case "browser_open":
           if (params.url) {
-            await playwrightManager.open(params.url);
+            await electronBrowserManager.open(params.url);
             result.success = true;
             result.message = `Agentic browser opened to ${params.url}`;
           } else {
@@ -414,11 +414,11 @@ class ActBackend {
         case "browser_execute_js":
           if (params.script) {
             try {
-              const jsResult = await playwrightManager.executeJs(params.script);
+              const jsResult = await electronBrowserManager.executeJs(params.script);
               // Give it a moment to react if it triggered a navigation
               await new Promise(r => setTimeout(r, 800));
 
-              const status = await playwrightManager.getStatus();
+              const status = await electronBrowserManager.getStatus();
 
               result.success = true;
               result.message = `JS executed. Result: ${JSON.stringify(jsResult) || "Success (no return value)"}. Current URL: ${status.url}, Title: ${status.title}`;
@@ -434,23 +434,23 @@ class ActBackend {
 
         case "browser_screenshot":
           try {
-            const buffer = await playwrightManager.takeScreenshot();
+            const buffer = await electronBrowserManager.takeScreenshot();
             const timestamp = Date.now();
             const filename = `browser_shot_${timestamp}.png`;
             const filepath = path.join(this.screenshotDir, filename);
             fs.writeFileSync(filepath, buffer);
             result.success = true;
             result.screenshot = filepath;
-            result.message = "Browser content captured specifically via Playwright.";
+            result.message = "Browser content captured via Electron capturePage.";
           } catch (e) {
             result.message = `Browser screenshot error: ${e.message}`;
           }
           break;
 
         case "browser_close":
-          await playwrightManager.close();
+          await electronBrowserManager.close();
           result.success = true;
-          result.message = "Agentic browser (Playwright) closed";
+          result.message = "Agentic browser closed";
           break;
 
         case "display_code":
@@ -496,7 +496,7 @@ class ActBackend {
 
     if (isBrowserAction && method === "visual") {
       try {
-        const buffer = await playwrightManager.takeScreenshot();
+        const buffer = await electronBrowserManager.takeScreenshot();
         shotData = buffer.toString("base64");
       } catch (e) {
         console.error("[ACT JS] Browser screenshot for verification failed, falling back to desktop:", e);
@@ -730,7 +730,7 @@ Analyze the state and determine if the action was successful. Respond ONLY with 
 
         let browserStatus = "";
         try {
-            const status = await playwrightManager.getStatus();
+            const status = await electronBrowserManager.getStatus();
             if (status.success && status.isVisible) {
                 browserStatus = `\nAgentic Browser Status: URL=${status.url}, Title=${status.title}`;
             }

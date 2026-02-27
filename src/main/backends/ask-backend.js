@@ -4,7 +4,7 @@ const { exec } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const playwrightManager = require("../playwright-manager");
+const electronBrowserManager = require("../electron-browser-manager");
 const promptManager = require("../prompt-manager");
 const storageManager = require("../storage-manager");
 
@@ -392,24 +392,24 @@ class AskBackend {
           conversationParts.push(`Assistant: ${cleanText}`, `System: Command output:\n\`\`\`\n${output}\n\`\`\``);
           continue;
         } else if (requestType === "browser_open") {
-          await playwrightManager.open(requestData);
-          conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData} via Playwright. You can now request a browser screenshot to see it.`);
+          await electronBrowserManager.open(requestData);
+          conversationParts.push(`Assistant: ${cleanText}`, `System: Browser opened to ${requestData} (Electron instance). You can now request a browser screenshot to see it.`);
           continue;
         } else if (requestType === "browser_js") {
           let output = "";
           try {
-            const res = await playwrightManager.executeJs(requestData);
+            const res = await electronBrowserManager.executeJs(requestData);
             output = JSON.stringify(res) || "Success (no return value)";
           } catch (e) {
             output = `Error: ${e.message}`;
           }
-          const status = await playwrightManager.getStatus();
+          const status = await electronBrowserManager.getStatus();
           conversationParts.push(`Assistant: ${cleanText}`, `System: JS output: ${output}. Current Browser URL: ${status.url}`);
           continue;
         } else if (requestType === "browser_screenshot") {
           try {
-            const buffer = await playwrightManager.takeScreenshot();
-            conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot via Playwright.");
+            const buffer = await electronBrowserManager.takeScreenshot();
+            conversationParts.push(`Assistant: ${cleanText}`, { inlineData: { mimeType: "image/png", data: buffer.toString("base64") } }, "System: Here is the browser screenshot.");
           } catch (e) {
             conversationParts.push(`Assistant: ${cleanText}`, `System: Browser screenshot error: ${e.message}`);
           }
