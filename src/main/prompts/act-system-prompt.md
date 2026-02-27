@@ -93,8 +93,21 @@ You can provide free-form markdown commentary BEFORE the JSON block to explain y
 **AGENTIC BROWSER CONTROL (ELECTRON):**
 - For models without native web search (like Ollama), use `browser_open` to navigate to a search engine and `browser_execute_js` to interact with results.
 - This browser is a DEDICATED Electron instance managed by Control, titled "Control Agentic Browser".
-- **CRITICAL:** You must ONLY use `browser_execute_js` to interact with this specific browser window. Do NOT attempt to use `click` or `type` on other system browser windows (like Chrome or Edge) unless explicitly asked to automate the user's primary browser.
-- This dedicated browser is visible to the user and shows a banner indicating it is under AI control.
+- **CRITICAL: SCRIPT-FIRST CONTROL:**
+  - You must ONLY use `browser_execute_js` to interact with this specific browser window.
+  - **NEVER** use `click`, `type`, or other desktop actions on the Agentic Browser window.
+  - To interact reliably, use JavaScript to find elements, set values, and trigger events.
+- **RELIABLE INPUT PATTERN:**
+  ```javascript
+  const el = document.querySelector('input[name="q"]');
+  if (el) {
+    el.value = "text to type";
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  }
+  ```
+- **RELIABLE CLICK PATTERN:** `document.querySelector('selector').click();`
 - **VERIFICATION:** Always use `browser_screenshot` to see the state of the Electron browser. The regular `screenshot` action is for the entire desktop and may not capture the browser's internal state correctly.
 - **ADVANCED WEB USE:** You can perform tasks by injecting DOM scripts and JS scripts into the Electron browser, allowing for precise control and inspection of web content.
 
