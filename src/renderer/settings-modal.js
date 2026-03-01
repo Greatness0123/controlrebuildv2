@@ -302,6 +302,14 @@ class SettingsModal {
             this.importSkill();
         });
 
+        document.getElementById('manageSkillsBtn')?.addEventListener('click', () => {
+            this.showSkillsModal();
+        });
+
+        document.getElementById('skillsModalCloseBtn')?.addEventListener('click', () => {
+            document.getElementById('skillsModal')?.classList.remove('show');
+        });
+
         // Buttons
         document.getElementById('changePinButton')?.addEventListener('click', () => {
             this.showChangePinModal();
@@ -1891,6 +1899,76 @@ class SettingsModal {
         } catch (e) {
             console.error('Failed to import skill:', e);
             this.showToast('Failed to import skill', 'error');
+        }
+    }
+
+    async showSkillsModal() {
+        const modal = document.getElementById('skillsModal');
+        if (!modal) return;
+
+        modal.classList.add('show');
+        await this.loadSkillsList();
+    }
+
+    async loadSkillsList() {
+        const skillsList = document.getElementById('skillsList');
+        const noSkillsMsg = document.getElementById('noSkillsMsg');
+        if (!skillsList || !noSkillsMsg) return;
+
+        try {
+            const res = await window.settingsAPI.getSkills();
+            const behaviors = res.behaviors || [];
+
+            skillsList.innerHTML = '';
+
+            if (behaviors.length === 0) {
+                noSkillsMsg.style.display = 'block';
+                return;
+            }
+
+            noSkillsMsg.style.display = 'none';
+
+            behaviors.forEach(skill => {
+                const item = document.createElement('div');
+                item.className = 'setting-item';
+                item.style.padding = '12px';
+                item.style.background = 'var(--bg-secondary)';
+                item.style.borderRadius = '12px';
+                item.style.border = '1px solid var(--border-color)';
+
+                item.innerHTML = `
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;">${skill.name}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">${skill.pattern}</div>
+                    </div>
+                    <button class="button button-danger" style="padding: 6px 10px;" onclick="window.settingsModalInstance.deleteSkill('${skill.name}')">
+                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                    </button>
+                `;
+                skillsList.appendChild(item);
+            });
+
+            this.initializeLucideIcons();
+        } catch (e) {
+            console.error('Failed to load skills:', e);
+            this.showToast('Failed to load skills', 'error');
+        }
+    }
+
+    async deleteSkill(name) {
+        if (!confirm(`Are you sure you want to delete the skill "${name}"?`)) return;
+
+        try {
+            const res = await window.settingsAPI.deleteSkill(name);
+            if (res.success) {
+                this.showToast('Skill deleted', 'success');
+                await this.loadSkillsList();
+            } else {
+                this.showToast('Failed to delete skill', 'error');
+            }
+        } catch (e) {
+            console.error('Failed to delete skill:', e);
+            this.showToast('Failed to delete skill', 'error');
         }
     }
 }

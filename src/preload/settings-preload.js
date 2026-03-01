@@ -57,4 +57,6 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     exportData: () => ipcRenderer.invoke('export-data'),
     deleteAllData: () => ipcRenderer.invoke('delete-all-data'),
     importSkill: () => ipcRenderer.invoke('import-skill'),
+    deleteSkill: (name) => ipcRenderer.invoke('delete-skill', name),
+    getSkills: () => ipcRenderer.invoke('read-behaviors'),
 });
