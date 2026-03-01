@@ -13,6 +13,7 @@ class ChatWindow {
         this.voiceIndicator = document.getElementById('voiceIndicator');
         this.welcomeScreen = document.getElementById('welcomeScreen');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
+        this.commandSuggestions = document.getElementById('commandSuggestions');
         // this.blueprintSidebar = document.getElementById('blueprintSidebar');
         // this.blueprintContent = document.getElementById('blueprintContent');
         // this.blueprintToggle = document.getElementById('blueprintToggle');
@@ -56,6 +57,8 @@ class ChatWindow {
         this.baseText = ''; // Track committed text for partial updates
         this.userName = null; // Track user name for personalization
         this.lastUserMessage = null; // Track last user message for Redo
+        this.availableSkills = []; // For slash command autocomplete
+        this.selectedSuggestionIndex = -1;
 
         this.isOnline = navigator.onLine;
         this.offlineChecked = false;
@@ -88,6 +91,7 @@ class ChatWindow {
         this.loadSessions();
         this.checkOfflineStatus();
         this.setupOnlineOfflineListeners();
+        this.loadSkillsForAutocomplete();
         // Don't auto-start new conversation here to avoid resetting UI state if restoring
         if (!this.currentSessionId) {
             // CRITICAL: Pass true for keepMode to ensure restored mode is preserved
@@ -236,6 +240,7 @@ class ChatWindow {
         this.chatInput.addEventListener('input', () => {
             this.autoResizeTextarea();
             this.updateSendButton();
+            this.handleSlashCommandInput();
             // REMOVED: Hide welcome screen when user starts typing (User preference)
             // if (this.chatInput.value.trim().length > 0) {
             //     this.hideWelcomeScreen();
@@ -251,8 +256,110 @@ class ChatWindow {
         });
     }
 
+    async loadSkillsForAutocomplete() {
+        if (window.chatAPI && window.chatAPI.readBehaviors) {
+            try {
+                const res = await window.chatAPI.readBehaviors();
+                this.availableSkills = res.behaviors || [];
+            } catch (e) {
+                console.error('Failed to load skills for autocomplete:', e);
+            }
+        }
+    }
+
+    handleSlashCommandInput() {
+        const value = this.chatInput.value;
+        if (value.startsWith('/') && !value.includes(' ')) {
+            const query = value.substring(1).toLowerCase();
+            this.showCommandSuggestions(query);
+        } else {
+            this.hideCommandSuggestions();
+        }
+    }
+
+    showCommandSuggestions(query) {
+        if (!this.commandSuggestions) return;
+
+        const filtered = this.availableSkills.filter(skill =>
+            skill.name.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            this.hideCommandSuggestions();
+            return;
+        }
+
+        this.commandSuggestions.innerHTML = '';
+        filtered.forEach((skill, index) => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            if (index === 0) {
+                item.classList.add('selected');
+                this.selectedSuggestionIndex = 0;
+            }
+            item.innerHTML = `
+                <div class="cmd-name">/${skill.name}</div>
+                <div class="cmd-desc">${skill.description || skill.pattern.substring(0, 50) + '...'}</div>
+            `;
+            item.onclick = () => {
+                this.chatInput.value = `/${skill.name} `;
+                this.hideCommandSuggestions();
+                this.chatInput.focus();
+                this.autoResizeTextarea();
+            };
+            this.commandSuggestions.appendChild(item);
+        });
+
+        this.commandSuggestions.style.display = 'flex';
+    }
+
+    hideCommandSuggestions() {
+        if (this.commandSuggestions) {
+            this.commandSuggestions.style.display = 'none';
+        }
+        this.selectedSuggestionIndex = -1;
+    }
+
+    navigateSuggestions(direction) {
+        const items = this.commandSuggestions.querySelectorAll('.suggestion-item');
+        if (items.length === 0) return;
+
+        items[this.selectedSuggestionIndex]?.classList.remove('selected');
+
+        this.selectedSuggestionIndex += direction;
+        if (this.selectedSuggestionIndex < 0) this.selectedSuggestionIndex = items.length - 1;
+        if (this.selectedSuggestionIndex >= items.length) this.selectedSuggestionIndex = 0;
+
+        const selectedItem = items[this.selectedSuggestionIndex];
+        selectedItem.classList.add('selected');
+        selectedItem.scrollIntoView({ block: 'nearest' });
+    }
+
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
+            // Handle suggestion navigation when popup is visible
+            if (this.commandSuggestions && this.commandSuggestions.style.display !== 'none') {
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    this.navigateSuggestions(1);
+                    return;
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    this.navigateSuggestions(-1);
+                    return;
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    const selected = this.commandSuggestions.querySelector('.suggestion-item.selected');
+                    if (selected) {
+                        e.preventDefault();
+                        selected.click();
+                        return;
+                    }
+                } else if (e.key === 'Escape') {
+                    this.hideCommandSuggestions();
+                    return;
+                }
+            }
+
             // Alt+Z to stop 
             if (e.altKey && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
@@ -562,6 +669,11 @@ class ChatWindow {
                 this.forceStopThinking();
                 this.addMessage(`Workflow started: **${data.name}**`, 'ai', false, null, true);
                 this.updateStatus(`Running workflow ${data.name}...`, 'working');
+            });
+
+            window.chatAPI.onSkillsUpdated?.(() => {
+                console.log('[ChatWindow] Skills updated, reloading autocomplete list');
+                this.loadSkillsForAutocomplete();
             });
 
             window.chatAPI.onRequestConfirmation((event, data) => {

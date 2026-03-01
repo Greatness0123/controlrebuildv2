@@ -41,9 +41,17 @@ When a slash command is detected:
 
 ### Management in Settings
 A dedicated UI in the Settings modal allows users to:
-- **Import Skills**: Load pre-defined skillsets from JSON files.
+- **Import Skills**: Load pre-defined skillsets from JSON, MD, or TXT files.
+  - **JSON**: Standard structured format for one or more skills.
+  - **MD/TXT**: Each file is imported as a single skill. The filename becomes the skill name, and the file content becomes the pattern.
 - **View Skills**: List all currently active skills.
 - **Delete Skills**: Remove skills that are no longer needed.
+
+### Autocomplete & Suggestions
+When typing in the chat input:
+- Starting a message with `/` triggers the **Slash Command Suggestion Popup**.
+- Use **Arrow Keys** to navigate suggestions and **Enter/Tab** to select.
+- Suggestions show both the skill name and a brief description/pattern preview.
 
 ## 4. Example Skill JSON
 ```json

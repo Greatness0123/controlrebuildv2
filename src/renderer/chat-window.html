@@ -780,6 +780,54 @@
             animation: streak-rotate 3s linear infinite;
             filter: drop-shadow(0 0 4px var(--streak-color));
         }
+
+        /* Command Suggestions Popup */
+        .command-suggestions {
+            position: absolute;
+            bottom: 100%;
+            left: 20px;
+            right: 20px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+            margin-bottom: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            padding: 4px;
+        }
+
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .suggestion-item:hover, .suggestion-item.selected {
+            background: var(--bg-secondary);
+        }
+
+        .suggestion-item .cmd-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--accent-color);
+            min-width: 80px;
+        }
+
+        .suggestion-item .cmd-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
 
@@ -821,6 +869,9 @@
             </div>
 
             <div class="input-container">
+                <!-- Slash Command Suggestions -->
+                <div id="commandSuggestions" class="command-suggestions" style="display: none;"></div>
+
                 <div id="attachmentsContainer"></div>
                 <div class="input-wrapper">
                     <button class="input-btn" id="attachButton"><i class="fas fa-paperclip"></i></button>
