@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onSettingsUpdated: (callback) => ipcRenderer.on('settings-updated', callback),
     onUserDataUpdated: (callback) => ipcRenderer.on('user-data-updated', callback),
     onUserChanged: (callback) => ipcRenderer.on('user-changed', callback),
+    onSkillsUpdated: (callback) => ipcRenderer.on('skills-updated', callback),
 
     // App initialization
     onAppInitialized: (callback) => ipcRenderer.on('app-initialized', callback),

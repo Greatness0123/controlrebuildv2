@@ -868,25 +868,52 @@ class ComputerUseAgent {
 
             const result = await dialog.showOpenDialog(window, {
                 title: 'Import Skill',
-                filters: [{ name: 'JSON', extensions: ['json'] }],
-                properties: ['openFile']
+                filters: [
+                    { name: 'Supported Files', extensions: ['json', 'md', 'txt', 'markdown'] },
+                    { name: 'JSON', extensions: ['json'] },
+                    { name: 'Markdown', extensions: ['md', 'markdown'] },
+                    { name: 'Text', extensions: ['txt'] }
+                ],
+                properties: ['openFile', 'multiSelections']
             });
 
             if (!result.canceled && result.filePaths.length > 0) {
-                try {
-                    const skillData = fs.readJsonSync(result.filePaths[0]);
-                    // A skill is essentially a learned behavior
-                    const storageManager = require('./storage-manager');
-                    // Check if skillData is an array of skills or just one
-                    const skills = Array.isArray(skillData) ? skillData : [skillData];
-                    let count = 0;
-                    for (const skill of skills) {
-                        if (storageManager.addBehavior(skill)) count++;
+                const storageManager = require('./storage-manager');
+                let totalCount = 0;
+
+                for (const filePath of result.filePaths) {
+                    try {
+                        const ext = path.extname(filePath).toLowerCase();
+                        if (ext === '.json') {
+                            const skillData = fs.readJsonSync(filePath);
+                            const skills = Array.isArray(skillData) ? skillData : [skillData];
+                            for (const skill of skills) {
+                                if (storageManager.addBehavior(skill)) totalCount++;
+                            }
+                        } else if (['.md', '.txt', '.markdown'].includes(ext)) {
+                            const content = fs.readFileSync(filePath, 'utf8');
+                            // Extract name from filename (remove extension and replace special chars)
+                            const name = path.basename(filePath, ext)
+                                .replace(/[^a-zA-Z0-9]/g, ' ')
+                                .split(' ')
+                                .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                                .join('');
+
+                            const skill = {
+                                name: name,
+                                description: `Imported from ${path.basename(filePath)}`,
+                                pattern: content.trim()
+                            };
+                            if (storageManager.addBehavior(skill)) totalCount++;
+                        }
+                    } catch (e) {
+                        console.error(`Failed to import skill from ${filePath}:`, e);
                     }
-                    return { success: count > 0, count };
-                } catch (e) {
-                    return { success: false, message: 'Invalid skill file' };
                 }
+                if (totalCount > 0) {
+                    this.windowManager.broadcast('skills-updated');
+                }
+                return { success: totalCount > 0, count: totalCount };
             }
             return { success: false };
         });
@@ -894,6 +921,9 @@ class ComputerUseAgent {
         ipcMain.handle('delete-skill', async (event, name) => {
             const storageManager = require('./storage-manager');
             const success = storageManager.deleteBehavior(name);
+            if (success) {
+                this.windowManager.broadcast('skills-updated');
+            }
             return { success };
         });
 
