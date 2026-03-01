@@ -857,6 +857,9 @@ class ChatWindow {
 
             if (command === 'importskill') {
                 this.chatInput.value = '';
+                this.autoResizeTextarea();
+                this.handleSlashCommandInput();
+                this.updateSendButton();
                 const res = await window.chatAPI.importSkill();
                 if (res && res.success) {
                     this.showToast('Skill imported successfully!', 'success');
@@ -871,6 +874,9 @@ class ChatWindow {
 
                 if (skill) {
                     this.chatInput.value = '';
+                    this.autoResizeTextarea();
+                    this.handleSlashCommandInput();
+                    this.updateSendButton();
                     this.addMessage(message, 'user');
                     this.hideWelcomeScreen();
                     this.updateStatus('Executing skill...', 'working');
@@ -878,7 +884,8 @@ class ChatWindow {
                     const taskPayload = {
                         type: 'execute_task',
                         text: `Execute skill "${skill.name}": ${skill.pattern}. ${args ? 'Additional context: ' + args : ''}`,
-                        attachments: []
+                        attachments: [],
+                        skipWorkflowCheck: true
                     };
 
                     await window.chatAPI.executeTask(taskPayload, this.currentMode);
