@@ -45,9 +45,11 @@ contextBridge.exposeInMainWorld('chatAPI', {
     // Greeting TTS
     shouldSpeakGreeting: () => ipcRenderer.invoke('should-speak-greeting'),
     speakGreeting: (text) => ipcRenderer.invoke('speak-greeting', text),
+    importSkill: () => ipcRenderer.invoke('import-skill'),
 
     // App state
     isAppLocked: () => ipcRenderer.invoke('is-app-locked'),
+    readBehaviors: () => ipcRenderer.invoke('read-behaviors'),
 
     // Settings
     getSettings: () => ipcRenderer.invoke('get-settings'),

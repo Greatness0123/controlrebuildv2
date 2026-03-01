@@ -705,6 +705,43 @@ class ChatWindow {
 
         if (!message && this.attachments.length === 0 && !this.currentTask && !this.isAudioPlaying) return;
 
+        // Slash command detection
+        if (message.startsWith('/') && !this.currentTask) {
+            const command = message.substring(1).split(' ')[0].toLowerCase();
+            const args = message.substring(command.length + 2);
+
+            if (command === 'importskill') {
+                this.chatInput.value = '';
+                const res = await window.chatAPI.importSkill();
+                if (res && res.success) {
+                    this.showToast('Skill imported successfully!', 'success');
+                }
+                return;
+            }
+
+            // Check if it's a learned behavior/skill
+            if (window.chatAPI && window.chatAPI.readBehaviors) {
+                const behaviors = await window.chatAPI.readBehaviors();
+                const skill = behaviors.behaviors.find(b => b.name.toLowerCase().replace(/\s+/g, '') === command);
+
+                if (skill) {
+                    this.chatInput.value = '';
+                    this.addMessage(message, 'user');
+                    this.hideWelcomeScreen();
+                    this.updateStatus('Executing skill...', 'working');
+
+                    const taskPayload = {
+                        type: 'execute_task',
+                        text: `Execute skill "${skill.name}": ${skill.pattern}. ${args ? 'Additional context: ' + args : ''}`,
+                        attachments: []
+                    };
+
+                    await window.chatAPI.executeTask(taskPayload, this.currentMode);
+                    return;
+                }
+            }
+        }
+
         if (this.currentTask) {
             await this.stopCurrentTask();
             return;

@@ -298,6 +298,10 @@ class SettingsModal {
             this.deleteAllData();
         });
 
+        document.getElementById('importSkillBtn')?.addEventListener('click', () => {
+            this.importSkill();
+        });
+
         // Buttons
         document.getElementById('changePinButton')?.addEventListener('click', () => {
             this.showChangePinModal();
@@ -1871,6 +1875,22 @@ class SettingsModal {
                 console.error('Failed to delete data:', e);
                 this.showToast('Failed to delete data', 'error');
             }
+        }
+    }
+
+    async importSkill() {
+        try {
+            if (window.settingsAPI && window.settingsAPI.importSkill) {
+                const res = await window.settingsAPI.importSkill();
+                if (res.success) {
+                    this.showToast(`Successfully imported ${res.count || 1} skill(s)`, 'success');
+                } else if (res.message) {
+                    this.showToast(res.message, 'error');
+                }
+            }
+        } catch (e) {
+            console.error('Failed to import skill:', e);
+            this.showToast('Failed to import skill', 'error');
         }
     }
 }

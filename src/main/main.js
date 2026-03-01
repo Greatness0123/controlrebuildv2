@@ -862,6 +862,30 @@ class ComputerUseAgent {
             return { success: false };
         });
 
+        ipcMain.handle('import-skill', async (event) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showOpenDialog(window, {
+                title: 'Import Skill',
+                filters: [{ name: 'JSON', extensions: ['json'] }],
+                properties: ['openFile']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                try {
+                    const skillData = fs.readJsonSync(result.filePaths[0]);
+                    // A skill is essentially a learned behavior
+                    const storageManager = require('./storage-manager');
+                    const success = storageManager.addBehavior(skillData);
+                    return { success, count: 1 };
+                } catch (e) {
+                    return { success: false, message: 'Invalid skill file' };
+                }
+            }
+            return { success: false };
+        });
+
         ipcMain.handle('import-workflow', async (event) => {
             const { dialog } = require('electron');
             const window = BrowserWindow.fromWebContents(event.sender);
@@ -986,6 +1010,11 @@ class ComputerUseAgent {
             const isLocked = this.securityManager.isAppLocked();
             console.log('[Main] is-app-locked check:', isLocked);
             return isLocked;
+        });
+
+        ipcMain.handle('read-behaviors', () => {
+            const storageManager = require('./storage-manager');
+            return storageManager.readBehaviors();
         });
 
         ipcMain.handle('unlock-app', async (event, pin) => {

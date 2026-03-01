@@ -56,4 +56,5 @@ contextBridge.exposeInMainWorld('settingsAPI', {
     // Data Management
     exportData: () => ipcRenderer.invoke('export-data'),
     deleteAllData: () => ipcRenderer.invoke('delete-all-data'),
+    importSkill: () => ipcRenderer.invoke('import-skill'),
 });
