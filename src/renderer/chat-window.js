@@ -290,14 +290,9 @@ class ChatWindow {
             let escapedValue = this.escapeHtml(value);
             let highlightedText = escapedValue;
 
-            // Highlight slash command (first word if it starts with /)
+            // Highlight slash command (entire line if it starts with /)
             if (value.startsWith('/')) {
-                const parts = value.split(' ');
-                const command = parts[0];
-                const escapedCommand = this.escapeHtml(command);
-                const rest = value.substring(command.length);
-                const escapedRest = this.escapeHtml(rest);
-                highlightedText = `<span class="highlight">${escapedCommand}</span>${escapedRest}`;
+                highlightedText = `<span class="highlight">${escapedValue}</span>`;
             }
 
             // Ensure trailing newlines are preserved for correct alignment
@@ -330,9 +325,9 @@ class ChatWindow {
                 this.selectedSuggestionIndex = 0;
             }
 
-            // Strip "import from ......" from the description or pattern
+            // Strip "imported from ......" or "import from ......" from the description or pattern
             let displayDesc = skill.description || skill.pattern;
-            displayDesc = displayDesc.replace(/import from .*/i, '').trim();
+            displayDesc = displayDesc.replace(/import(ed)? from .*/i, '').trim();
             if (displayDesc.length > 50) displayDesc = displayDesc.substring(0, 50) + '...';
 
             item.innerHTML = `
