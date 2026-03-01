@@ -604,6 +604,7 @@
             padding: 8px 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             transition: all 0.2s ease;
+            position: relative;
         }
 
         .input-wrapper:focus-within {
@@ -611,20 +612,60 @@
             box-shadow: 0 4px 20px rgba(0,0,0,0.08);
         }
 
+        .chat-input-container {
+            flex: 1;
+            position: relative;
+            min-height: 36px;
+            display: flex;
+        }
+
         .chat-input {
             flex: 1;
             background: transparent;
             border: none;
-            color: var(--text-primary);
+            color: transparent;
+            caret-color: var(--text-primary);
             font-size: 12px;
-            font-weight: 200;
+            font-weight: 400;
             outline: none;
             padding: 8px;
             resize: none;
             max-height: 150px;
             min-height: 36px;
             font-family: 'Inter', sans-serif;
+            position: relative;
+            z-index: 2;
+            line-height: 1.5;
         }
+
+        body.dark-mode .chat-input {
+            caret-color: #ffffff;
+        }
+
+        .input-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 8px;
+            font-size: 12px;
+            font-weight: 400;
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            pointer-events: none;
+            z-index: 1;
+            line-height: 1.5;
+            overflow: hidden;
+        }
+
+        .input-backdrop .highlight {
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
         /* chat-input::placeholder {
             color: var(--text-secondary);
             font-weight: 200;
@@ -875,7 +916,10 @@
                 <div id="attachmentsContainer"></div>
                 <div class="input-wrapper">
                     <button class="input-btn" id="attachButton"><i class="fas fa-paperclip"></i></button>
-                    <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
+                    <div class="chat-input-container">
+                        <div id="inputBackdrop" class="input-backdrop"></div>
+                        <textarea class="chat-input" id="chatInput" placeholder="Describe a task..." rows="1"></textarea>
+                    </div>
                     <button class="input-btn" id="voiceButton"><i class="fas fa-microphone"></i></button>
                     <button class="send-btn" id="sendButton" disabled><i class="fas fa-arrow-up"></i></button>
                 </div>

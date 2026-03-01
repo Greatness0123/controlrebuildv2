@@ -14,6 +14,7 @@ class ChatWindow {
         this.welcomeScreen = document.getElementById('welcomeScreen');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
         this.commandSuggestions = document.getElementById('commandSuggestions');
+        this.inputBackdrop = document.getElementById('inputBackdrop');
         // this.blueprintSidebar = document.getElementById('blueprintSidebar');
         // this.blueprintContent = document.getElementById('blueprintContent');
         // this.blueprintToggle = document.getElementById('blueprintToggle');
@@ -171,6 +172,12 @@ class ChatWindow {
             }
         });
 
+        this.chatInput.addEventListener('scroll', () => {
+            if (this.inputBackdrop) {
+                this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
+            }
+        });
+
         // Mode Toggle
         if (this.modeAct && this.modeAsk) {
             this.modeAct.addEventListener('click', () => this.setMode('act'));
@@ -269,11 +276,36 @@ class ChatWindow {
 
     handleSlashCommandInput() {
         const value = this.chatInput.value;
+
+        // Autocomplete logic
         if (value.startsWith('/') && !value.includes(' ')) {
             const query = value.substring(1).toLowerCase();
             this.showCommandSuggestions(query);
         } else {
             this.hideCommandSuggestions();
+        }
+
+        // Highlighting logic
+        if (this.inputBackdrop) {
+            let escapedValue = this.escapeHtml(value);
+            let highlightedText = escapedValue;
+
+            // Highlight slash command (first word if it starts with /)
+            if (value.startsWith('/')) {
+                const parts = value.split(' ');
+                const command = parts[0];
+                const escapedCommand = this.escapeHtml(command);
+                const rest = value.substring(command.length);
+                const escapedRest = this.escapeHtml(rest);
+                highlightedText = `<span class="highlight">${escapedCommand}</span>${escapedRest}`;
+            }
+
+            // Ensure trailing newlines are preserved for correct alignment
+            if (value.endsWith('\n')) {
+                highlightedText += ' ';
+            }
+            this.inputBackdrop.innerHTML = highlightedText;
+            this.inputBackdrop.scrollTop = this.chatInput.scrollTop;
         }
     }
 
@@ -297,9 +329,15 @@ class ChatWindow {
                 item.classList.add('selected');
                 this.selectedSuggestionIndex = 0;
             }
+
+            // Strip "import from ......" from the description or pattern
+            let displayDesc = skill.description || skill.pattern;
+            displayDesc = displayDesc.replace(/import from .*/i, '').trim();
+            if (displayDesc.length > 50) displayDesc = displayDesc.substring(0, 50) + '...';
+
             item.innerHTML = `
                 <div class="cmd-name">/${skill.name}</div>
-                <div class="cmd-desc">${skill.description || skill.pattern.substring(0, 50) + '...'}</div>
+                <div class="cmd-desc">${displayDesc}</div>
             `;
             item.onclick = () => {
                 this.chatInput.value = `/${skill.name} `;
@@ -760,7 +798,11 @@ class ChatWindow {
 
     autoResizeTextarea() {
         this.chatInput.style.height = 'auto';
-        this.chatInput.style.height = Math.min(this.chatInput.scrollHeight, 120) + 'px';
+        const newHeight = Math.min(this.chatInput.scrollHeight, 120);
+        this.chatInput.style.height = newHeight + 'px';
+        if (this.inputBackdrop) {
+            this.inputBackdrop.style.height = newHeight + 'px';
+        }
     }
 
     updateSendButton() {
@@ -1514,6 +1556,18 @@ class ChatWindow {
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    escapeHtml(text) {
+        if (!text) return '';
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
     getOrCreateAIResponseContainer() {
