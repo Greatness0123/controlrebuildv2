@@ -1,6 +1,6 @@
 const path = require('path');
 const { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu } = require('electron');
-const fs = require('fs');
+const fs = require('fs-extra');
 
 // Environment variable loading strategy for bundled apps
 const isDev = require('electron-is-dev');
@@ -836,6 +836,52 @@ class ComputerUseAgent {
                 return { success: true };
             }
             return { success: false, message: 'Workflow not found' };
+        });
+
+        ipcMain.handle('export-workflow', async (event, id) => {
+            const workflow = workflowManager.getWorkflowById(id);
+            if (!workflow) return { success: false, message: 'Workflow not found' };
+
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showSaveDialog(window, {
+                title: 'Export Workflow',
+                defaultPath: `workflow-${workflow.name.toLowerCase().replace(/\s+/g, '-')}.json`,
+                filters: [{ name: 'JSON', extensions: ['json'] }]
+            });
+
+            if (!result.canceled && result.filePath) {
+                try {
+                    fs.writeJsonSync(result.filePath, workflow, { spaces: 2 });
+                    return { success: true };
+                } catch (e) {
+                    return { success: false, message: e.message };
+                }
+            }
+            return { success: false };
+        });
+
+        ipcMain.handle('import-workflow', async (event) => {
+            const { dialog } = require('electron');
+            const window = BrowserWindow.fromWebContents(event.sender);
+
+            const result = await dialog.showOpenDialog(window, {
+                title: 'Import Workflow',
+                filters: [{ name: 'JSON', extensions: ['json'] }],
+                properties: ['openFile']
+            });
+
+            if (!result.canceled && result.filePaths.length > 0) {
+                try {
+                    const workflowData = fs.readJsonSync(result.filePaths[0]);
+                    const importResult = workflowManager.importWorkflows(workflowData);
+                    return importResult;
+                } catch (e) {
+                    return { success: false, message: 'Invalid workflow file' };
+                }
+            }
+            return { success: false };
         });
 
         // Close settings window

@@ -42,13 +42,16 @@ function renderWorkflowList() {
                 <input type="checkbox" class="toggle-wf" ${w.enabled ? 'checked' : ''} data-id="${w.id}" title="Enable/Disable">
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${w.name}</span>
             </div>
-            <div style="display: flex; gap: 4px;">
-                <i class="fas fa-trash-alt delete-wf" data-id="${w.id}" title="Delete"></i>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <i class="fas fa-file-export export-wf" data-id="${w.id}" title="Export" style="font-size: 11px; opacity: 0.7;"></i>
+                <i class="fas fa-trash-alt delete-wf" data-id="${w.id}" title="Delete" style="font-size: 11px; opacity: 0.7;"></i>
             </div>
         `;
         item.onclick = (e) => {
             if (e.target.classList.contains('delete-wf')) {
                 deleteWorkflow(w.id);
+            } else if (e.target.classList.contains('export-wf')) {
+                exportWorkflow(w.id);
             } else if (e.target.classList.contains('toggle-wf')) {
                 toggleWorkflow(w.id, e.target.checked);
             } else {
@@ -63,6 +66,25 @@ async function toggleWorkflow(id, enabled) {
     const res = await ipcRenderer.invoke('toggle-workflow', id, enabled);
     if (res.success) {
         await loadWorkflows();
+    }
+}
+
+async function exportWorkflow(id) {
+    const res = await ipcRenderer.invoke('export-workflow', id);
+    if (res && res.success) {
+        alert('Workflow exported successfully!');
+    } else if (res && res.message) {
+        alert('Export failed: ' + res.message);
+    }
+}
+
+async function importWorkflow() {
+    const res = await ipcRenderer.invoke('import-workflow');
+    if (res && res.success) {
+        alert(`Successfully imported ${res.count || 1} workflow(s)!`);
+        await loadWorkflows();
+    } else if (res && res.message) {
+        alert('Import failed: ' + res.message);
     }
 }
 
@@ -103,6 +125,8 @@ function setupEventListeners() {
     };
 
     document.getElementById('confirmAddWorkflowBtn').onclick = createNewWorkflow;
+
+    document.getElementById('importWfBtn').onclick = importWorkflow;
 
     document.getElementById('toggleSidebarBtn').onclick = () => {
         const sidebar = document.querySelector('.sidebar');
