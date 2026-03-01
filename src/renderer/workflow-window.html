@@ -501,7 +501,10 @@
             <div class="sidebar">
                 <div class="sidebar-header">
                     <span style="font-size: 12px; font-weight: 600;">Workflows</span>
-                    <button class="control-btn" id="addWorkflowBtn"><i class="fas fa-plus"></i></button>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="control-btn" id="importWfBtn" title="Import Workflow"><i class="fas fa-file-import"></i></button>
+                        <button class="control-btn" id="addWorkflowBtn" title="New Workflow"><i class="fas fa-plus"></i></button>
+                    </div>
                 </div>
                 <div class="workflow-list" id="workflowList">
                     <!-- Workflows will appear here -->
