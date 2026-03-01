@@ -287,13 +287,9 @@ class ChatWindow {
 
         // Highlighting logic
         if (this.inputBackdrop) {
-            let escapedValue = this.escapeHtml(value);
-            let highlightedText = escapedValue;
-
-            // Highlight slash command (entire line if it starts with /)
-            if (value.startsWith('/')) {
-                highlightedText = `<span class="highlight">${escapedValue}</span>`;
-            }
+            const escapedValue = this.escapeHtml(value);
+            // Highlight only the slash command at the start (e.g., /test)
+            let highlightedText = escapedValue.replace(/^(\/[^\s]*)/, '<span class="highlight">$1</span>');
 
             // Ensure trailing newlines are preserved for correct alignment
             if (value.endsWith('\n')) {
