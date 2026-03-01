@@ -882,7 +882,11 @@
                     <div class="button-group" style="display: flex; gap: 8px;">
                         <button class="button button-secondary" id="importSkillBtn">
                             <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
-                            Import Skill
+                            Import
+                        </button>
+                        <button class="button button-primary" id="manageSkillsBtn">
+                            <i data-lucide="list" style="width: 14px; height: 14px;"></i>
+                            Manage
                         </button>
                     </div>
                 </div>
@@ -1320,6 +1324,27 @@
             <div class="pin-buttons">
                 <button class="button button-secondary" id="hotkeyCancelBtn">Cancel</button>
                 <button class="button button-primary" id="hotkeySaveBtn" disabled>Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Management Modal -->
+    <div class="pin-modal" id="skillsModal">
+        <div class="pin-content" style="width: 500px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="pin-title" style="margin-bottom: 20px; flex-shrink: 0;">Manage Skills</div>
+
+            <div id="skillsListContainer" class="settings-content" style="padding: 0; flex: 1; overflow-y: auto; margin-bottom: 20px; scrollbar-width: none; -ms-overflow-style: none;">
+                <style>#skillsListContainer::-webkit-scrollbar { display: none; }</style>
+                <!-- Skills will be injected here -->
+                <div id="skillsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                <div id="noSkillsMsg" style="display: none; text-align: center; color: var(--text-secondary); padding: 20px;">
+                    <i data-lucide="book-open" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                    <p>No skills learned yet.</p>
+                </div>
+            </div>
+
+            <div class="pin-buttons" style="flex-shrink: 0;">
+                <button class="button button-primary" style="width: 100%;" id="skillsModalCloseBtn">Done</button>
             </div>
         </div>
     </div>

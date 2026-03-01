@@ -118,10 +118,28 @@ class StorageManager {
 
     addBehavior(behavior) {
         const data = this.readBehaviors();
-        data.behaviors.push({
+        // Check for duplicates (by name, case insensitive)
+        const name = behavior.name.toLowerCase().trim();
+        const existingIdx = data.behaviors.findIndex(b => b.name.toLowerCase().trim() === name);
+
+        const newBehavior = {
             ...behavior,
             timestamp: new Date().toISOString()
-        });
+        };
+
+        if (existingIdx !== -1) {
+            data.behaviors[existingIdx] = newBehavior;
+        } else {
+            data.behaviors.push(newBehavior);
+        }
+
+        return this.writeBehaviors(data);
+    }
+
+    deleteBehavior(name) {
+        const data = this.readBehaviors();
+        const lowerName = name.toLowerCase().trim();
+        data.behaviors = data.behaviors.filter(b => b.name.toLowerCase().trim() !== lowerName);
         return this.writeBehaviors(data);
     }
 

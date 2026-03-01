@@ -877,13 +877,24 @@ class ComputerUseAgent {
                     const skillData = fs.readJsonSync(result.filePaths[0]);
                     // A skill is essentially a learned behavior
                     const storageManager = require('./storage-manager');
-                    const success = storageManager.addBehavior(skillData);
-                    return { success, count: 1 };
+                    // Check if skillData is an array of skills or just one
+                    const skills = Array.isArray(skillData) ? skillData : [skillData];
+                    let count = 0;
+                    for (const skill of skills) {
+                        if (storageManager.addBehavior(skill)) count++;
+                    }
+                    return { success: count > 0, count };
                 } catch (e) {
                     return { success: false, message: 'Invalid skill file' };
                 }
             }
             return { success: false };
+        });
+
+        ipcMain.handle('delete-skill', async (event, name) => {
+            const storageManager = require('./storage-manager');
+            const success = storageManager.deleteBehavior(name);
+            return { success };
         });
 
         ipcMain.handle('import-workflow', async (event) => {
