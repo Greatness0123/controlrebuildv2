@@ -1939,18 +1939,17 @@ class SettingsModal {
 
                 item.innerHTML = `
                     <div class="skill-header" style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                        <div style="font-weight: 600; font-size: 14px;">${skill.name}</div>
-                        <i data-lucide="chevron-down" class="skill-chevron" style="width: 16px; height: 16px; transition: transform 0.2s;"></i>
+                        <div style="font-weight: 600; font-size: 14px; flex: 1;">${skill.name}</div>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <button class="button-icon-danger skill-delete-btn" style="background: transparent; border: none; color: #ef4444; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center;">
+                                <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <i data-lucide="chevron-down" class="skill-chevron" style="width: 16px; height: 16px; transition: transform 0.2s;"></i>
+                        </div>
                     </div>
                     <div class="skill-content" style="display: none; padding: 0 12px 12px 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
                         <div style="padding-top: 10px; border-top: 1px solid var(--border-color);">
                             ${skill.pattern}
-                            <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
-                                <button class="button button-danger" style="padding: 6px 10px;" onclick="window.settingsModalInstance.deleteSkill('${skill.name}')">
-                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-                                    Delete
-                                </button>
-                            </div>
                         </div>
                     </div>
                 `;
@@ -1958,11 +1957,17 @@ class SettingsModal {
                 const header = item.querySelector('.skill-header');
                 const content = item.querySelector('.skill-content');
                 const chevron = item.querySelector('.skill-chevron');
+                const deleteBtn = item.querySelector('.skill-delete-btn');
 
                 header.addEventListener('click', () => {
                     const isVisible = content.style.display === 'block';
                     content.style.display = isVisible ? 'none' : 'block';
                     chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+                });
+
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.deleteSkill(skill.name);
                 });
 
                 skillsList.appendChild(item);
