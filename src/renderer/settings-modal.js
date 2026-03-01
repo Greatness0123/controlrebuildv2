@@ -1930,25 +1930,45 @@ class SettingsModal {
 
             behaviors.forEach(skill => {
                 const item = document.createElement('div');
-                item.className = 'setting-item';
-                item.style.padding = '12px';
+                item.className = 'skill-list-item';
                 item.style.background = 'var(--bg-secondary)';
                 item.style.borderRadius = '12px';
                 item.style.border = '1px solid var(--border-color)';
+                item.style.overflow = 'hidden';
+                item.style.marginBottom = '8px';
 
                 item.innerHTML = `
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600; font-size: 14px; margin-bottom: 2px;">${skill.name}</div>
-                        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.4;">${skill.pattern}</div>
+                    <div class="skill-header" style="padding: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                        <div style="font-weight: 600; font-size: 14px;">${skill.name}</div>
+                        <i data-lucide="chevron-down" class="skill-chevron" style="width: 16px; height: 16px; transition: transform 0.2s;"></i>
                     </div>
-                    <button class="button button-danger" style="padding: 6px 10px;" onclick="window.settingsModalInstance.deleteSkill('${skill.name}')">
-                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
-                    </button>
+                    <div class="skill-content" style="display: none; padding: 0 12px 12px 12px; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">
+                        <div style="padding-top: 10px; border-top: 1px solid var(--border-color);">
+                            ${skill.pattern}
+                            <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+                                <button class="button button-danger" style="padding: 6px 10px;" onclick="window.settingsModalInstance.deleteSkill('${skill.name}')">
+                                    <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 `;
+
+                const header = item.querySelector('.skill-header');
+                const content = item.querySelector('.skill-content');
+                const chevron = item.querySelector('.skill-chevron');
+
+                header.addEventListener('click', () => {
+                    const isVisible = content.style.display === 'block';
+                    content.style.display = isVisible ? 'none' : 'block';
+                    chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+                });
+
                 skillsList.appendChild(item);
             });
 
-            this.initializeLucideIcons();
+            setTimeout(() => this.initializeLucideIcons(), 10);
         } catch (e) {
             console.error('Failed to load skills:', e);
             this.showToast('Failed to load skills', 'error');
