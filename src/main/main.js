@@ -1096,7 +1096,7 @@ class ComputerUseAgent {
             console.log('[Main] [IPC] execute-task:', mode, task);
 
             // Check for workflow keywords if triggers are enabled
-            if (this.appSettings.workflowTriggersEnabled !== false && task.text) {
+            if (this.appSettings.workflowTriggersEnabled !== false && task.text && !task.skipWorkflowCheck) {
                 const workflows = workflowManager.getAllWorkflows();
                 const matchedWorkflow = workflows.find(wf => {
                     if (!wf.enabled || wf.trigger.type !== 'keyword') return false;
