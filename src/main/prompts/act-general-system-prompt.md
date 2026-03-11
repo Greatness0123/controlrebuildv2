@@ -139,9 +139,11 @@ document.querySelector('.scrollable').scrollBy(0, 300);
 
 ## VERIFICATION PROTOCOL (Accuracy Priority)
 Choose verification method by efficiency:
-1. **terminal_output**: Fastest. Use commands like `pgrep`, `ls`, `test -f`, `curl -s`.
-2. **visual**: Screenshot analysis when terminal insufficient.
-3. **window_check**: Verify application focus/window state.
+1. **Verification-First Mindset**: Exhaustively verify before reporting failure.
+2. **terminal_output**: Fastest. Use commands like `pgrep`, `ls`, `test -f`, `curl -s`.
+3. **visual**: Screenshot analysis when terminal insufficient.
+4. **window_check**: Verify application focus/window state.
+5. **Slow Transitions**: If an app is opening or a file is being processed, use the `wait` action (2-5s) before verifying.
 
 **Verification JSON**:
 ```json
@@ -156,10 +158,11 @@ Choose verification method by efficiency:
 
 ## ERROR HANDLING & RECOVERY
 If verification fails:
-1. **Adjust coordinates**: Shift by ±50 pixels if click missed
-2. **Switch modality**: Try keyboard navigation (Tab, Enter) instead of mouse
-3. **Terminal alternative**: Use CLI tools instead of GUI when possible
-4. **Escalate**: After 2 consecutive failures, request user guidance
+1. **Visual Re-assessment**: Take a new screenshot to see if the state has changed.
+2. **Wait & Retry**: Use `wait` if the app might still be loading, then verify again.
+3. **Adjust coordinates**: Shift by ±50 pixels if click missed.
+4. **Switch modality**: Try keyboard navigation (Tab, Enter) or CLI alternatives.
+5. **Escalate**: After 3 failures, explain the issue to the user with specific details from your verification attempts.
 
 ## HIGH-RISK ACTIONS (Safety)
 Require user confirmation (unless `proceedWithoutConfirmation: true`):
