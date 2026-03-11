@@ -659,6 +659,12 @@ class ChatWindow {
                 this.updateStatus('Error', 'error');
             });
 
+            window.chatAPI.onWakewordError?.((event, data) => {
+                console.log('[ChatWindow] Wakeword error:', data);
+                this.showToast(data.message || 'Wake word detection disabled due to multiple failures.', 'error');
+                this.addMessage(data.message || 'Wake word detection has been disabled due to repeated initialization failures.', 'ai', false);
+            });
+
             window.chatAPI.onWakeWordDetected((event, data) => {
                 // Only handle if the wake word actually opened the chat (was closed before)
                 if (data && data.openedChat) {

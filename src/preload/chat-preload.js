@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
     onTaskComplete: (callback) => ipcRenderer.on('task-complete', callback),
     onTaskStopped: (callback) => ipcRenderer.on('task-stopped', callback),
     onBackendError: (callback) => ipcRenderer.on('backend-error', callback),
+    onWakewordError: (callback) => ipcRenderer.on('wakeword-error', callback),
     onAfterMessage: (callback) => ipcRenderer.on('after-message', callback),
     onPlanUpdate: (callback) => ipcRenderer.on('plan-update', callback),
     onRequestConfirmation: (callback) => ipcRenderer.on('request-confirmation', callback),

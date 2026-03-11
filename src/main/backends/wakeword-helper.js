@@ -247,6 +247,17 @@ class WakewordHelper {
       this.log("Initializing Porcupine...");
       this.log(`OS: ${process.platform}, Arch: ${process.arch}`);
 
+      // Diagnostic: Check internet connectivity as Picovoice needs it for licensing
+      try {
+          require('dns').lookup('picovoice.ai', (err) => {
+              if (err) {
+                  this.log('DNS lookup for picovoice.ai failed. Porcupine might fail to initialize if it cannot verify the license.', 'warn');
+              } else {
+                  this.log('DNS lookup for picovoice.ai successful.');
+              }
+          });
+      } catch (dnsErr) {}
+
       // AGGRESSIVE KEY DISCOVERY
       let currentKey = process.env.PORCUPINE_ACCESS_KEY || this.accessKey;
 
