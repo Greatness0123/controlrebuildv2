@@ -353,7 +353,8 @@ class WakewordHelper {
       this.log(`Loading model from: ${this.modelPath}`);
       if (!fs.existsSync(this.modelPath)) {
         // One last try: relative to process.cwd()
-        const altPath = path.join(process.cwd(), "assets/wakeword/hey-control_en_windows_v4_0_0.ppn");
+        const platformSuffix = process.platform === "darwin" ? "mac" : (process.platform === "linux" ? "linux" : "windows");
+        const altPath = path.join(process.cwd(), `assets/wakeword/hey-control_en_${platformSuffix}_v4_0_0.ppn`);
         if (fs.existsSync(altPath)) {
             this.modelPath = altPath;
             this.log(`Found model at alternative location: ${altPath}`);
@@ -376,17 +377,31 @@ class WakewordHelper {
               throw new Error(`Model file missing: ${this.modelPath}`);
           }
 
-          // Note: Porcupine for Node.js handles ASAR unpacking for its native module,
-          // but the model file MUST be on disk (not in ASAR).
-          // We explicitly pass porcupineParamsPath to ensure it's loaded from the real filesystem.
-          this.log(`Using Porcupine params from: ${this.porcupineParamsPath || 'DEFAULT'}`);
+          this.log(`Instantiating Porcupine with model: ${path.basename(this.modelPath)}`);
 
-          this.porcupine = new Porcupine(
-            currentKey,
-            [this.modelPath],
-            [0.5],
-            this.porcupineParamsPath
-          );
+          try {
+            this.porcupine = new Porcupine(
+              currentKey,
+              [this.modelPath],
+              [0.5],
+              this.porcupineParamsPath || undefined
+            );
+          } catch (firstTryErr) {
+            this.log(`Primary Porcupine initialization failed: ${firstTryErr.message}`, 'warn');
+
+            // Fallback: If we provided a path and it failed, try WITHOUT the path (use library default)
+            if (this.porcupineParamsPath) {
+                this.log('Attempting fallback: Porcupine initialization without custom params path...');
+                this.porcupine = new Porcupine(
+                    currentKey,
+                    [this.modelPath],
+                    [0.5]
+                );
+            } else {
+                throw firstTryErr;
+            }
+          }
+
           this.log("Porcupine engine initialized successfully");
       } catch (e) {
           // Log the actual error for dev/production debugging (it will show up in wakeword.log)
