@@ -738,11 +738,14 @@ class SettingsModal {
                 apiKeyInput.value = this.settings[`${provider}ApiKey`] || this.settings.universalApiKey || '';
                 modelInput.value = this.settings[`${provider}Model`] || this.settings.universalModel || '';
 
-                // Show base URL for specific providers
-                const needsBaseUrl = ['litellm', 'lmstudio', 'zai'].includes(provider);
+                // Show base URL for providers that support custom endpoints (OpenAI-compatible services)
+                const needsBaseUrl = ['openai','litellm', 'lmstudio', 'zai'].includes(provider);
                 baseUrlContainer.style.display = needsBaseUrl ? 'block' : 'none';
                 if (needsBaseUrl) {
-                    baseUrlInput.value = this.settings.universalBaseUrl || (provider === 'lmstudio' ? 'http://localhost:1234/v1' : '');
+                    // default placeholder values for certain providers
+                    baseUrlInput.value = this.settings.universalBaseUrl ||
+                                         (provider === 'lmstudio' ? 'http://localhost:1234/v1' :
+                                          (provider === 'openai' ? 'https://api.openai.com/v1' : ''));
                 }
 
                 // Update label based on provider
