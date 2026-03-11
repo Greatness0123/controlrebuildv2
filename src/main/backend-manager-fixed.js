@@ -31,6 +31,10 @@ class BackendManager extends EventEmitter {
     }
 
     setupMessageHandlers() {
+        this.messageHandlers.set('ai_stream', (data, source) => {
+            this.emit('ai-stream', data);
+        });
+
         this.messageHandlers.set('ai_response', (data, source) => {
             // Remove broadcastToWindows here to prevent duplicate messages in renderer.
             // Main.js listens to this.emit('ai-response') and handles forwarding to chat + TTS.

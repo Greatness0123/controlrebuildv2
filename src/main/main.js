@@ -237,53 +237,40 @@ class ComputerUseAgent {
         try {
             console.log('[Main] Control starting...');
 
-            // Fetch and cache API keys from Firebase (gemini remains global; porcupine/picovoice is per-user)
-            try {
-                const apiKeys = await firebaseService.fetchAndCacheKeys();
+            // 1. Start fetching keys in background immediately
+            const keysPromise = firebaseService.fetchAndCacheKeys().then(apiKeys => {
                 if (apiKeys) {
-                    if (apiKeys.gemini) {
-                        process.env.GEMINI_API_KEY = apiKeys.gemini;
-                        console.log('[Main] Gemini API key loaded from cache/firebase');
-                    }
-                    if (apiKeys.gemini_model) {
-                        process.env.GEMINI_MODEL = apiKeys.gemini_model;
-                        console.log('[Main] Gemini model set to:', apiKeys.gemini_model);
-                    }
+                    if (apiKeys.gemini) process.env.GEMINI_API_KEY = apiKeys.gemini;
+                    if (apiKeys.gemini_model) process.env.GEMINI_MODEL = apiKeys.gemini_model;
+                    console.log('[Main] Background API keys loaded');
                 }
-            } catch (keyErr) {
-                console.warn('[Main] Failed to fetch API keys during startup:', keyErr.message);
-            }
+            }).catch(err => console.warn('[Main] Background key fetch failed:', err.message));
 
-            // Set up security and permissions
-            await this.setupPermissions();
+            // 2. Set up security and permissions (fast)
+            this.setupPermissions();
 
-            // --- CRITICAL PATH START ---
-            // Initialize only essential windows (Main Overlay & Entry)
+            // 3. Initialize core windows (Medium speed, but critical)
+            // We show 'main' (overlay) as soon as it exists inside initializeWindows
             await this.windowManager.initializeWindows();
 
-            // Immediately show the main overlay to provide visual feedback
-            await this.windowManager.showWindow('main');
+            // 4. Show core UI immediately
+            this.windowManager.showWindow('main');
 
-            // Set up global hotkeys early so they work as soon as possible
+            // 5. Setup hotkeys and visibility (fast)
             this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
-
-            // Apply window visibility setting on startup immediately
             this.updateWindowVisibility(this.appSettings.windowVisibility);
-            // --- CRITICAL PATH END ---
 
-            // --- DEFERRED INITIALIZATION START ---
-            // Run background services without awaiting all of them before showing the UI
+            // --- CONCURRENT BACKGROUND SERVICES ---
+            // Run background services in parallel without blocking the UI
             const backendStartPromise = this.backendManager.startBackend();
-            const voskStartPromise = this.voskServerManager.start().then(voskStarted => {
-                if (!voskStarted) {
-                    console.warn('[Main] Vosk STT server failed to start. Voice recognition may be unavailable.');
-                    const logData = this.voskServerManager.getLogs();
-                    if (logData.errors) {
-                        console.error('[Main] Vosk error logs:', logData.errors.substring(0, 500));
-                    }
-                }
-                return voskStarted;
-            });
+            const voskStartPromise = this.voskServerManager.start();
+            const wakewordStartPromise = this.appSettings.voiceActivation ?
+                this.wakewordManager.enable(true) : Promise.resolve();
+
+            // Handle EdgeTTS early
+            if (this.appSettings.voiceResponse) {
+                this.edgeTTS.enable(true);
+            }
 
             // Start workflow scheduler
             this.startWorkflowScheduler();
@@ -302,57 +289,56 @@ class ComputerUseAgent {
                     userDetails: cachedUser
                 });
 
-                // Sync user data with Firebase (pushes local progress to DB)
-                const syncedUser = await firebaseService.syncUserData(cachedUser.id);
-
-                // CRITICAL: Fallback to cached user if sync fails (e.g. offline or DB error)
-                this.currentUser = syncedUser || cachedUser;
-                this.settingsManager.updateSettings({ userDetails: this.currentUser });
-
-                // If user has a per-user Picovoice key, apply it for this session
-                try {
-                    const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
-                    console.log('[Main] User has picovoice key (source:', syncedUser ? 'firebase' : 'cache', '):', !!userKey);
-                    if (userKey) {
-                        // Apply to process env for this session (do not log actual key value)
-                        process.env.PORCUPINE_ACCESS_KEY = userKey;
-                        console.log('[Main] Applied per-user Picovoice key into process.env for this session');
-                    } else {
-                        console.warn('[Main] No Picovoice key found in user profile');
-                    }
-                } catch (e) {
-                    console.error('[Main] Error applying per-user Picovoice key during startup', e);
-                }
-
-                // Broadcast to all windows
-                this.windowManager.broadcast('user-changed', this.currentUser);
-                this.windowManager.broadcast('settings-updated', this.getSettings());
-
-                await this.windowManager.showWindow('main');
-
                 // Show entry window minimized for auto-login to keep taskbar icon
+                // We do NOT await syncing or other blocking tasks before showing the window
                 await this.windowManager.showWindow('entry');
                 const entryWin = this.windowManager.getWindow('entry');
                 if (entryWin) entryWin.minimize();
+
+                // Non-blocking sync and key application
+                (async () => {
+                    try {
+                        const syncedUser = await firebaseService.syncUserData(cachedUser.id);
+                        this.currentUser = syncedUser || cachedUser;
+                        this.settingsManager.updateSettings({ userDetails: this.currentUser });
+
+                        const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
+                        if (userKey) {
+                            process.env.PORCUPINE_ACCESS_KEY = userKey;
+                        }
+
+                        this.windowManager.broadcast('user-changed', this.currentUser);
+                        this.windowManager.broadcast('settings-updated', this.getSettings());
+                    } catch (e) {
+                        console.error('[Main] Async user sync failed:', e);
+                    }
+                })();
             } else {
                 console.log('[Main] No cached user, showing login');
                 this.isAuthenticated = false;
                 await this.windowManager.showWindow('entry');
             }
 
-            // Await remaining essential services before finalizing startup
-            await Promise.all([backendStartPromise, voskStartPromise]);
-            await this.backendManager.waitForReady();
-            // --- DEFERRED INITIALIZATION END ---
+            // Finalize remaining essential services in the background
+            Promise.all([backendStartPromise, voskStartPromise, wakewordStartPromise]).then(([backend, vosk]) => {
+                if (!vosk) {
+                    console.warn('[Main] Vosk STT server failed to start.');
+                }
+                this.backendManager.waitForReady().then(() => {
+                    console.log('[Main] Background services fully initialized');
+                });
+            }).catch(err => {
+                console.error('[Main] Background service initialization error:', err);
+            });
+            // --- CONCURRENT INITIALIZATION END ---
 
-            // ENABLE EDGETTS ONLY IF voiceResponse IS ENABLED IN SETTINGS
-            if (this.appSettings.voiceResponse) {
-                console.log('[Main] Voice response enabled in settings, enabling EdgeTTS');
-                this.edgeTTS.enable(true);
-            } else {
-                console.log('[Main] Voice response disabled in settings, EdgeTTS will remain disabled');
-                this.edgeTTS.enable(false);
-            }
+            // Listen for AI streaming chunks
+            this.backendManager.on('ai-stream', (data) => {
+                const chatWin = this.windowManager.getWindow('chat');
+                if (chatWin && !chatWin.isDestroyed()) {
+                    chatWin.webContents.send('ai-stream', data);
+                }
+            });
 
             // Setup EdgeTTS event listeners for audio state tracking
             this.edgeTTS.on('speaking', () => {
@@ -376,13 +362,6 @@ class ComputerUseAgent {
                 }
             });
 
-            // Start wakeword helper if voice activation is enabled in saved settings
-            if (this.appSettings.voiceActivation) {
-                console.log('[Main] Voice activation enabled, starting wakeword manager');
-                await this.wakewordManager.enable(true);
-            } else {
-                console.log('[Main] Voice activation disabled');
-            }
 
             // âœ… Listen for AI responses and check settings before speaking
             this.backendManager.on('ai-response', (data) => {
@@ -457,7 +436,7 @@ class ComputerUseAgent {
         }
     }
 
-    async setupPermissions() {
+    setupPermissions() {
         // Set up security permissions
         app.on('web-contents-created', (event, contents) => {
             contents.on('new-window', (event, navigationUrl) => {

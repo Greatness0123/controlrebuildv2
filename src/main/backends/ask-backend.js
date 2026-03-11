@@ -136,13 +136,13 @@ class AskBackend {
     }
   }
 
-  async ollamaGenerate(prompt, systemPrompt, settings, images = []) {
+  async ollamaGenerate(prompt, systemPrompt, settings, images = [], onChunk) {
     const url = `${settings.ollamaUrl || "http://localhost:11434"}/api/generate`;
     const body = {
       model: settings.ollamaModel || "llama3",
       prompt: prompt,
       system: systemPrompt,
-      stream: false
+      stream: !!onChunk
     };
     if (images.length > 0) {
       body.images = images;
@@ -153,11 +153,40 @@ class AskBackend {
       body: JSON.stringify(body)
     });
     if (!response.ok) throw new Error(`Ollama error: ${response.statusText}`);
-    const data = await response.json();
-    return data.response;
+
+    if (onChunk) {
+      const reader = response.body.getReader();
+      let fullResponse = "";
+      let decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.response) {
+              fullResponse += data.response;
+              onChunk(data.response);
+            }
+          } catch (e) {}
+        }
+      }
+      return fullResponse;
+    } else {
+      const data = await response.json();
+      return data.response;
+    }
   }
 
-  async universalGenerate(conversationParts, systemPrompt, settings) {
+  async universalGenerate(conversationParts, systemPrompt, settings, onChunk) {
     const provider = settings.modelProvider;
     let apiKey = settings[`${provider}ApiKey`] || settings.universalApiKey;
     let model = settings[`${provider}Model`] || settings.universalModel;
@@ -235,7 +264,7 @@ class AskBackend {
       headers["X-Title"] = "Control AI";
     }
 
-    const body = { model, messages };
+    const body = { model, messages, stream: !!onChunk };
 
     // MiniMax uses a slightly different body format for some models but v2 is OpenAI compatible
 
@@ -250,11 +279,41 @@ class AskBackend {
         throw new Error(`${provider} error: ${errorData.error?.message || response.statusText}`);
     }
 
-    const data = await response.json();
-    return data.choices[0].message.content;
+    if (onChunk) {
+      const reader = response.body.getReader();
+      let fullText = "";
+      let decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === "[DONE]") break;
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices[0]?.delta?.content || "";
+              if (content) {
+                fullText += content;
+                onChunk(content);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+      return fullText;
+    } else {
+      const data = await response.json();
+      return data.choices[0].message.content;
+    }
   }
 
-  async anthropicGenerate(conversationParts, systemPrompt, settings) {
+  async anthropicGenerate(conversationParts, systemPrompt, settings, onChunk) {
     const apiKey = settings.anthropicApiKey || settings.universalApiKey;
     const model = settings.anthropicModel || settings.universalModel || "claude-3-5-sonnet-20240620";
 
@@ -297,7 +356,8 @@ class AskBackend {
         model,
         system: systemPrompt,
         messages,
-        max_tokens: 4096
+        max_tokens: 4096,
+        stream: !!onChunk
       })
     });
 
@@ -306,8 +366,36 @@ class AskBackend {
       throw new Error(`Anthropic error: ${errorData.error?.message || response.statusText}`);
     }
 
-    const data = await response.json();
-    return data.content[0].text;
+    if (onChunk) {
+      const reader = response.body.getReader();
+      let fullText = "";
+      let decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.slice(6).trim();
+            try {
+              const data = JSON.parse(dataStr);
+              if (data.type === 'content_block_delta' && data.delta?.text) {
+                fullText += data.delta.text;
+                onChunk(data.delta.text);
+              }
+            } catch (e) {}
+          }
+        }
+      }
+      return fullText;
+    } else {
+      const data = await response.json();
+      return data.content[0].text;
+    }
   }
 
   async processRequest(userRequest, attachments = [], onResponse, onError, apiKey, settings = {}) {
@@ -363,18 +451,34 @@ class AskBackend {
         let responseObj = null;
 
         const sysMsg = "You are Control (Ask Mode), an intelligent AI assistant.";
+
+        const onChunkCallback = (chunk) => {
+          if (onResponse && typeof onResponse === 'function') {
+            // Check if chunk contains tool call markers
+            // If it does, we might want to suppress it from the UI or handle it specially.
+            // But for now, just stream everything.
+            onResponse('ai_stream', { chunk });
+          }
+        };
+
         if (effectiveProvider === "ollama") {
           const prompt = conversationParts.map(p => typeof p === "string" ? p : JSON.stringify(p)).join("\n");
-          responseText = await this.ollamaGenerate(prompt, sysMsg, settings);
+          responseText = await this.ollamaGenerate(prompt, sysMsg, settings, [], onChunkCallback);
         } else if (effectiveProvider === "anthropic") {
-          responseText = await this.anthropicGenerate(conversationParts, sysMsg, settings);
+          responseText = await this.anthropicGenerate(conversationParts, sysMsg, settings, onChunkCallback);
         } else if (["openai", "deepseek", "xai", "moonshot", "zai", "openrouter", "lmstudio", "litellm", "minimax", "azure", "aws", "vertex"].includes(effectiveProvider)) {
-          responseText = await this.universalGenerate(conversationParts, sysMsg, settings);
+          responseText = await this.universalGenerate(conversationParts, sysMsg, settings, onChunkCallback);
         } else if (effectiveProvider === "gemini") {
-          const result = await this.model.generateContent(conversationParts);
+          const result = await this.model.generateContentStream(conversationParts);
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              responseText += chunkText;
+              onChunkCallback(chunkText);
+            }
+          }
           responseObj = await result.response;
           if (responseObj.usageMetadata && cachedUser) firebaseService.updateTokenUsage(cachedUser.id, "ask", responseObj.usageMetadata);
-          responseText = responseObj.text().trim();
         } else {
           throw new Error(`Provider ${effectiveProvider} is not yet fully integrated in this mode. Please use LiteLLM or OpenRouter as a gateway.`);
         }

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
 
     // Backend messages
     onAIResponse: (callback) => ipcRenderer.on('ai-response', callback),
+    onAIStream: (callback) => ipcRenderer.on('ai-stream', callback),
     onTranscriptionResult: (callback) => ipcRenderer.on('transcription-result', callback),
     onActionStart: (callback) => ipcRenderer.on('action-start', callback),
     onActionStep: (callback) => ipcRenderer.on('action-step', callback),
