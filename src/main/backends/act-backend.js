@@ -20,7 +20,7 @@ class ActBackend {
     if (!fs.existsSync(this.screenshotDir)) fs.mkdirSync(this.screenshotDir);
 
     this.maxActionRetries = 3;
-    this.verificationWait = 500;
+    this.verificationWait = 1000;
     this.model = null;
     this.currentApiKey = null;
     this.setupGeminiAPI();
@@ -473,6 +473,9 @@ class ActBackend {
   async verifyAction(action, executionResult) {
     const verificationInfo = action.verification || {};
     if (!verificationInfo.expected_outcome) return { verified: true, message: "No verification needed" };
+
+    // Wait for the UI to settle before verification
+    await new Promise(r => setTimeout(r, this.verificationWait));
 
     const method = verificationInfo.verification_method || "visual";
     let terminalContext = "";
