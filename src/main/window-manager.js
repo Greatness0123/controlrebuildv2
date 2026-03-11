@@ -22,23 +22,25 @@ class WindowManager {
     }
 
     async initializeWindows() {
-        // Create main overlay window (transparent, always on top)
+        // Optimized: Only create core windows initially. Others are lazy-loaded on demand.
+        console.log('[WindowManager] Initializing core windows...');
         await this.createMainWindow();
-
-        // Create chat window (hidden by default)
-        await this.createChatWindow();
-
-        // Create settings window (hidden by default)
-        await this.createSettingsWindow();
-
-        // Create entry window
         await this.createEntryWindow();
-
-        // Create workflow window
-        await this.createWorkflowWindow();
 
         // Setup window management
         this.setupWindowManagement();
+    }
+
+    applyCurrentVisibility(window) {
+        if (!window || window.isDestroyed()) return;
+        const visible = global.appSettings?.windowVisibility !== false;
+        try {
+            window.setContentProtection(!visible);
+            // setVisibleOnAllWorkspaces can sometimes be finicky depending on the OS/Electron version
+            window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+        } catch (e) {
+            console.warn('[WindowManager] Could not apply setVisibleOnAllWorkspaces:', e.message);
+        }
     }
 
     async createMainWindow() {
@@ -79,6 +81,7 @@ class WindowManager {
         );
 
         this.windows.set('main', this.mainWindow);
+        this.applyCurrentVisibility(this.mainWindow);
 
         // Note: do not auto-show the main overlay here to avoid flicker during startup.
         // The main process will decide when to show windows after initialization.
@@ -133,6 +136,7 @@ class WindowManager {
         }
 
         this.windows.set('chat', chatWindow);
+        this.applyCurrentVisibility(chatWindow);
 
         // Make chat window draggable
         this.setupDraggableWindow(chatWindow);
@@ -193,6 +197,7 @@ class WindowManager {
         }
 
         this.windows.set('settings', settingsWindow);
+        this.applyCurrentVisibility(settingsWindow);
 
         // Make settings window draggable
         this.setupDraggableWindow(settingsWindow);
@@ -258,6 +263,7 @@ class WindowManager {
         }
 
         this.windows.set('workflow', workflowWindow);
+        this.applyCurrentVisibility(workflowWindow);
         this.setupDraggableWindow(workflowWindow);
     }
 
@@ -303,6 +309,7 @@ class WindowManager {
         }
 
         this.windows.set('entry', entryWindow);
+        this.applyCurrentVisibility(entryWindow);
 
         // Make entry window draggable via IPC
         this.setupDraggableWindow(entryWindow);
@@ -518,6 +525,29 @@ class WindowManager {
 
     getAllWindows() {
         return Array.from(this.windows.values());
+    }
+
+    updateAllWindowVisibility(visible) {
+        console.log(`[WindowManager] updateAllWindowVisibility: ${visible}`);
+        this.windows.forEach((window) => {
+            if (window && !window.isDestroyed()) {
+                try {
+                    window.setContentProtection(!visible);
+                    window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
+
+                    // Nudge to force OS-level refresh of capture state
+                    const isAlwaysOnTop = window.isAlwaysOnTop();
+                    window.setAlwaysOnTop(!isAlwaysOnTop);
+                    setTimeout(() => {
+                        if (!window.isDestroyed()) {
+                            window.setAlwaysOnTop(isAlwaysOnTop);
+                        }
+                    }, 100);
+                } catch (e) {
+                    console.error('[WindowManager] Failed to update visibility for window:', e);
+                }
+            }
+        });
     }
 }
 

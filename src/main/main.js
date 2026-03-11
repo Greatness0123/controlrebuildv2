@@ -257,40 +257,39 @@ class ComputerUseAgent {
             // Set up security and permissions
             await this.setupPermissions();
 
-            // Initialize all windows (they are created with visible: false and show: false)
+            // --- CRITICAL PATH START ---
+            // Initialize only essential windows (Main Overlay & Entry)
             await this.windowManager.initializeWindows();
 
-            // Show main overlay after all windows are initialized
+            // Immediately show the main overlay to provide visual feedback
             await this.windowManager.showWindow('main');
 
-            // Set up global hotkeys
-            // Set up global hotkeys with saved settings
+            // Set up global hotkeys early so they work as soon as possible
             this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
 
-            // Start backend process
-            await this.backendManager.startBackend();
-
-            // Start Vosk Server
-            const voskStarted = await this.voskServerManager.start();
-            if (!voskStarted) {
-                console.warn('[Main] Vosk STT server failed to start. Voice recognition may be unavailable.');
-                const logData = this.voskServerManager.getLogs();
-                if (logData.errors) {
-                    console.error('[Main] Vosk error logs:', logData.errors.substring(0, 500));
-                }
-            }
-
-            // Log loaded settings
-            console.log('[Main] Loaded app settings:', this.appSettings);
-
-            // Wait for backend to be fully integrated before showing entry
-            await this.backendManager.waitForReady();
-
-            // Apply window visibility setting on startup
+            // Apply window visibility setting on startup immediately
             this.updateWindowVisibility(this.appSettings.windowVisibility);
+            // --- CRITICAL PATH END ---
+
+            // --- DEFERRED INITIALIZATION START ---
+            // Run background services without awaiting all of them before showing the UI
+            const backendStartPromise = this.backendManager.startBackend();
+            const voskStartPromise = this.voskServerManager.start().then(voskStarted => {
+                if (!voskStarted) {
+                    console.warn('[Main] Vosk STT server failed to start. Voice recognition may be unavailable.');
+                    const logData = this.voskServerManager.getLogs();
+                    if (logData.errors) {
+                        console.error('[Main] Vosk error logs:', logData.errors.substring(0, 500));
+                    }
+                }
+                return voskStarted;
+            });
 
             // Start workflow scheduler
             this.startWorkflowScheduler();
+
+            // Log loaded settings
+            console.log('[Main] Loaded app settings:', this.appSettings);
 
             // Check for cached user to bypass login
             const cachedUser = firebaseService.checkCachedUser();
@@ -338,9 +337,13 @@ class ComputerUseAgent {
             } else {
                 console.log('[Main] No cached user, showing login');
                 this.isAuthenticated = false;
-                await this.windowManager.showWindow('main');
                 await this.windowManager.showWindow('entry');
             }
+
+            // Await remaining essential services before finalizing startup
+            await Promise.all([backendStartPromise, voskStartPromise]);
+            await this.backendManager.waitForReady();
+            // --- DEFERRED INITIALIZATION END ---
 
             // ENABLE EDGETTS ONLY IF voiceResponse IS ENABLED IN SETTINGS
             if (this.appSettings.voiceResponse) {
@@ -982,9 +985,12 @@ class ComputerUseAgent {
 
         // Window visibility
         ipcMain.handle('set-window-visibility', (event, visible) => {
+            console.log(`[Main] set-window-visibility called with: ${visible}`);
             this.appSettings.windowVisibility = !!visible;
             this.updateWindowVisibility(visible);
             this.settingsManager.updateSettings({ windowVisibility: visible });
+            // Broadcast to all windows to ensure UI state is synced
+            this.windowManager.broadcast('settings-updated', this.getSettings());
             return { success: true };
         });
 
@@ -1623,33 +1629,10 @@ class ComputerUseAgent {
         console.log(`[Main] Updating window visibility in real-time: ${visible}`);
         this.appSettings.windowVisibility = visible;
         global.appSettings = this.appSettings;
-        global.windowManager = this.windowManager;
 
-        this.windowManager.getAllWindows().forEach((window, index) => {
-            if (window && !window.isDestroyed()) {
-                try {
-                    // contentProtection: true means hidden from capture, false means visible
-                    // our setting windowVisibility: true means visible in screenshots, false means hidden
-                    const protect = !visible;
-                    window.setContentProtection(protect);
-                    window.setVisibleOnAllWorkspaces(visible, { visibleOnFullScreen: true });
-
-                    // "Nudge" the window to force OS-level refresh of capture state
-                    // This can help OBS/Game Capture realize the protection state changed
-                    const isAlwaysOnTop = window.isAlwaysOnTop();
-                    window.setAlwaysOnTop(!isAlwaysOnTop);
-                    setTimeout(() => {
-                        if (!window.isDestroyed()) {
-                            window.setAlwaysOnTop(isAlwaysOnTop);
-                        }
-                    }, 100);
-
-                    console.log(`[Main] Applied visibility settings to window ${index}`);
-                } catch (e) {
-                    console.error(`[Main] Failed to update visibility for window ${index}:`, e);
-                }
-            }
-        });
+        if (this.windowManager) {
+            this.windowManager.updateAllWindowVisibility(visible);
+        }
     }
 
     async saveSettings(settings) {
