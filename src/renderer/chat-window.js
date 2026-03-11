@@ -567,6 +567,7 @@ class ChatWindow {
                     this.chatInput.value = data.text;
                     this.autoResizeTextarea();
                     this.updateSendButton();
+                    this.handleSlashCommandInput();
                     if (this.autoSendEnabled && this.isRecording) {
                         this.resetSpeechTimeout();
                     }
@@ -937,11 +938,13 @@ class ChatWindow {
         }
 
         this.chatInput.value = '';
+        this.baseText = ''; // Clear baseText after sending
         const attachmentsToSend = [...this.attachments];
         this.attachments = [];
         if (this.attachmentsContainer) this.attachmentsContainer.innerHTML = '';
         this.autoResizeTextarea();
         this.updateSendButton();
+        this.handleSlashCommandInput(); // Synchronize backdrop after clearing
 
         // Show thinking indicator for both Ask and Act modes
         this.updateStatus('Thinking...', 'working');
@@ -1095,8 +1098,10 @@ class ChatWindow {
             this.attachmentsContainer.innerHTML = '';
         }
         this.chatInput.value = '';
+        this.baseText = '';
         this.autoResizeTextarea();
         this.updateSendButton();
+        this.handleSlashCommandInput();
         this.actionStatuses.clear();
         this.lastActionId = null;
         this.currentAIResponseContainer = null;
@@ -1355,6 +1360,12 @@ class ChatWindow {
         console.trace('stopVoiceRecording call trace');
 
         this.isRecording = false;
+
+        // Finalize input value by removing trailing "..." if present
+        if (this.chatInput.value.endsWith('...')) {
+            this.chatInput.value = this.chatInput.value.slice(0, -3);
+            this.handleSlashCommandInput();
+        }
 
         // Resume wake word detection after manual recording
         if (window.chatAPI && window.chatAPI.setWakewordEnabled) {
@@ -2406,8 +2417,10 @@ class ChatWindow {
 
     editMessage(text, messageDiv) {
         this.chatInput.value = text;
+        this.baseText = text; // Update baseText when editing
         this.chatInput.focus();
         this.autoResizeTextarea();
+        this.handleSlashCommandInput();
     }
 
     redoLastMessage() {
@@ -2442,6 +2455,9 @@ class ChatWindow {
 
         this.messageGroups.clear();
         this.collapsedGroups.clear();
+        this.baseText = '';
+        this.handleSlashCommandInput();
+
         if (session.messages && session.messages.length > 0) {
             session.messages.forEach(msg => {
                 const messageDiv = document.createElement('div');
