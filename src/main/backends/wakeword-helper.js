@@ -419,18 +419,42 @@ class WakewordHelper {
       try {
           if (!PvRecorder) throw new Error("PvRecorder module not loaded");
 
-          const devices = PvRecorder.getAvailableDevices();
-          this.log(`Available audio devices: ${devices.length} found`);
-          devices.forEach((d, i) => this.log(`Device ${i}: ${d}`));
-
-          if (devices.length === 0) {
-              throw new Error("No audio input devices found. Please connect a microphone.");
+          let devices = [];
+          try {
+              devices = PvRecorder.getAvailableDevices();
+              this.log(`Available audio devices: ${devices.length} found`);
+              devices.forEach((d, i) => this.log(`Device ${i}: ${d}`));
+          } catch (devErr) {
+              this.log(`Error getting audio devices: ${devErr.message}`, 'warn');
           }
 
-          // Use default device (-1)
-          this.recorder = new PvRecorder(frameLength, -1);
-          this.recorder.start();
-          this.log("PvRecorder started successfully");
+          if (devices.length === 0) {
+              this.log("No audio devices reported by PvRecorder, attempting to continue with default...", "warn");
+          }
+
+          // Resilient recorder creation: try different device indices if default fails
+          const deviceIndicesToTry = [-1, 0, 1, 2];
+          let lastErr = null;
+
+          for (const idx of deviceIndicesToTry) {
+            try {
+                this.log(`Attempting to initialize PvRecorder with device index: ${idx}`);
+                this.recorder = new PvRecorder(frameLength, idx);
+                this.recorder.start();
+                this.log(`PvRecorder started successfully on device index: ${idx}`);
+                lastErr = null;
+                break;
+            } catch (recorderErr) {
+                this.log(`Failed to start PvRecorder on device ${idx}: ${recorderErr.message}`, 'warn');
+                lastErr = recorderErr;
+                this.recorder = null;
+            }
+          }
+
+          if (!this.recorder) {
+              throw lastErr || new Error("Failed to initialize any audio input device for Wakeword.");
+          }
+
       } catch (e) {
           this.log(`PvRecorder initialization failed: ${e.message || e}`, 'error');
           throw e;

