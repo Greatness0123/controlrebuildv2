@@ -203,6 +203,23 @@ class ComputerUseAgent {
                 console.error('[Main] Failed to handle wakeword-invalid-key:', e);
             }
         });
+
+        // Handle wakeword errors (e.g., max retries reached)
+        process.on('wakeword-error', async (payload) => {
+            console.error('[Main] Wakeword error event received:', payload);
+            try {
+                // Disable voice activation setting
+                this.settingsManager.updateSettings({ voiceActivation: false });
+                this.windowManager.broadcast('settings-updated', this.getSettings());
+
+                // Notify renderers
+                this.windowManager.broadcast('wakeword-error', {
+                    message: payload && payload.message ? payload.message : 'Wake word detection failed.'
+                });
+            } catch (e) {
+                console.error('[Main] Failed to handle wakeword-error:', e);
+            }
+        });
     }
 
     setupEventHandlers() {
