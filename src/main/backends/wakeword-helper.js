@@ -88,6 +88,8 @@ class WakewordHelper {
   }
 
   resolvePorcupineParamsPath() {
+    this.log('Resolving Porcupine params path...');
+
     // Priority 1: Check if we have a successful unpacked native module path
     if (nativeModulePath) {
       const p = path.join(nativeModulePath, '@picovoice/porcupine-node/lib/common/porcupine_params.pv');
@@ -103,10 +105,30 @@ class WakewordHelper {
       const porcupineDir = path.dirname(require.resolve('@picovoice/porcupine-node/package.json'));
       const p = path.join(porcupineDir, 'lib/common/porcupine_params.pv');
       if (fs.existsSync(p)) {
+        this.log(`Found Porcupine params via require.resolve: ${p}`);
         return p;
       }
-    } catch (e) {}
+    } catch (e) {
+      this.log(`Priority 2 resolution failed: ${e.message}`, 'warn');
+    }
 
+    // Priority 3: Alternative locations relative to app path (fallback for various build structures)
+    const searchDirs = [
+        path.join(app.getAppPath(), 'node_modules/@picovoice/porcupine-node/lib/common'),
+        path.join(process.resourcesPath, 'app.asar.unpacked/node_modules/@picovoice/porcupine-node/lib/common'),
+        path.join(__dirname, '../../../node_modules/@picovoice/porcupine-node/lib/common')
+    ];
+
+    for (const dir of searchDirs) {
+        const p = path.join(dir, 'porcupine_params.pv');
+        this.log(`Checking alternative path for params: ${p}`);
+        if (fs.existsSync(p)) {
+            this.log(`Found Porcupine params at alternative path: ${p}`);
+            return p;
+        }
+    }
+
+    this.log('CRITICAL: Could not find porcupine_params.pv in any known location.', 'error');
     return null;
   }
 
