@@ -235,102 +235,87 @@ class ComputerUseAgent {
 
     async onAppReady() {
         try {
-            console.log('[Main] Control starting...');
+            console.log('[Main] Control starting (High Concurrency Mode)...');
 
-            // 1. Start fetching keys in background immediately
-            const keysPromise = firebaseService.fetchAndCacheKeys().then(apiKeys => {
-                if (apiKeys) {
-                    if (apiKeys.gemini) process.env.GEMINI_API_KEY = apiKeys.gemini;
-                    if (apiKeys.gemini_model) process.env.GEMINI_MODEL = apiKeys.gemini_model;
-                    console.log('[Main] Background API keys loaded');
-                }
-            }).catch(err => console.warn('[Main] Background key fetch failed:', err.message));
-
-            // 2. Set up security and permissions (fast)
-            this.setupPermissions();
-
-            // 3. Initialize core windows (Medium speed, but critical)
-            // We show 'main' (overlay) as soon as it exists inside initializeWindows
-            await this.windowManager.initializeWindows();
-
-            // 4. Show core UI immediately
-            this.windowManager.showWindow('main');
-
-            // 5. Setup hotkeys and visibility (fast)
-            this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
-            this.updateWindowVisibility(this.appSettings.windowVisibility);
-
-            // --- CONCURRENT BACKGROUND SERVICES ---
-            // Run background services in parallel without blocking the UI
+            // --- TIER 1: IMMEDIATE PARALLEL EXECUTION ---
+            // These start simultaneously and don't block each other or the UI
+            const firebaseKeysPromise = firebaseService.fetchAndCacheKeys().catch(e => console.warn('[Main] Key fetch error:', e.message));
             const backendStartPromise = this.backendManager.startBackend();
             const voskStartPromise = this.voskServerManager.start();
-            const wakewordStartPromise = this.appSettings.voiceActivation ?
-                this.wakewordManager.enable(true) : Promise.resolve();
+            const windowInitPromise = this.windowManager.initializeWindows();
 
-            // Handle EdgeTTS early
-            if (this.appSettings.voiceResponse) {
-                this.edgeTTS.enable(true);
-            }
+            // Fast non-blocking setup
+            this.setupPermissions();
+            if (this.appSettings.voiceResponse) this.edgeTTS.enable(true);
 
-            // Start workflow scheduler
-            this.startWorkflowScheduler();
-
-            // Log loaded settings
-            console.log('[Main] Loaded app settings:', this.appSettings);
-
-            // Check for cached user to bypass login
+            // --- TIER 2: USER DATA & SESSION ---
             const cachedUser = firebaseService.checkCachedUser();
+            let userDataPromise = Promise.resolve();
+
             if (cachedUser) {
-                console.log('[Main] Cached user found, auto-login:', cachedUser.id);
                 this.isAuthenticated = true;
                 this.currentUser = cachedUser;
-                this.settingsManager.updateSettings({
-                    userAuthenticated: true,
-                    userDetails: cachedUser
+                this.settingsManager.updateSettings({ userAuthenticated: true, userDetails: cachedUser });
+
+                // Concurrent sync
+                userDataPromise = firebaseService.syncUserData(cachedUser.id).then(syncedUser => {
+                    this.currentUser = syncedUser || cachedUser;
+                    this.settingsManager.updateSettings({ userDetails: this.currentUser });
+                    const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
+                    if (userKey) process.env.PORCUPINE_ACCESS_KEY = userKey;
+
+                    this.windowManager.broadcast('user-changed', this.currentUser);
+                    this.windowManager.broadcast('settings-updated', this.getSettings());
+                    return this.currentUser;
+                }).catch(e => {
+                    console.warn('[Main] User sync error:', e.message);
+                    return cachedUser;
                 });
-
-                // Show entry window minimized for auto-login to keep taskbar icon
-                // We do NOT await syncing or other blocking tasks before showing the window
-                await this.windowManager.showWindow('entry');
-                const entryWin = this.windowManager.getWindow('entry');
-                if (entryWin) entryWin.minimize();
-
-                // Non-blocking sync and key application
-                (async () => {
-                    try {
-                        const syncedUser = await firebaseService.syncUserData(cachedUser.id);
-                        this.currentUser = syncedUser || cachedUser;
-                        this.settingsManager.updateSettings({ userDetails: this.currentUser });
-
-                        const userKey = this.currentUser.picovoiceKey || this.currentUser.porcupine_access_key;
-                        if (userKey) {
-                            process.env.PORCUPINE_ACCESS_KEY = userKey;
-                        }
-
-                        this.windowManager.broadcast('user-changed', this.currentUser);
-                        this.windowManager.broadcast('settings-updated', this.getSettings());
-                    } catch (e) {
-                        console.error('[Main] Async user sync failed:', e);
-                    }
-                })();
             } else {
-                console.log('[Main] No cached user, showing login');
                 this.isAuthenticated = false;
-                await this.windowManager.showWindow('entry');
             }
 
-            // Finalize remaining essential services in the background
-            Promise.all([backendStartPromise, voskStartPromise, wakewordStartPromise]).then(([backend, vosk]) => {
-                if (!vosk) {
-                    console.warn('[Main] Vosk STT server failed to start.');
+            // --- TIER 3: UI CRITICAL PATH ---
+            // Await only what's needed for the FIRST pixels
+            await windowInitPromise;
+
+            // Show overlay and entry immediately
+            this.windowManager.showWindow('main');
+            await this.windowManager.showWindow('entry');
+
+            const entryWin = this.windowManager.getWindow('entry');
+            if (this.isAuthenticated && entryWin) {
+                entryWin.minimize();
+            }
+
+            // Quick post-UI setup
+            this.hotkeyManager.setupHotkeys(this.appSettings.hotkeys);
+            this.updateWindowVisibility(this.appSettings.windowVisibility);
+            this.startWorkflowScheduler();
+
+            // --- TIER 4: BACKGROUND FINALIZATION ---
+            // Wakeword needs API keys and potentially user data, so it starts after UI is up but concurrently with other Tier 4 tasks
+            const wakewordStartPromise = (async () => {
+                // Wait for keys to be loaded if they aren't already
+                await firebaseKeysPromise;
+                if (this.appSettings.voiceActivation) {
+                    return this.wakewordManager.enable(true);
                 }
-                this.backendManager.waitForReady().then(() => {
-                    console.log('[Main] Background services fully initialized');
-                });
-            }).catch(err => {
-                console.error('[Main] Background service initialization error:', err);
+            })();
+
+            Promise.allSettled([
+                firebaseKeysPromise.then(keys => {
+                    if (keys?.gemini) process.env.GEMINI_API_KEY = keys.gemini;
+                    if (keys?.gemini_model) process.env.GEMINI_MODEL = keys.gemini_model;
+                }),
+                userDataPromise,
+                backendStartPromise,
+                voskStartPromise,
+                wakewordStartPromise
+            ]).then(() => {
+                console.log('[Main] All background services and data sync completed');
+                this.backendManager.waitForReady();
             });
-            // --- CONCURRENT INITIALIZATION END ---
 
             // Listen for AI streaming chunks
             this.backendManager.on('ai-stream', (data) => {
